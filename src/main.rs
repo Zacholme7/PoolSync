@@ -12,6 +12,7 @@ use alloy::{
 
 #[tokio::main]
 async fn main() -> Result<()> {
+/* 
     // spin up forked anvil node
     dotenv::dotenv().ok();
     let rpc_url = std::env::var("RPC_URL")?;
@@ -35,6 +36,7 @@ async fn main() -> Result<()> {
     let filter = Filter::new().select(19652100..19682560).event(v3);
     let logs = http_provider.get_logs(&filter).await?;
     println!("{:?}", logs);
+    */
 
     Ok(())
 }
