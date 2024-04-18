@@ -1,15 +1,23 @@
 use alloy::primitives::Address;
 use alloy::rpc::types::eth::BlockNumberOrTag;
+use alloy::signers::wallet::yubihsm::Client;
+use alloy::transports::http::Http;
 use std::convert::From;
+use alloy::providers::{Provider, RootProvider};
+use alloy::pubsub::PubSubFrontend;
+use alloy::rpc::types::eth::Filter;
+use anyhow::Result;
+use alloy::{
+        network::EthereumSigner, node_bindings::Anvil, primitives::U256, providers::ProviderBuilder,
+        signers::wallet::LocalWallet, sol,
+    };
+
+const V2_EVENT_SIG: &str = "PairCreated(address,address,address,uint256)";
+const V3_EVENT_SIG: &str = "PoolCreated(address,address,uint24,int24,address)";
+                                
 enum PoolType {
-        UniV1,
-        UniV2,
-        UniV3,
-}
-
-// Representation of UniswapV1 pool
-struct UniV1Pool{
-
+        V2(UniV2Pool),
+        V3(UniV3Pool),
 }
 
 // Representation of UniswapV2 pool
@@ -23,11 +31,23 @@ struct UniV3Pool{
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Scanner {
+pub  struct Scanner {
         block_from: BlockNumberOrTag,
         block_to: BlockNumberOrTag,
         token_0: Option<Address>,
         token_1: Option<Address>
+}
+
+impl Scanner {
+        pub async fn scan_pools(&self, provider: &RootProvider<Http<Client>>) -> Result<()> {
+
+                let  filter = Filter::new()
+                        .select(self.block_from..self.block_to)
+                        .events([V2_EVENT_SIG, V3_EVENT_SIG]);
+                let logs = provider.get_logs(&filter).await?;
+                println!("{:?}", logs);
+                Ok(())
+        }
 }
 
 #[derive(Debug)]
