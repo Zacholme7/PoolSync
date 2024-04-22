@@ -5,6 +5,7 @@ use alloy::pubsub::PubSubFrontend;
 use alloy::rpc::client::WsConnect;
 use alloy::rpc::types::eth::Filter;
 use alloy::rpc::types::eth::BlockNumberOrTag;
+use std::str::FromStr;
 use alloy::{
     network::EthereumSigner, node_bindings::Anvil, primitives::U256, providers::ProviderBuilder,
     signers::wallet::LocalWallet, sol,
@@ -22,13 +23,16 @@ async fn main() -> Result<()> {
         let anvil = Anvil::new().fork(rpc_url).try_spawn()?;
 
         // setup provier
-        let anvil_endpoint = anvil.endpoint().parse()?;
-        let provider = ProviderBuilder::new().on_http(anvil_endpoint)?;
+        let anvil_endpoint = anvil.endpoint();
+        let provider = ProviderBuilder::new().on_builtin(&anvil_endpoint).await?;
 
         // setup the scanner
         let scanner = ScannerBuilder::new()
                 .block_from(15_000_000.into())
+                .block_to(16_000_000.into())
+                .uni_v2()
                 .finalize();
+
 
         scanner.scan_pools(&provider).await?;
 
