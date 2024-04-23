@@ -1,9 +1,28 @@
-use alloy::primitives::{Address, Log};
+use alloy::primitives::Address;
 use alloy::providers::{Provider, RootProvider};
-use alloy::rpc::types::eth::BlockNumberOrTag;
-use alloy::rpc::types::eth::Filter;
+use alloy::rpc::types::eth::{BlockNumberOrTag, Log, Filter};
+use alloy::sol_types::SolEvent;
 use alloy::transports::BoxTransport;
 use anyhow::Result;
+use alloy::sol;
+
+sol!(
+    #[allow(missing_docs)]
+    #[derive(Debug)]
+    #[sol(rpc)]
+    IERC20,
+    "abi/IERC20.json"
+);
+
+sol!(
+    #[derive(Debug)]
+    event PairCreated(
+        address indexed token0,
+        address indexed token1, 
+        address pair,
+        uint
+    );
+);
 
 const V2_EVENT_SIG: &str = "PairCreated(address,address,address,uint256)";
 const V3_EVENT_SIG: &str = "PoolCreated(address,address,uint24,int24,address)";
@@ -49,35 +68,45 @@ impl Scanner {
         }
 
 
-
-        //let mut requests = Vec::new();
+        // fetch all the logs for the block range
         for range in block_range {
-            //requests.push(tokio::task::spawn(self.fetch_block_range(range.0, range.1, &provider)));
+            // create filter for the range and events
             let filter = Filter::new()
                 .select(range.0..range.1)
-                .events([V2_EVENT_SIG, V3_EVENT_SIG]);
+                .events([V2_EVENT_SIG]); //, V3_EVENT_SIG]);
+            // fetch and process the logs
             let logs = provider.get_logs(&filter).await?;
-            println!("{:?}", logs);
+            self.process_logs(logs, &provider).await?;
         }
-
 
         // process the results
         Ok(())
     }
 
-    fn process_logs(&self, logs: Vec<Log>) {
-        // process all of the logs
+    async fn process_logs(&self, logs: Vec<Log>, provider: &RootProvider<BoxTransport>) -> Result<()>{
         for log in logs {
             // match the log through something
+            let pair: PairCreated = SolEvent::decode_log_data(&log.inner.data, false)?;
+            let token_1 = IERC20::new(pair.token0, &provider);
+            let token_2 = IERC20::new(pair.token1, &provider);
+            let token1_name  = token_1.name().call().await?;
+            let token2_name = token_2.name().call().await?;
+            println!("{:?}, {:?}", token1_name, token2_name);
+            /* 
+
+                // Create a contract instance.
+    let contract = IERC20::new("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".parse()?, provider);
+
+    // Call the contract, retrieve the total supply.
+    let IERC20::totalSupplyReturn { _0 } = contract.totalSupply().call().await?;
             let pool_type: PoolType = self.get_pool_type(&log).unwrap();
             let parsed_pool = match pool_type {
                 PoolType::V2(_) => self.parse_v2_pool(&log).unwrap(),
                 PoolType::V3(_) => self.parse_v3_pool(&log).unwrap(),
             };
-
-
-
+            */
         }
+        Ok(())
     }
 
     fn get_pool_type(&self, log: &Log) -> Result<PoolType> {

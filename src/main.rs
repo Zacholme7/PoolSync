@@ -1,14 +1,6 @@
 use anyhow::Result;
-
-use alloy::providers::{Provider, RootProvider};
-use alloy::pubsub::PubSubFrontend;
-use alloy::rpc::client::WsConnect;
-use alloy::rpc::types::eth::Filter;
-use alloy::rpc::types::eth::BlockNumberOrTag;
-use std::str::FromStr;
 use alloy::{
     network::EthereumSigner, node_bindings::Anvil, primitives::U256, providers::ProviderBuilder,
-    signers::wallet::LocalWallet, sol,
 };
 
 use pool_scanner::{Scanner, ScannerBuilder};
@@ -33,8 +25,6 @@ async fn main() -> Result<()> {
                 .uni_v2()
                 .finalize();
 
-
         scanner.scan_pools(&provider).await?;
-
-    Ok(())
+        Ok(())
 }
