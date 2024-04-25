@@ -1,3 +1,4 @@
+use alloy::dyn_abi::abi::token;
 use alloy::primitives::Address;
 use alloy::providers::{Provider, RootProvider};
 use alloy::rpc::types::eth::{BlockNumberOrTag, Log, Filter};
@@ -5,6 +6,7 @@ use alloy::sol_types::SolEvent;
 use alloy::transports::BoxTransport;
 use anyhow::Result;
 use alloy::sol;
+use IERC20::nameReturn;
 
 sol!(
     #[allow(missing_docs)]
@@ -24,6 +26,7 @@ sol!(
     );
 );
 
+// use event for these
 const V2_EVENT_SIG: &str = "PairCreated(address,address,address,uint256)";
 const V3_EVENT_SIG: &str = "PoolCreated(address,address,uint24,int24,address)";
 
@@ -33,7 +36,14 @@ enum PoolType {
 }
 
 // Representation of UniswapV2 pool
-struct UniV2Pool {}
+#[derive(Debug)]
+struct UniV2Pool {
+        token0_name: String,
+        token1_name: String,
+        token0_address: Address,
+        token1_address: Address,
+        pair: Address,
+}
 
 /// Representation of UniswapV3 pool
 struct UniV3Pool {}
@@ -73,61 +83,51 @@ impl Scanner {
             // create filter for the range and events
             let filter = Filter::new()
                 .select(range.0..range.1)
-                .events([V2_EVENT_SIG]); //, V3_EVENT_SIG]);
+                .events([PairCreated::SIGNATURE]); //, V3_EVENT_SIG]);
             // fetch and process the logs
             let logs = provider.get_logs(&filter).await?;
-            self.process_logs(logs, &provider).await?;
+            let pools = self.process_logs(logs, &provider).await?;
+            println!("{:?}",  pools);
         }
 
         // process the results
         Ok(())
     }
 
-    async fn process_logs(&self, logs: Vec<Log>, provider: &RootProvider<BoxTransport>) -> Result<()>{
+    async fn process_logs(&self, logs: Vec<Log>, provider: &RootProvider<BoxTransport>) -> Result<Vec<UniV2Pool>>{
+        let mut pools: Vec<UniV2Pool> = Vec::new();
         for log in logs {
             // match the log through something
-            let pair: PairCreated = SolEvent::decode_log_data(&log.inner.data, false)?;
-            let token_1 = IERC20::new(pair.token0, &provider);
-            let token_2 = IERC20::new(pair.token1, &provider);
+            let pair: PairCreated = SolEvent::decode_log_data(&log.inner.data, true)?;
+            let (token0_name, token1_name) = self.get_token_names(provider, pair.token0, pair.token1).await?;
+            let pool = UniV2Pool {
+                token0_address: pair.token0,
+                token1_address: pair.token1,
+                token0_name: token0_name,
+                token1_name: token1_name,
+                pair: pair.pair
+            };
+            pools.push(pool);
+       }
+        Ok(pools)
+    }
+
+    async fn get_token_names(&self, provider: &RootProvider<BoxTransport>, token0: Address, token1: Address) -> Result<(String, String)> {
+            let token_1 = IERC20::new(token0, &provider);
+            let token_2 = IERC20::new(token1, &provider);
             let token1_name  = token_1.name().call().await?;
             let token2_name = token_2.name().call().await?;
-            println!("{:?}, {:?}", token1_name, token2_name);
-            /* 
-
-                // Create a contract instance.
-    let contract = IERC20::new("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".parse()?, provider);
-
-    // Call the contract, retrieve the total supply.
-    let IERC20::totalSupplyReturn { _0 } = contract.totalSupply().call().await?;
-            let pool_type: PoolType = self.get_pool_type(&log).unwrap();
-            let parsed_pool = match pool_type {
-                PoolType::V2(_) => self.parse_v2_pool(&log).unwrap(),
-                PoolType::V3(_) => self.parse_v3_pool(&log).unwrap(),
-            };
-            */
-        }
-        Ok(())
-    }
-
-    fn get_pool_type(&self, log: &Log) -> Result<PoolType> {
-        todo!()
-    }
-
-    fn parse_v2_pool(&self, log: &Log) -> Result<PoolType>{
-        todo!()
-    }
-
-    fn parse_v3_pool(&self, log: &Log) -> Result<PoolType> {
-        todo!()
+            Ok((token1_name._0, token2_name._0))
     }
 }
-async fn fetch_block_range(from: u64, to: u64, provider: &RootProvider<BoxTransport>) {
-    let filter = Filter::new()
-        .select(from..to)
-        .events([V2_EVENT_SIG, V3_EVENT_SIG]);
-    let logs = provider.get_logs(&filter).await;
-    println!("{:?}", logs);
-}
+
+
+
+
+
+
+
+
 
 #[derive(Debug)]
 pub struct ScannerBuilder {
