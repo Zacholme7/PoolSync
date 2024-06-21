@@ -1,5 +1,5 @@
 [package]
-name = "pool-scanner"
+name = "pool-sync"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,27 +8,5 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.82"
 tokio = {version = "1.37.0", features = ["rt-multi-thread", "macros"]}
-alloy = { git = "https://github.com/alloy-rs/alloy",  features = [
-    "contract",
-    "network",
-    "node-bindings",
-    "providers",
-    "provider-http",
-    "json-abi",
-    "pubsub",
-    "provider-ipc",
-    "provider-ws",
-    "rpc-client",
-    "rpc-client-ipc",
-    "rpc-client-ws",
-    "rpc-types-eth",
-    "rpc-types-trace",
-    "signers",
-    "signer-keystore",
-    "signer-ledger",
-    "signer-mnemonic",
-    "signer-trezor",
-    "signer-wallet",
-    "signer-yubihsm",
-] }
 dotenv = "0.15.0"
+alloy = {vesrion = "0.1.2", features = ["full"]}
