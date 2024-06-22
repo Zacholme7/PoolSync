@@ -1,8 +1,9 @@
 use alloy::primitives::Address;
-use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use alloy::providers::RootProvider;
 use alloy::transports::http::{Client, Http};
+use std::sync::Arc;
+use uniswap_v2::UniswapV2Pool;
 
 mod uniswap_v2;
 //use uniswap_v2::UniswapV2Pool;
@@ -23,19 +24,11 @@ pub enum PoolType {
 }
 
 impl PoolType {
-        /*
-    pub fn sync(&self, provider: &RootProvider<Http<Client>>) {
+    pub async fn get_all_pools(&self, provider: Arc<RootProvider<Http<Client>>>) {
         match self {
-            PoolType::UniswapV2 => UniswapV2Factory::get_all_pools(&provider),
+            PoolType::UniswapV2 => UniswapV2Pool::get_all_pools(provider).await,
             _ => {}
         }
     }
-    */
-    
 }
 
-// Common trait among all pools
-#[async_trait]
-pub trait Pool: Send + Sync {
-    async fn get_all_pools(&self, provider: RootProvider<Http<Client>>) ;
-}

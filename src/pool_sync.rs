@@ -1,5 +1,6 @@
 use anyhow::Result;
 use alloy::providers::RootProvider;
+use std::sync::Arc;
 use alloy::transports::http::{Client, Http};
 use crate::pools::PoolType;
 
@@ -39,7 +40,10 @@ impl PoolSync {
     }
 
     /// Syncs all pools
-    pub async fn sync_pools(&self, provider: &RootProvider<Http<Client>>) {
+    pub async fn sync_pools(&self, provider: Arc<RootProvider<Http<Client>>>) {
+        for pool_type in &self.pools {
+            pool_type.get_all_pools(provider.clone()).await
+        }
         // for each pool, call the sync function which will dispatch the correct function
         /* 
         let all_pools = Vec::new();
