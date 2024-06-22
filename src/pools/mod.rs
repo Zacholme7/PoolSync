@@ -24,11 +24,31 @@ pub enum PoolType {
 }
 
 impl PoolType {
-    pub async fn get_all_pools(&self, provider: Arc<RootProvider<Http<Client>>>) {
+    // Dispatch a call to the correct protocol variant
+    pub async fn get_all_pools(&self, provider: Arc<RootProvider<Http<Client>>>) -> Vec<Pool> {
         match self {
             PoolType::UniswapV2 => UniswapV2Pool::get_all_pools(provider).await,
-            _ => {}
+            _ => panic!("Not supported")
         }
     }
 }
+
+/// Common enum to link all protocols
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Pool {
+    UniswapV2(UniswapV2Pool),
+    // other pools
+}
+
+impl Pool {
+    pub fn address(&self) -> Address {
+        match self {
+            Pool::UniswapV2(uniswap_v2_pool) => uniswap_v2_pool.address,
+            _ => panic!()
+        }
+    }
+}
+
+
+
 

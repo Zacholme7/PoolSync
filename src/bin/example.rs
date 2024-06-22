@@ -11,6 +11,7 @@ async fn main() -> Result<()> {
     let pool_sync = PoolSync::builder()
         .add_pool(PoolType::UniswapV2)
         .build();
-    pool_sync.sync_pools(provider.clone()).await;
+    let pools = pool_sync.sync_pools(provider.clone()).await;
+    println!("Length: {}", pools.len());
     Ok(())
 }

@@ -3,6 +3,7 @@ use alloy::providers::RootProvider;
 use std::sync::Arc;
 use alloy::transports::http::{Client, Http};
 use crate::pools::PoolType;
+use crate::pools::Pool;
 
 /// Builder for PoolSync
 /// Allows you to configure the protocols you want to sync
@@ -40,20 +41,12 @@ impl PoolSync {
     }
 
     /// Syncs all pools
-    pub async fn sync_pools(&self, provider: Arc<RootProvider<Http<Client>>>) {
+    pub async fn sync_pools(&self, provider: Arc<RootProvider<Http<Client>>>) -> Vec<Pool>{
+        let mut all_pools: Vec<Pool> = Vec::new();
         for pool_type in &self.pools {
-            pool_type.get_all_pools(provider.clone()).await
+            let mut pools = pool_type.get_all_pools(provider.clone()).await;
+            all_pools.append(&mut pools);
         }
-        // for each pool, call the sync function which will dispatch the correct function
-        /* 
-        let all_pools = Vec::new();
-        for pool_type in &self.pools {
-            let pools = pool_type.sync(&proivder);
-            // pools.pushd5jko
-            //pool_type.sync(&provider)
-        }
-        */
+        all_pools
     }
-
-
 }
