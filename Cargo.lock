@@ -4359,6 +4359,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "dotenv",
+ "eyre",
  "foundry-evm",
  "revm 10.0.0",
  "revm-primitives 5.0.0",

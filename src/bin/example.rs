@@ -1,96 +1,98 @@
-use anyhow::Result;
-use alloy::providers::ProviderBuilder;
-use pool_sync::{PoolSync, PoolType};
-use alloy::primitives::{U256,U128};
-use alloy::node_bindings::Anvil;
-use alloy::sol_types::{sol, SolCall};
-use foundry_evm::fork::{BlockchainDb, BlockchainDbMeta, SharedBackend};
-use revm::interpreter::primitives::{keccak256, AccountInfo, Bytecode, Bytes, TransactTo};
-use revm::{db::CacheDB, Evm};
-use revm_primitives::{Address, ExecutionResult, Output};
-use alloy::providers::Provider;
+use std::time::Duration;
+
 use alloy::network::EthereumWallet;
-use alloy::signers::local::PrivateKeySigner;
-use std::collections::BTreeSet;
+use alloy::node_bindings::Anvil;
 use std::sync::Arc;
+use alloy::primitives::address;
+use tokio::sync::Semaphore;
+use alloy::primitives::{U128, U256};
+use alloy::providers::{Provider, RootProvider};
+use alloy::providers::ProviderBuilder;
+use alloy::sol_types::{sol, SolCall};
+use alloy_sol_types::SolEvent;
+use alloy::rpc::types::{BlockNumberOrTag, Filter};
+use pool_sync::{PoolSync, PoolType};
+use alloy::primitives::Log;
+use eyre::Result;
+use alloy::transports::http::{Http, Client};
+
 
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
-    UniswapV2Sync,
-    "contracts/out/UniswapV2Sync.sol/UniswapV2Sync.json"
+    contract UniswapV2Factory  {
+        event PairCreated(address indexed token0, address indexed token1, address pair, uint256);
+    }
 );
+
+async fn process_block_range(
+    provider: Arc<RootProvider<Http<Client>>>,
+    semaphore: Arc<Semaphore>,
+    from_block: u64,
+    to_block: u64,
+    max_retries: u32,
+) -> Result<(), eyre::Report> {
+    let mut retries = 0;
+    loop {
+        let _permit = semaphore.acquire().await.unwrap();
+        let sig = UniswapV2Factory::PairCreated::SIGNATURE;
+        let filter = Filter::new()
+            .event(sig)
+            .from_block(from_block)
+            .to_block(to_block);
+
+        match provider.get_logs(&filter).await {
+            Ok(logs) => {
+                println!("Logs from block {} to {}:", from_block, to_block);
+                for log in logs {
+                    let res = UniswapV2Factory::PairCreated::decode_log(&log.inner, false)?;
+                    println!("{} {} {:?}", from_block, to_block, res);
+                }
+                println!("--------------------");
+                return Ok(());
+            }
+            Err(e) => {
+                if retries >= max_retries {
+                    return Err(e.into());
+                }
+                retries += 1;
+                let delay = 2u64.pow(retries) * 1000;
+                println!("Error processing blocks {} to {}, retrying in {} ms. Error: {:?}", from_block, to_block, delay, e);
+                tokio::time::sleep(Duration::from_millis(delay)).await;
+            }
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let url = "https://eth.merkle.io";
-    let url = "https://eth-mainnet.public.blastapi.io";
-    let anvil = Anvil::new().fork(url).try_spawn()?;
-    let wallet = EthereumWallet::from(signer);
-    let signer: PrivateKeySigner = anvil.keys()[0].clone().into();
-    let wallet = EthereumWallet::from(signer);
+    let url = "https://rpc.merkle.io/1/sk_mbs_f3cc7544d55b8976b06f881c6910921c";
+    let provider = Arc::new(ProviderBuilder::new().on_http(url.parse()?));
+    let sig = UniswapV2Factory::PairCreated::SIGNATURE;
+    let start_block = 10_000_000;
+    let current_block = provider.get_block_number().await?;
+    let step_size = 10_000;
+    let semaphore = Arc::new(Semaphore::new(25)); // Allow 25 concurrent requests
+    let mut handles = vec![];
 
-    // Create a provider with the wallet.
-    let rpc_url = anvil.endpoint().parse()?;
-    let provider =
-        Arc::new(ProviderBuilder::new()
-        .with_recommended_fillers()
-        .network::<alloy::network::AnyNetwork>()
-        .wallet(wallet).on_http(rpc_url));
+    for from_block in (start_block..current_block).step_by(step_size as usize) {
+        let to_block = (from_block + step_size - 1).min(current_block);
+        let provider = provider.clone();
+        let semaphore = semaphore.clone();
 
+        let handle = tokio::spawn(async move {
+            if let Err(e) = process_block_range(provider, semaphore, from_block, to_block, 5).await {
+                eprintln!("Failed to process blocks {} to {} after all retries: {:?}", from_block, to_block, e);
+            }
+        });
 
-    let contract = UniswapV2Sync::deploy(&provider).await?;
-    let block_number = provider.get_block_number().await?;
-
-
-    // setup shared backend
-    let shared_backend = SharedBackend::spawn_backend_thread(
-        provider.clone(),
-        BlockchainDb::new(
-            BlockchainDbMeta {
-                cfg_env: Default::default(),
-                block_env: Default::default(),
-                hosts: BTreeSet::from(["".to_string()]),
-            },
-            None,
-        ),
-        Some(block_number.into()),
-    );
-
-    let db = CacheDB::new(shared_backend);
-    let mut evm = Evm::builder().with_db(db).build();
-
-    // modify the env
-    evm.cfg_mut().limit_contract_code_size = Some(0x100000);
-    evm.cfg_mut().disable_block_gas_limit = true;
-    evm.cfg_mut().disable_base_fee = true;
-    evm.block_mut().number = U256::from(block_number + 1);
-
-    // Simulate getAllPairs call
-    let start = U256::from(0);
-    let end = U256::from(5000);
-    let calldata = contract.getAllPairs(start, end).encode_input().unwrap();
-
-    let result = evm.transact_ref(TransactTo::Call(contract_address.into()), calldata, None)?;
-
-    if let ExecutionResult::Success { output, .. } = result {
-        // Decode the output (implement proper decoding based on your contract's output format)
-        let pairs: Vec<Address> = output.chunks(32).map(|chunk| Address::from_slice(&chunk[12..])).collect();
-        println!("First 10 pair addresses: {:?}", &pairs[..10.min(pairs.len())]);
-        println!("Total pairs fetched: {}", pairs.len());
-    } else {
-        println!("EVM execution failed");
+        handles.push(handle);
+        tokio::time::sleep(Duration::from_millis(40)).await;
     }
 
-
-
-    // build a PoolSync and then sync pools
-    /* 
-    let pool_sync = PoolSync::builder()
-        .add_pool(PoolType::UniswapV2)
-        .build();
-    pool_sync.sync_pools(&provider).await;
-    */
+    for handle in handles {
+        handle.await?;
+    }
 
     Ok(())
 }
