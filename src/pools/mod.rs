@@ -5,10 +5,10 @@ use alloy::providers::RootProvider;
 use alloy::transports::http::{Client, Http};
 
 mod uniswap_v2;
-use uniswap_v2::UniswapV2Pool;
+//use uniswap_v2::UniswapV2Pool;
 
 /// A ERC20 token
-#[derive(Debug, Clone, Serialize, Deserialize)]
+//#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Token {
     address: Address,
     name: String,
@@ -18,17 +18,20 @@ struct Token {
 // The different type of pools/protocols supported
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PoolType {
-    UniswapV2(UniswapV2Pool),
+    UniswapV2,
     // add other pools here
 }
 
 impl PoolType {
+        /*
     pub fn sync(&self, provider: &RootProvider<Http<Client>>) {
         match self {
             PoolType::UniswapV2 => UniswapV2Factory::get_all_pools(&provider),
             _ => {}
         }
     }
+    */
+    
 }
 
 // Common trait among all pools

@@ -9,6 +9,7 @@ use alloy::sol_types::{sol, SolCall};
 use async_trait::async_trait;
 
 // UniswapV2 contract interfaces
+/* 
 sol!(
     #[sol(rpc)]
     interface IUniswapV2Factory {
@@ -25,6 +26,7 @@ sol!(
         function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
     }
 );
+*/
 
 pub struct UniswapV2Factory {
 }
@@ -41,8 +43,10 @@ struct UniswapV2Pool {
 }
 
 // Implement the PoolSync trait for UniswapV2
+/* 
 #[async_trait]
 impl Pool for UniswapV2Pool{
+        /
     async fn get_all_pools(provider: &RootProvider<Http<Client>>) {
         // construct the univ2 factory (will get all our pools)
         let factory = IUniswapV2Factory::new(UNISWAPV2_FACTORY, provider);
@@ -60,6 +64,7 @@ impl Pool for UniswapV2Pool{
     }
 }
 
+*/
 
 
 

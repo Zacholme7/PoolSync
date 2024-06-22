@@ -41,12 +41,14 @@ impl PoolSync {
     /// Syncs all pools
     pub async fn sync_pools(&self, provider: &RootProvider<Http<Client>>) {
         // for each pool, call the sync function which will dispatch the correct function
+        /* 
         let all_pools = Vec::new();
         for pool_type in &self.pools {
             let pools = pool_type.sync(&proivder);
             // pools.pushd5jko
             //pool_type.sync(&provider)
         }
+        */
     }
 
 
