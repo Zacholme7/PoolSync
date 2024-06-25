@@ -46,3 +46,4 @@ alloy = { git = "https://github.com/alloy-rs/alloy",  features = [
 alloy-sol-types = { version = "0.7.4", features = ["json"]}
 alloy-sol-macro = { version = "0.7.4", features = ["json"]}
 alloy-contract = { git = "https://github.com/alloy-rs/alloy"}
+indicatif = "0.17.8"
