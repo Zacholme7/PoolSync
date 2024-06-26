@@ -5,17 +5,24 @@ use serde::{Deserialize, Serialize};
 use sushiswap::SushiSwapPool;
 use uniswap_v2::UniswapV2Pool;
 use uniswap_v3::UniswapV3Pool;
+use std::fmt;
 
 pub mod sushiswap;
 pub mod uniswap_v2;
 pub mod uniswap_v3;
 
 /// Enumerate the pools supported
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PoolType {
     UniswapV2,
     UniswapV3,
     SushiSwap,
+}
+
+impl fmt::Display for PoolType {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{:?}", self)
+        }
 }
 
 /// Populated pools

@@ -15,7 +15,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::Semaphore;
-
+use crate::cache::{PoolCache, read_cache_file, write_cache_file};
 use crate::pools::{
     uniswap_v2::UniswapV2Fetcher, 
     uniswap_v3::UniswapV3Fetcher,
@@ -62,40 +62,62 @@ impl PoolSync {
         P: Provider<T, Ethereum> + 'static,
         T: Transport + Clone + 'static,
     {
-        let mut all_pools: HashSet<Pool> = HashSet::new();
-        let (start_block, cached_pools) = self.read_cache(CACHE_FILE)?;
-        all_pools.extend(cached_pools);
+        let mut all_pools: HashSet<Pool> = HashSet::new(); // all of the synced pools
+        let mut pool_caches : Vec<PoolCache> = Vec::new(); // cache for each pool specified
 
-        let latest_block = provider.get_block_number().await.map_err(|e| PoolSyncError::ProviderError(e.to_string()))?;
-        let total_steps = ((latest_block - start_block) as f64 / STEP_SIZE as f64).ceil() as u64;
-
-        let progress_bar = self.create_progress_bar(total_steps);
-
-        let rate_limiter = Arc::new(Semaphore::new(CONCURRENT_REQUESTS));
-        let mut handles = vec![];
-
-        for from_block in (start_block..latest_block).step_by(STEP_SIZE as usize) {
-            let to_block = (from_block + STEP_SIZE - 1).min(latest_block);
-            let handle = self.spawn_block_range_task(
-                provider.clone(),
-                rate_limiter.clone(),
-                self.fetchers.clone(),
-                from_block,
-                to_block,
-                progress_bar.clone(),
-            );
-            handles.push(handle);
+        // go through all the pools we want to sync
+        for fetchers in self.fetchers.iter() {
+                let pool_cache = read_cache_file(fetchers.0);
+                pool_caches.push(pool_cache);
         }
 
-        for handle in handles {
-            let pools = handle.await.map_err(|e| PoolSyncError::ProviderError(e.to_string()))??;
-            all_pools.extend(pools);
+        // go through each cache and sync th epools
+        for cache in &mut pool_caches {
+                // setup steps
+                let start_block = cache.last_synced_block;
+                let end_block = provider.get_block_number().await.unwrap();
+                let total_steps = ((end_block - start_block) as f64 / STEP_SIZE as f64).ceil() as u64;
+
+                // progress bar for sync feedback
+                let progress_bar = self.create_progress_bar(total_steps);
+
+                // create all of the handles for the current sync
+                let rate_limiter = Arc::new(Semaphore::new(CONCURRENT_REQUESTS));
+                let mut handles = vec![];
+                for from_block in (start_block..end_block).step_by(STEP_SIZE as usize) {
+                        let to_block = (from_block + STEP_SIZE - 1).min(end_block);
+                        let handle = self.spawn_block_range_task(
+                                provider.clone(),
+                                rate_limiter.clone(),
+                                self.fetchers.clone(),
+                                from_block,
+                                to_block,
+                                progress_bar.clone(),
+                        );
+                        handles.push(handle);
+                }
+
+                // sync all 
+                for handle in handles {
+                        let pools = handle.await.map_err(|e| PoolSyncError::ProviderError(e.to_string()))??;
+                        cache.pools.extend(pools);
+                }
         }
 
-        let unique_pools: Vec<Pool> = all_pools.into_iter().collect();
-        self.write_cache(CACHE_FILE, &unique_pools, latest_block)?;
 
-        Ok(unique_pools)
+
+        // write all of the caches back to file
+        for pool_cache in &pool_caches {
+                write_cache_file(pool_cache);
+        }
+
+        // save all of them in one vector
+        let mut all_pools : Vec<Pool> = Vec::new();
+        for pool_cache in &mut pool_caches {
+                all_pools.append(&mut pool_cache.pools);
+        }
+
+        Ok(all_pools)
     }
 
     fn spawn_block_range_task<P, T>(
@@ -177,26 +199,6 @@ impl PoolSync {
             }
 
         }
-    }
-
-    fn read_cache(&self, cache_file: &str) -> Result<(u64, Vec<Pool>), PoolSyncError> {
-        if Path::new(cache_file).exists() {
-            let file_content = fs::read_to_string(cache_file)?;
-            let cache_data: CacheData = serde_json::from_str(&file_content)?;
-            Ok((cache_data.last_synced_block, cache_data.pools))
-        } else {
-            Ok((DEFAULT_START_BLOCK, Vec::new()))
-        }
-    }
-
-    fn write_cache(&self, cache_file: &str, pools: &[Pool], last_synced_block: u64) -> Result<(), PoolSyncError> {
-        let cache_data = CacheData {
-            last_synced_block,
-            pools: pools.to_vec(),
-        };
-        let json = serde_json::to_string(&cache_data)?;
-        fs::write(cache_file, json)?;
-        Ok(())
     }
 
     fn create_progress_bar(&self, total_steps: u64) -> ProgressBar {
