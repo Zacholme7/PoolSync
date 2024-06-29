@@ -32,7 +32,7 @@ pub fn read_cache_file(pool_type: &PoolType) -> PoolCache {
 /// Write to the cache file
 pub fn write_cache_file(pool_cache: &PoolCache) {
         let pool_cache_file = format!("{}_cache.json", pool_cache.pool_type);
-        let json = serde_json::to_string(&pool_cache_file).unwrap();
+        let json = serde_json::to_string(&pool_cache).unwrap();
         fs::write(pool_cache_file, json);
 }
 

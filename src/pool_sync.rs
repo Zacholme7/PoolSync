@@ -1,20 +1,19 @@
+use alloy::network::Network;
 use alloy::providers::Provider;
 use alloy::rpc::types::Filter;
-use alloy::network::Network;
 use alloy::transports::Transport;
+use futures::future::try_join_all;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
-use futures::future::try_join_all;
 
-use crate::cache::{PoolCache, read_cache_file, write_cache_file};
-use crate::pools::*;
-use crate::chain::Chain;
 use crate::builder::PoolSyncBuilder;
+use crate::cache::{read_cache_file, write_cache_file, PoolCache};
+use crate::chain::Chain;
 use crate::errors::*;
-
+use crate::pools::*;
 
 // The amount of blocks we want to query in one call to get_logs
 const STEP_SIZE: u64 = 10_000;
@@ -22,13 +21,13 @@ const STEP_SIZE: u64 = 10_000;
 const MAX_RETRIES: u32 = 5;
 // The number of requests to send off at one time, this is to protect
 // against public rpc rate limits
-const CONCURRENT_REQUESTS: usize = 10;
+const CONCURRENT_REQUESTS: usize = 23;
 
 pub struct PoolSync {
     // map a pool type to its fetcher implementation
     pub fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
     /// the chain that we want to sync on
-    pub chain: Chain ,
+    pub chain: Chain,
 }
 
 impl PoolSync {
@@ -42,61 +41,69 @@ impl PoolSync {
     where
         P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
-        N: Network
+        N: Network,
     {
         let mut all_pools: HashSet<Pool> = HashSet::new(); // all of the synced pools
-        let mut pool_caches : Vec<PoolCache> = Vec::new(); // cache for each pool specified
+        let mut pool_caches: Vec<PoolCache> = Vec::new(); // cache for each pool specified
 
         // go through all the pools we want to sync
         for fetchers in self.fetchers.iter() {
-                let pool_cache = read_cache_file(fetchers.0);
-                pool_caches.push(pool_cache);
+            let pool_cache = read_cache_file(fetchers.0);
+            pool_caches.push(pool_cache);
         }
 
-        // go through each cache and sync th epools
         for cache in &mut pool_caches {
-                // setup steps
-                let start_block = cache.last_synced_block;
-                let end_block = provider.get_block_number().await.unwrap();
-                let total_steps = ((end_block - start_block) as f64 / STEP_SIZE as f64).ceil() as u64;
+            let start_block = cache.last_synced_block;
+            let end_block = provider.get_block_number().await.unwrap();
+            let block_difference = end_block.saturating_sub(start_block);
 
-                // progress bar for sync feedback
-                let progress_bar = self.create_progress_bar(total_steps);
+            let (total_steps, step_size) = if block_difference < STEP_SIZE {
+                (1, block_difference)
+            } else {
+                (
+                    ((block_difference) as f64 / STEP_SIZE as f64).ceil() as u64,
+                    STEP_SIZE,
+                )
+            };
 
-                // create all of the handles for the current sync
-                let rate_limiter = Arc::new(Semaphore::new(CONCURRENT_REQUESTS));
-                let mut handles = vec![];
-                for from_block in (start_block..end_block).step_by(STEP_SIZE as usize) {
-                        let to_block = (from_block + STEP_SIZE - 1).min(end_block);
-                        let handle = self.spawn_block_range_task(
-                                provider.clone(),
-                                rate_limiter.clone(),
-                                self.fetchers.clone(),
-                                from_block,
-                                to_block,
-                                progress_bar.clone(),
-                        );
-                        handles.push(handle);
+            let progress_bar = self.create_progress_bar(total_steps);
+            let rate_limiter = Arc::new(Semaphore::new(CONCURRENT_REQUESTS));
+            let mut handles = vec![];
+
+            if block_difference > 0 {
+                for from_block in (start_block..=end_block).step_by(step_size as usize) {
+                    let to_block = (from_block + step_size - 1).min(end_block);
+                    let handle = self.spawn_block_range_task(
+                        provider.clone(),
+                        rate_limiter.clone(),
+                        self.fetchers.clone(),
+                        from_block,
+                        to_block,
+                        progress_bar.clone(),
+                    );
+                    handles.push(handle);
                 }
 
-                // sync all 
                 for handle in handles {
-                        let pools = handle.await.map_err(|e| PoolSyncError::ProviderError(e.to_string()))??;
-                        cache.pools.extend(pools);
+                    let pools = handle
+                        .await
+                        .map_err(|e| PoolSyncError::ProviderError(e.to_string()))??;
+                    cache.pools.extend(pools);
                 }
+            }
+
+            cache.last_synced_block = end_block;
         }
-
-
 
         // write all of the caches back to file
         for pool_cache in &pool_caches {
-                write_cache_file(pool_cache);
+            write_cache_file(pool_cache);
         }
 
         // save all of them in one vector
-        let mut all_pools : Vec<Pool> = Vec::new();
+        let mut all_pools: Vec<Pool> = Vec::new();
         for pool_cache in &mut pool_caches {
-                all_pools.append(&mut pool_cache.pools);
+            all_pools.append(&mut pool_cache.pools);
         }
 
         Ok(all_pools)
@@ -114,7 +121,7 @@ impl PoolSync {
     where
         P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
-        N: Network
+        N: Network,
     {
         tokio::spawn(async move {
             let result = Self::process_block_range(
@@ -142,11 +149,14 @@ impl PoolSync {
     where
         P: Provider<T, N>,
         T: Transport + Clone + 'static,
-        N: Network
+        N: Network,
     {
         let mut retries = 0;
         loop {
-            let _permit = semaphore.acquire().await.map_err(|e| PoolSyncError::ProviderError(e.to_string()))?;
+            let _permit = semaphore
+                .acquire()
+                .await
+                .map_err(|e| PoolSyncError::ProviderError(e.to_string()))?;
 
             let filters: Vec<Filter> = fetchers
                 .values()
@@ -181,7 +191,6 @@ impl PoolSync {
                     tokio::time::sleep(Duration::from_millis(delay)).await;
                 }
             }
-
         }
     }
 
