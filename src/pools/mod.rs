@@ -5,6 +5,7 @@ use sushiswap::SushiSwapPool;
 use uniswap_v2::UniswapV2Pool;
 use uniswap_v3::UniswapV3Pool;
 use std::fmt;
+use crate::chain::Chain;
 
 // reexports
 pub use sushiswap::SushiSwapFetcher;
@@ -43,7 +44,7 @@ pub enum Pool {
 #[async_trait]
 pub trait PoolFetcher: Send + Sync {
     fn pool_type(&self) -> PoolType;
-    fn factory_address(&self) -> Address;
+    fn factory_address(&self, chain: Chain) -> Address;
     fn pair_created_signature(&self) -> &str;
     async fn from_log(&self, log: &Log) -> Option<Pool>;
 }

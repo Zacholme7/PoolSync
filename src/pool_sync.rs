@@ -43,7 +43,6 @@ impl PoolSync {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let mut all_pools: HashSet<Pool> = HashSet::new(); // all of the synced pools
         let mut pool_caches: Vec<PoolCache> = Vec::new(); // cache for each pool specified
 
         // go through all the pools we want to sync
@@ -80,6 +79,7 @@ impl PoolSync {
                         from_block,
                         to_block,
                         progress_bar.clone(),
+                        self.chain.clone()
                     );
                     handles.push(handle);
                 }
@@ -117,6 +117,7 @@ impl PoolSync {
         from_block: u64,
         to_block: u64,
         progress_bar: ProgressBar,
+        chain: Chain
     ) -> tokio::task::JoinHandle<Result<Vec<Pool>, PoolSyncError>>
     where
         P: Provider<T, N> + 'static,
@@ -131,6 +132,7 @@ impl PoolSync {
                 from_block,
                 to_block,
                 MAX_RETRIES,
+                chain
             )
             .await;
             progress_bar.inc(1);
@@ -145,6 +147,7 @@ impl PoolSync {
         from_block: u64,
         to_block: u64,
         max_retries: u32,
+        chain: Chain,
     ) -> Result<Vec<Pool>, PoolSyncError>
     where
         P: Provider<T, N>,
@@ -162,7 +165,7 @@ impl PoolSync {
                 .values()
                 .map(|fetcher| {
                     Filter::new()
-                        .address(fetcher.factory_address())
+                        .address(fetcher.factory_address(chain))
                         .event(fetcher.pair_created_signature())
                         .from_block(from_block)
                         .to_block(to_block)

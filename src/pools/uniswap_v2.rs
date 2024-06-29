@@ -1,10 +1,9 @@
-use super::{Pool, PoolFetcher, PoolType};
-use alloy::primitives::address;
-use alloy::network::Network;
-use alloy::primitives::{Address, Log};
+use alloy::primitives::{address, Address, Log};
 use alloy::sol_types::{sol, SolEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use crate::pools::{Pool, PoolFetcher, PoolType};
+use crate::chain::Chain;
 
 sol!(
     #[derive(Debug)]
@@ -31,8 +30,12 @@ impl PoolFetcher for UniswapV2Fetcher {
         PoolType::UniswapV2
     }
     /// Return the factory address
-    fn factory_address(&self) -> Address {
-        address!("5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f")
+    fn factory_address(&self, chain: Chain) -> Address {
+        match chain {
+                Chain::Ethereum => address!("5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"),
+                Chain::Base => address!("8909Dc15e40173Ff4699343b6eB8132c65e18eC6"),
+                _ => panic!("Protocol not supported for this chain")
+        }
     }
     /// Return the pair created signature
     fn pair_created_signature(&self) -> &str {

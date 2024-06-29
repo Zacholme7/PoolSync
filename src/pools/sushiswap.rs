@@ -1,9 +1,11 @@
-use super::{Pool, PoolFetcher, PoolType};
 use alloy::primitives::address;
 use alloy::primitives::{Address, Log};
 use alloy::sol_types::{sol, SolEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+
+use crate::pools::{Pool, PoolFetcher, PoolType};
+use crate::chain::Chain;
 
 sol! {
     #[derive(Debug)]
@@ -28,8 +30,11 @@ impl  PoolFetcher for SushiSwapFetcher {
         PoolType::SushiSwap
     }
 
-    fn factory_address(&self) -> Address {
-        address!("C0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac")
+    fn factory_address(&self, chain: Chain) -> Address {
+        match chain {
+                Chain::Ethereum => address!("C0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"),
+                _ => panic!("Protocol is not supported for the chain")
+        }
     }
 
     fn pair_created_signature(&self) -> &str {
