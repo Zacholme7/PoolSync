@@ -23,7 +23,7 @@ pub struct SushiSwapPool {
 pub struct SushiSwapFetcher;
 
 #[async_trait]
-impl PoolFetcher for SushiSwapFetcher {
+impl  PoolFetcher for SushiSwapFetcher {
     fn pool_type(&self) -> PoolType {
         PoolType::SushiSwap
     }

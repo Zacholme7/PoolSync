@@ -1,15 +1,20 @@
-use alloy::primitives::Address;
-use alloy::primitives::Log;
-use async_trait::async_trait;
+use alloy::primitives::{Address, Log};
 use serde::{Deserialize, Serialize};
+use async_trait::async_trait;
 use sushiswap::SushiSwapPool;
 use uniswap_v2::UniswapV2Pool;
 use uniswap_v3::UniswapV3Pool;
 use std::fmt;
 
-pub mod sushiswap;
-pub mod uniswap_v2;
-pub mod uniswap_v3;
+// reexports
+pub use sushiswap::SushiSwapFetcher;
+pub use uniswap_v2::UniswapV2Fetcher;
+pub use uniswap_v3::UniswapV3Fetcher;
+
+// pool modules
+mod sushiswap;
+mod uniswap_v2;
+mod uniswap_v3;
 
 /// Enumerate the pools supported
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -25,7 +30,7 @@ impl fmt::Display for PoolType {
         }
 }
 
-/// Populated pools
+/// Populated protocol variants 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Pool {
     UniswapV2(UniswapV2Pool),

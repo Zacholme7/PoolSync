@@ -1,5 +1,6 @@
 use super::{Pool, PoolFetcher, PoolType};
 use alloy::primitives::address;
+use alloy::network::Network;
 use alloy::primitives::{Address, Log};
 use alloy::sol_types::{sol, SolEvent};
 use async_trait::async_trait;

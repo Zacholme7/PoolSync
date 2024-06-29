@@ -2370,6 +2370,7 @@ dependencies = [
  "dotenv",
  "futures",
  "indicatif",
+ "once_cell",
  "serde",
  "serde_json",
  "thiserror",

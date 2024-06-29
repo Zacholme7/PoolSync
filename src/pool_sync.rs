@@ -1,66 +1,48 @@
-use alloy::{
-    network::Ethereum,
-    providers::Provider,
-    rpc::types::Filter,
-    transports::Transport,
-};
+use alloy::providers::Provider;
+use alloy::rpc::types::Filter;
+use alloy::network::Network;
+use alloy::transports::Transport;
 use indicatif::{ProgressBar, ProgressStyle};
-use serde::{Deserialize, Serialize};
-use std::{
-    collections::{HashMap, HashSet},
-    fs,
-    path::Path,
-    sync::Arc,
-    time::Duration,
-};
-use thiserror::Error;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Semaphore;
-use crate::cache::{PoolCache, read_cache_file, write_cache_file};
-use crate::pools::{
-    uniswap_v2::UniswapV2Fetcher, 
-    uniswap_v3::UniswapV3Fetcher,
-    sushiswap::SushiSwapFetcher,
-    Pool, 
-    PoolFetcher, 
-    PoolType
-};
 use futures::future::try_join_all;
 
-const CACHE_FILE: &str = "pool_sync_cache.json";
-const DEFAULT_START_BLOCK: u64 = 10_000_000;
+use crate::cache::{PoolCache, read_cache_file, write_cache_file};
+use crate::pools::*;
+use crate::chain::Chain;
+use crate::builder::PoolSyncBuilder;
+use crate::errors::*;
+
+
+// The amount of blocks we want to query in one call to get_logs
 const STEP_SIZE: u64 = 10_000;
+// How many time we want to retry a query if it fails
 const MAX_RETRIES: u32 = 5;
-const CONCURRENT_REQUESTS: usize = 25;
-
-#[derive(Error, Debug)]
-pub enum PoolSyncError {
-    #[error("Provider error: {0}")]
-    ProviderError(String),
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
-    #[error("JSON error: {0}")]
-    JsonError(#[from] serde_json::Error),
-}
-
-#[derive(Serialize, Deserialize)]
-struct CacheData {
-    last_synced_block: u64,
-    pools: Vec<Pool>,
-}
+// The number of requests to send off at one time, this is to protect
+// against public rpc rate limits
+const CONCURRENT_REQUESTS: usize = 10;
 
 pub struct PoolSync {
-    fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
+    // map a pool type to its fetcher implementation
+    pub fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
+    /// the chain that we want to sync on
+    pub chain: Chain ,
 }
 
 impl PoolSync {
+    /// Construct a new builder to configure sync parameters
     pub fn builder() -> PoolSyncBuilder {
         PoolSyncBuilder::default()
     }
 
-    pub async fn sync_pools<P, T>(&self, provider: Arc<P>) -> Result<Vec<Pool>, PoolSyncError>
+    /// After configuring the builder, sync all added pools for the specified chain
+    pub async fn sync_pools<P, T, N>(&self, provider: Arc<P>) -> Result<Vec<Pool>, PoolSyncError>
     where
-        P: Provider<T, Ethereum> + 'static,
+        P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
+        N: Network
     {
         let mut all_pools: HashSet<Pool> = HashSet::new(); // all of the synced pools
         let mut pool_caches : Vec<PoolCache> = Vec::new(); // cache for each pool specified
@@ -120,7 +102,7 @@ impl PoolSync {
         Ok(all_pools)
     }
 
-    fn spawn_block_range_task<P, T>(
+    fn spawn_block_range_task<P, T, N>(
         &self,
         provider: Arc<P>,
         semaphore: Arc<Semaphore>,
@@ -130,8 +112,9 @@ impl PoolSync {
         progress_bar: ProgressBar,
     ) -> tokio::task::JoinHandle<Result<Vec<Pool>, PoolSyncError>>
     where
-        P: Provider<T, Ethereum> + 'static,
+        P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
+        N: Network
     {
         tokio::spawn(async move {
             let result = Self::process_block_range(
@@ -148,7 +131,7 @@ impl PoolSync {
         })
     }
 
-    async fn process_block_range<P, T>(
+    async fn process_block_range<P, T, N>(
         provider: Arc<P>,
         semaphore: Arc<Semaphore>,
         fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
@@ -157,8 +140,9 @@ impl PoolSync {
         max_retries: u32,
     ) -> Result<Vec<Pool>, PoolSyncError>
     where
-        P: Provider<T, Ethereum>,
+        P: Provider<T, N>,
         T: Transport + Clone + 'static,
+        N: Network
     {
         let mut retries = 0;
         loop {
@@ -210,36 +194,5 @@ impl PoolSync {
                 .progress_chars("##-"),
         );
         pb
-    }
-}
-
-#[derive(Default)]
-pub struct PoolSyncBuilder {
-    fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
-}
-
-impl PoolSyncBuilder {
-    pub fn add_pool(mut self, pool_type: PoolType) -> Self {
-        match pool_type {
-            PoolType::UniswapV2 => {
-                self.fetchers
-                    .insert(PoolType::UniswapV2, Arc::new(UniswapV2Fetcher));
-            }
-            PoolType::UniswapV3 => {
-                self.fetchers
-                    .insert(PoolType::UniswapV3, Arc::new(UniswapV3Fetcher));
-            }
-            PoolType::SushiSwap => {
-                self.fetchers
-                    .insert(PoolType::SushiSwap, Arc::new(SushiSwapFetcher));
-            }
-        }
-        self
-    }
-
-    pub fn build(self) -> PoolSync {
-        PoolSync {
-            fetchers: self.fetchers,
-        }
     }
 }
