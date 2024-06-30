@@ -1,40 +1,69 @@
-use crate::pools::{PoolType, Pool};
+//! Pool Synchronization Cache Implementation
+//!
+//! This module provides functionality for caching pool synchronization data,
+//! including structures and functions for reading from and writing to cache files.
+
 use crate::chain::Chain;
-use std::path::Path;
+use crate::pools::{Pool, PoolType};
+use serde::{Deserialize, Serialize};
 use std::fs;
-use serde::{Serialize, Deserialize};
-use serde_json;
+use std::path::Path;
 
 /// Cache for a protocol, facilitates easier syncing
 #[derive(Serialize, Deserialize)]
 pub struct PoolCache {
-        pub last_synced_block: u64,
-        pub pool_type: PoolType,
-        pub pools: Vec<Pool>
+    /// The last block number that was synced
+    pub last_synced_block: u64,
+    /// The type of pool this cache is for
+    pub pool_type: PoolType,
+    /// The list of pools that have been synced
+    pub pools: Vec<Pool>,
 }
 
-/// Read the cache file for the pool
+/// Reads the cache file for the specified pool type and chain
+///
+/// If the cache file exists, it reads and deserializes the content.
+/// If the file doesn't exist, it returns a new PoolCache with default values.
+///
+/// # Arguments
+///
+/// * `pool_type` - The type of pool to read the cache for
+/// * `chain` - The blockchain on which the pools exist
+///
+/// # Returns
+///
+/// A `PoolCache` instance, either from the file or newly created
+///
+/// # Panics
+///
+/// This function will panic if it fails to read the existing cache file or parse its JSON content.
 pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> PoolCache {
-        let pool_cache_file = format!("cache/{}_{}_cache.json", chain, pool_type);
-
-        if Path::new(&pool_cache_file).exists() {
-                let file_content = fs::read_to_string(pool_cache_file).unwrap();
-                let pool_cache: PoolCache = serde_json::from_str(&file_content).unwrap();
-                pool_cache
-        } else {
-                PoolCache {
-                        last_synced_block: 10000000, 
-                        pool_type: pool_type.clone(),
-                        pools: Vec::new()
-                }
+    let pool_cache_file = format!("cache/{}_{}_cache.json", chain, pool_type);
+    if Path::new(&pool_cache_file).exists() {
+        let file_content = fs::read_to_string(pool_cache_file).unwrap();
+        let pool_cache: PoolCache = serde_json::from_str(&file_content).unwrap();
+        pool_cache
+    } else {
+        PoolCache {
+            last_synced_block: 10000000,
+            pool_type: *pool_type,
+            pools: Vec::new(),
         }
+    }
 }
 
-/// Write to the cache file
+/// Writes the provided PoolCache to a cache file
+///
+/// # Arguments
+///
+/// * `pool_cache` - The PoolCache instance to be written to the file
+/// * `chain` - The blockchain for which the cache is being written
+///
+/// # Panics
+///
+/// This function will panic if it fails to serialize the PoolCache to JSON or write to the file.
 pub fn write_cache_file(pool_cache: &PoolCache, chain: Chain) {
-        let pool_cache_file = format!("cache/{}_{}_cache.json", chain, pool_cache.pool_type);
-        let json = serde_json::to_string(&pool_cache).unwrap();
-        fs::write(pool_cache_file, json);
+    let pool_cache_file = format!("cache/{}_{}_cache.json", chain, pool_cache.pool_type);
+    let json = serde_json::to_string(&pool_cache).unwrap();
+    let _ = fs::write(pool_cache_file, json);
 }
-
-

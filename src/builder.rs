@@ -1,22 +1,33 @@
+//! PoolSync Builder Implementation
+//!
+//! This module provides a builder pattern for constructing a PoolSync instance,
+//! allowing for flexible configuration of pool types and chains to be synced.
+
+use crate::errors::*;
+use crate::pools::*;
+use crate::{Chain, PoolSync, PoolType};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::{Chain, PoolSync, PoolType};
-use crate::pools::*;
-use crate::errors::*;
 
-
-/// Defines a builder for constructing PoolSync
+/// Builder for constructing a PoolSync instance
 #[derive(Default)]
 pub struct PoolSyncBuilder {
     /// Mapping from the pool type to the implementation of its fetcher
     fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
     /// The chain to be synced on
-    chain: Option<Chain>
+    chain: Option<Chain>,
 }
 
-
 impl PoolSyncBuilder {
-    /// Add a new pool to the ones that we want to sync
+    /// Adds a new pool type to be synced
+    ///
+    /// # Arguments
+    ///
+    /// * `pool_type` - The type of pool to add
+    ///
+    /// # Returns
+    ///
+    /// The builder instance for method chaining
     pub fn add_pool(mut self, pool_type: PoolType) -> Self {
         match pool_type {
             PoolType::UniswapV2 => {
@@ -35,28 +46,46 @@ impl PoolSyncBuilder {
         self
     }
 
-    /// Set the chain
+    /// Sets the chain to sync on
+    ///
+    /// # Arguments
+    ///
+    /// * `chain` - The chain to set
+    ///
+    /// # Returns
+    ///
+    /// The builder instance for method chaining
     pub fn chain(mut self, chain: Chain) -> Self {
         self.chain = Some(chain);
         self
     }
 
-    /// Consume the builder and produce a constructed PoolSync
+    /// Consumes the builder and produces a constructed PoolSync
+    ///
+    /// # Returns
+    ///
+    /// A Result containing either the constructed PoolSync or a PoolSyncError
+    ///
+    /// # Errors
+    ///
+    /// Returns a PoolSyncError if:
+    /// - The chain is not set
+    /// - Any of the added pool types are not supported on the specified chain
     pub fn build(self) -> Result<PoolSync, PoolSyncError> {
-        // make sure the chain is set
-        let chain = self.chain.ok_or(PoolSyncError::ChainNotSet).unwrap();
+        // Ensure the chain is set
+        let chain = self.chain.ok_or(PoolSyncError::ChainNotSet)?;
 
-        // make sure all the pools are suppored
-        for pool_type in self.fetchers.keys().into_iter() {
+        // Ensure all the pools are supported
+        for pool_type in self.fetchers.keys() {
             if !chain.supported(pool_type) {
                 return Err(PoolSyncError::UnsupportedPoolType);
             }
         }
 
-        // valid, construct PoolSync 
+        // Construct PoolSync
         Ok(PoolSync {
             fetchers: self.fetchers,
-            chain: self.chain.unwrap()
+            chain,
         })
     }
 }

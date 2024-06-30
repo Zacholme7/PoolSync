@@ -1,11 +1,17 @@
+//! PoolSync Core Implementation
+//!
+//! This module contains the core functionality for synchronizing pools across different
+//! blockchain networks and protocols. It includes the main `PoolSync` struct and its
+//! associated methods for configuring and executing the synchronization process.
+//!
 use alloy::network::Network;
 use alloy::providers::Provider;
 use alloy::rpc::types::Filter;
 use alloy::transports::Transport;
 use futures::future::try_join_all;
 use indicatif::{ProgressBar, ProgressStyle};
+use std::collections::HashMap;
 use std::fs;
-use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,18 +23,20 @@ use crate::chain::Chain;
 use crate::errors::*;
 use crate::pools::*;
 
-// The amount of blocks we want to query in one call to get_logs
+/// The number of blocks to query in one call to get_logs
 const STEP_SIZE: u64 = 10_000;
-// How many time we want to retry a query if it fails
-const MAX_RETRIES: u32 = 5;
-// The number of requests to send off at one time, this is to protect
-// against public rpc rate limits
-const CONCURRENT_REQUESTS: usize = 23;
 
+/// The maximum number of retries for a failed query
+const MAX_RETRIES: u32 = 5;
+
+/// The number of concurrent requests to send, to protect against public RPC rate limits
+const CONCURRENT_REQUESTS: usize = 5;
+
+/// The main struct for pool synchronization
 pub struct PoolSync {
-    // map a pool type to its fetcher implementation
+    /// Map of pool types to their fetcher implementations
     pub fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
-    /// the chain that we want to sync on
+    /// The chain to sync on
     pub chain: Chain,
 }
 
@@ -38,7 +46,22 @@ impl PoolSync {
         PoolSyncBuilder::default()
     }
 
-    /// After configuring the builder, sync all added pools for the specified chain
+    /// Synchronizes all added pools for the specified chain
+    ///
+    /// This method performs the following steps:
+    /// 1. Creates a cache folder if it doesn't exist
+    /// 2. Reads the cache for each pool type
+    /// 3. Synchronizes new data for each pool type
+    /// 4. Updates and writes back the cache
+    /// 5. Combines all synchronized pools into a single vector
+    ///
+    /// # Arguments
+    ///
+    /// * `provider` - An Arc-wrapped provider for interacting with the blockchain
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a vector of all synchronized pools or a PoolSyncError
     pub async fn sync_pools<P, T, N>(&self, provider: Arc<P>) -> Result<Vec<Pool>, PoolSyncError>
     where
         P: Provider<T, N> + 'static,
@@ -48,13 +71,13 @@ impl PoolSync {
         // create a cache folder if it does not exist
         let path = Path::new("cache");
         if !path.exists() {
-                fs::create_dir_all(path);
+            let _ = fs::create_dir_all(path);
         }
 
         let mut pool_caches: Vec<PoolCache> = Vec::new(); // cache for each pool specified
-        // go through all the pools we want to sync
+                                                          // go through all the pools we want to sync
         for fetchers in self.fetchers.iter() {
-            let pool_cache = read_cache_file(fetchers.0, self.chain.clone());
+            let pool_cache = read_cache_file(fetchers.0, self.chain);
             pool_caches.push(pool_cache);
         }
 
@@ -86,7 +109,7 @@ impl PoolSync {
                         from_block,
                         to_block,
                         progress_bar.clone(),
-                        self.chain.clone()
+                        self.chain,
                     );
                     handles.push(handle);
                 }
@@ -104,7 +127,7 @@ impl PoolSync {
 
         // write all of the caches back to file
         for pool_cache in &pool_caches {
-            write_cache_file(pool_cache, self.chain.clone());
+            write_cache_file(pool_cache, self.chain);
         }
 
         // save all of them in one vector
@@ -116,6 +139,25 @@ impl PoolSync {
         Ok(all_pools)
     }
 
+
+    /// Spawns a task to process a range of blocks
+    ///
+    /// This method creates a new asynchronous task for processing a specific range of blocks.
+    /// It uses a semaphore for rate limiting and updates a progress bar.
+    ///
+    /// # Arguments
+    ///
+    /// * `provider` - The blockchain provider
+    /// * `semaphore` - A semaphore for rate limiting
+    /// * `fetchers` - The pool fetchers
+    /// * `from_block` - The starting block number
+    /// * `to_block` - The ending block number
+    /// * `progress_bar` - A progress bar for visual feedback
+    /// * `chain` - The blockchain being synced
+    ///
+    /// # Returns
+    ///
+    /// A JoinHandle for the spawned task
     fn spawn_block_range_task<P, T, N>(
         &self,
         provider: Arc<P>,
@@ -124,7 +166,7 @@ impl PoolSync {
         from_block: u64,
         to_block: u64,
         progress_bar: ProgressBar,
-        chain: Chain
+        chain: Chain,
     ) -> tokio::task::JoinHandle<Result<Vec<Pool>, PoolSyncError>>
     where
         P: Provider<T, N> + 'static,
@@ -139,7 +181,7 @@ impl PoolSync {
                 from_block,
                 to_block,
                 MAX_RETRIES,
-                chain
+                chain,
             )
             .await;
             progress_bar.inc(1);
@@ -147,6 +189,24 @@ impl PoolSync {
         })
     }
 
+    /// Processes a range of blocks to find and decode pool creation events
+    ///
+    /// This method queries the blockchain for logs within the specified block range,
+    /// decodes the logs into pool objects, and implements a retry mechanism for failed queries.
+    ///
+    /// # Arguments
+    ///
+    /// * `provider` - The blockchain provider
+    /// * `semaphore` - A semaphore for rate limiting
+    /// * `fetchers` - The pool fetchers
+    /// * `from_block` - The starting block number
+    /// * `to_block` - The ending block number
+    /// * `max_retries` - The maximum number of retries for failed queries
+    /// * `chain` - The blockchain being synced
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a vector of found pools or a PoolSyncError
     async fn process_block_range<P, T, N>(
         provider: Arc<P>,
         semaphore: Arc<Semaphore>,
@@ -204,6 +264,15 @@ impl PoolSync {
         }
     }
 
+    /// Creates a progress bar for visual feedback during synchronization
+    ///
+    /// # Arguments
+    ///
+    /// * `total_steps` - The total number of steps in the synchronization process
+    ///
+    /// # Returns
+    ///
+    /// A configured ProgressBar instance
     fn create_progress_bar(&self, total_steps: u64) -> ProgressBar {
         let pb = ProgressBar::new(total_steps);
         pb.set_style(
