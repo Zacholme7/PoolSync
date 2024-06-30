@@ -47,7 +47,7 @@ impl PoolSync {
 
         // go through all the pools we want to sync
         for fetchers in self.fetchers.iter() {
-            let pool_cache = read_cache_file(fetchers.0);
+            let pool_cache = read_cache_file(fetchers.0, self.chain.clone());
             pool_caches.push(pool_cache);
         }
 
@@ -97,7 +97,7 @@ impl PoolSync {
 
         // write all of the caches back to file
         for pool_cache in &pool_caches {
-            write_cache_file(pool_cache);
+            write_cache_file(pool_cache, self.chain.clone());
         }
 
         // save all of them in one vector

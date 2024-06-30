@@ -1,9 +1,10 @@
 use crate::PoolType;
 use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 /// The chains that are supported 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Chain {
         Ethereum,
         Base,
@@ -41,6 +42,13 @@ impl Chain {
             CHAIN_POOLS.get(self)
                 .map(|pools| pools.contains(&pool_type))
                 .unwrap_or(false)
+        }
+}
+
+// Display for chain, used for file naming and debugging purposes
+impl fmt::Display for Chain {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{:?}", self)
         }
 }
 
