@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
         .on_http(url));
 
     let pool_sync = PoolSync::builder()
-        .add_pool(PoolType::UniswapV3)
+        .add_pool(PoolType::UniswapV2)
         .chain(Chain::Ethereum)
         .build()?;
 

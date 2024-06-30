@@ -4,7 +4,9 @@ use alloy::rpc::types::Filter;
 use alloy::transports::Transport;
 use futures::future::try_join_all;
 use indicatif::{ProgressBar, ProgressStyle};
+use std::fs;
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
@@ -43,8 +45,13 @@ impl PoolSync {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let mut pool_caches: Vec<PoolCache> = Vec::new(); // cache for each pool specified
+        // create a cache folder if it does not exist
+        let path = Path::new("cache");
+        if !path.exists() {
+                fs::create_dir_all(path);
+        }
 
+        let mut pool_caches: Vec<PoolCache> = Vec::new(); // cache for each pool specified
         // go through all the pools we want to sync
         for fetchers in self.fetchers.iter() {
             let pool_cache = read_cache_file(fetchers.0, self.chain.clone());
