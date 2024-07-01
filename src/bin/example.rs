@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
     let pool_sync = PoolSync::builder()
         .add_pool(PoolType::UniswapV2) // Add all the pools you would like to sync
         .chain(Chain::Ethereum) // Specify the chain
-        .rate_limit(20) // specify the rate limit for the rpc
+        .rate_limit(20) // Specify the rate limit
         .build()?;
 
     // Initiate the sync process
