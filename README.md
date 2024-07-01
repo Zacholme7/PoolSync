@@ -9,12 +9,12 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pool-sync = "0.1.1"
+pool-sync = "0.1.2"
 ```
 
 ## Example Usage
 ```rust
-use pool_sync::{PoolSync, PoolType, Chain};
+use pool_sync::{PoolSync, PoolType, Chain, PoolInfo};
 
 #[tokio::main]
 async fn main() -> Result<()> {
