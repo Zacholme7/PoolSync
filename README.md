@@ -9,7 +9,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pool-sync = "0.1.0"
+pool-sync = "0.1.1"
 ```
 
 ## Example Usage
@@ -26,10 +26,16 @@ async fn main() -> Result<()> {
     let pool_sync = PoolSync::builder()
         .add_pool(PoolType::UniswapV2)
         .chain(Chain::Ethereum)
+        .rate_limit(20)
         .build()?;
 
     // Synchronize pools
     let pools = pool_sync.sync_pools(provider).await?;
+
+    // Common Info
+    for pool in &pools {
+        println!("Pool Address {:?}, Token 0: {:?}, Token 1: {:?}", pool.address(), pool.token0(), pool.token1());
+    }
 
     println!("Synced {} pools!", pools.len());
     Ok(())
