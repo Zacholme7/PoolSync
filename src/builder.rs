@@ -16,6 +16,8 @@ pub struct PoolSyncBuilder {
     fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
     /// The chain to be synced on
     chain: Option<Chain>,
+    /// Rate limit on the rpc endpoint
+    rate_limit: Option<usize>
 }
 
 impl PoolSyncBuilder {
@@ -60,6 +62,20 @@ impl PoolSyncBuilder {
         self
     }
 
+    /// Set the rate limit of the rpc
+    ///
+    /// # Arguments 
+    ///
+    /// * `rate_limit` - The rate limit of the rpc
+    ///
+    /// # Returns
+    ///
+    /// # The builder instance for method chaining
+    pub fn rate_limit(mut self, rate_limit: usize) -> Self {
+        self.rate_limit = Some(rate_limit);
+        self
+    }
+
     /// Consumes the builder and produces a constructed PoolSync
     ///
     /// # Returns
@@ -82,9 +98,14 @@ impl PoolSyncBuilder {
             }
         }
 
+        // set rate limit to user defined if specified, otherwise set high value
+        // that will not be hit to simulate unlimited requests
+        let rate_limit = self.rate_limit.unwrap_or(10000);
+
         // Construct PoolSync
         Ok(PoolSync {
             fetchers: self.fetchers,
+            rate_limit,
             chain,
         })
     }

@@ -11,7 +11,7 @@ use alloy::sol_types::{sol, SolEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-/// Uniswap V3 factory contract interface
+// Uniswap V3 factory contract interface
 sol! {
     #[derive(Debug)]
     #[sol(rpc)]
@@ -60,7 +60,6 @@ impl PoolFetcher for UniswapV3Fetcher {
         match chain {
             Chain::Ethereum => address!("1F98431c8aD98523631AE4a59f267346ea31F984"),
             Chain::Base => address!("33128a8fC17869897dcE68Ed026d694621f6FDfD"),
-            _ => panic!("Protocol not supported for this chain"),
         }
     }
 

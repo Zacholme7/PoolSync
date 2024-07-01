@@ -8,7 +8,7 @@
 // Public re-exports
 pub use chain::Chain;
 pub use pool_sync::PoolSync;
-pub use pools::PoolType;
+pub use pools::{PoolType, Pool, PoolInfo};
 
 // Internal modules
 mod builder;

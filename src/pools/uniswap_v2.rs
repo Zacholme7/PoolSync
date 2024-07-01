@@ -10,7 +10,7 @@ use alloy::sol_types::{sol, SolEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-/// Uniswap V2 factory contract interface
+// Uniswap V2 factory contract interface
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
@@ -25,9 +25,9 @@ pub struct UniswapV2Pool {
     /// The address of the pool contract
     pub address: Address,
     /// The address of the first token in the pair
-    token0: Address,
+    pub token0: Address,
     /// The address of the second token in the pair
-    token1: Address,
+    pub token1: Address,
 }
 
 /// Uniswap V2 pool fetcher implementation
@@ -49,7 +49,6 @@ impl PoolFetcher for UniswapV2Fetcher {
         match chain {
             Chain::Ethereum => address!("5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"),
             Chain::Base => address!("8909Dc15e40173Ff4699343b6eB8132c65e18eC6"),
-            _ => panic!("Protocol not supported for this chain"),
         }
     }
 

@@ -5,6 +5,7 @@
 //! fetching and decoding pool creation events.
 
 use crate::chain::Chain;
+use crate::impl_pool_info;
 use alloy::primitives::{Address, Log};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -51,6 +52,10 @@ pub enum Pool {
     SushiSwap(SushiSwapPool),
 }
 
+// Implement the PoolInfo trait for all pool variants that are supported
+impl_pool_info!(Pool, UniswapV2, UniswapV3, SushiSwap);
+
+
 /// Defines common functionality for fetching and decoding pool creation events
 ///
 /// This trait provides a unified interface for different pool types to implement
@@ -77,4 +82,53 @@ pub trait PoolFetcher: Send + Sync {
     /// An `Option<Pool>` which is `Some(Pool)` if the log was successfully parsed,
     /// or `None` if the log did not represent a valid pool creation event.
     async fn from_log(&self, log: &Log) -> Option<Pool>;
+}
+
+/// Defines common methods that are used to access information about the pools
+pub trait PoolInfo {
+    fn address(&self) -> Address;
+    fn token0(&self) -> Address;
+    fn token1(&self) -> Address;
+    fn pool_type(&self) -> PoolType;
+}
+
+
+/// Macro for generating getter methods for all of the suppored pools
+#[macro_export]
+macro_rules! impl_pool_info {
+    ($enum_name:ident, $($variant:ident),+) => {
+        impl PoolInfo for $enum_name {
+            fn address(&self) -> Address {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.address,
+                    )+
+                }
+            }
+
+            fn token0(&self) -> Address {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.token0,
+                    )+
+                }
+            }
+
+            fn token1(&self) -> Address {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.token1,
+                    )+
+                }
+            }
+
+            fn pool_type(&self) -> PoolType {
+                match self {
+                    $(
+                        $enum_name::$variant(_) => PoolType::$variant,
+                    )+
+                }
+            }
+        }
+    };
 }

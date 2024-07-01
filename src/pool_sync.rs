@@ -29,15 +29,14 @@ const STEP_SIZE: u64 = 10_000;
 /// The maximum number of retries for a failed query
 const MAX_RETRIES: u32 = 5;
 
-/// The number of concurrent requests to send, to protect against public RPC rate limits
-const CONCURRENT_REQUESTS: usize = 5;
-
 /// The main struct for pool synchronization
 pub struct PoolSync {
     /// Map of pool types to their fetcher implementations
     pub fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
     /// The chain to sync on
     pub chain: Chain,
+    /// The rate limit of the rpc
+    pub rate_limit: usize,
 }
 
 impl PoolSync {
@@ -96,7 +95,7 @@ impl PoolSync {
             };
 
             let progress_bar = self.create_progress_bar(total_steps);
-            let rate_limiter = Arc::new(Semaphore::new(CONCURRENT_REQUESTS));
+            let rate_limiter = Arc::new(Semaphore::new(self.rate_limit));
             let mut handles = vec![];
 
             if block_difference > 0 {

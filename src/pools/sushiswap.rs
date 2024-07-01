@@ -11,7 +11,7 @@ use alloy::sol_types::{sol, SolEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-/// SushiSwap factory contract interface
+// SushiSwap factory contract interface
 sol! {
     #[derive(Debug)]
     #[sol(rpc)]
