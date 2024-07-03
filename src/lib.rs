@@ -17,3 +17,4 @@ mod chain;
 mod errors;
 mod pool_sync;
 mod pools;
+pub mod filter;

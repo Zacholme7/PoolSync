@@ -6,6 +6,7 @@
 use alloy::providers::ProviderBuilder;
 use anyhow::Result;
 use pool_sync::{Chain, PoolInfo, PoolSync, PoolType};
+use pool_sync::filter::filter_top_volume;
 use std::sync::Arc;
 
 /// The main entry point for the pool synchronization program.
@@ -29,7 +30,7 @@ async fn main() -> Result<()> {
     dotenv::dotenv().ok();
 
     // Construct an Alloy provider for the chain you want to sync from
-    let url = std::env::var("ETH")?.parse()?;
+    let url = std::env::var("BASE_RPC")?.parse()?;
     let provider = Arc::new(
         ProviderBuilder::new()
             .network::<alloy::network::AnyNetwork>()
@@ -40,20 +41,21 @@ async fn main() -> Result<()> {
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         .add_pool(PoolType::UniswapV2) // Add all the pools you would like to sync
-        .chain(Chain::Ethereum) // Specify the chain
-        .rate_limit(20) // Specify the rate limit
+        .chain(Chain::Base) // Specify the chain
+        .rate_limit(10) // Specify the rate limit
         .build()?;
 
     // Initiate the sync process
     let pools = pool_sync.sync_pools(provider.clone()).await?;
+    println!("Number of synchronized pools: {}", pools.len());
 
     // Can get common info
     for pool in &pools {
         println!("Pool Address {:?}, Token 0: {:?}, Token 1: {:?}", pool.address(), pool.token0(), pool.token1());
     }
 
-    // Print the number of synchronized pools
-    println!("Number of synchronized pools: {}", pools.len());
+    // extract all pools with top volume tokens
+    let pools_over_top_volume_tokens = filter_top_volume(pools, 10).await?;
 
     Ok(())
 }
