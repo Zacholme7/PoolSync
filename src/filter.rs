@@ -1,4 +1,4 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::HashSet;
 use reqwest::header::{HeaderMap, HeaderValue};
 use crate::{Pool, PoolInfo};
 use serde::Deserialize;
