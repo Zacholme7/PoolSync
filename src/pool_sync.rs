@@ -138,32 +138,6 @@ impl PoolSync {
         Ok(all_pools)
     }
 
-    async fn fetch_pools<P, T, N>(
-        &self,
-        provider: Arc<P>,
-        pool_caches: Vec<PoolCache>,
-    ) -> Result<Vec<Pool>, PoolSyncError>
-    where
-        P: Provider<T, N> + 'static,
-        T: Transport + Clone + 'static,
-        N: Network,
-    {
-        todo!()
-    }
-
-    async fn populate_pools<P, T, N>(
-        &self,
-        provider: Arc<P>,
-        pools: Vec<Pool>,
-    ) -> Result<Vec<Pool>, PoolSyncError>
-    where
-        P: Provider<T, N> + 'static,
-        T: Transport + Clone + 'static,
-        N: Network,
-    {
-        todo!()
-    }
-
     /// Spawns a task to process a range of blocks
     ///
     /// This method creates a new asynchronous task for processing a specific range of blocks.
@@ -182,6 +156,7 @@ impl PoolSync {
     /// # Returns
     ///
     /// A JoinHandle for the spawned task
+    /*
     fn spawn_block_range_task<P, T, N>(
         &self,
         provider: Arc<P>,
@@ -211,6 +186,36 @@ impl PoolSync {
             progress_bar.inc(1);
             result
         })
+    }
+    */
+    async fn spawn_block_range_task<P, T, N>(
+        &self,
+        provider: Arc<P>,
+        semaphore: Arc<Semaphore>,
+        fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
+        from_block: u64,
+        to_block: u64,
+        progress_bar: ProgressBar,
+        chain: Chain,
+    ) -> tokio::task::JoinHandle<Result<Vec<Pool>, PoolSyncError>>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+
+        // for rate limiting, how many times we have retried
+        let mut retries = 0;
+        loop {
+            // aquire the semaphore, ensures we dont send off too many request
+            let _permit = semaphore
+                .acquire()
+                .await
+                .map_err(|e| PoolSyncError::ProviderError(e.to_string()))?;
+
+            
+        }
+        todo!()
     }
 
     /// Processes a range of blocks to find and decode pool creation events
@@ -274,6 +279,11 @@ impl PoolSync {
                             }
                         }
                     }
+
+
+
+
+
                     return Ok(pools);
                 }
                 Err(e) => {

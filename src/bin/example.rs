@@ -65,7 +65,7 @@ async fn main() -> Result<()> {
     println!("Deployed contract at address: {}", contract.address());
 
     let mut pool_addresses = Vec::new();
-    for i in 1..=500 {
+    for i in 1..=100 {
         pool_addresses.push(address!("3fd4Cf9303c4BC9E13772618828712C8EaC7Dd2F"));
     }
 

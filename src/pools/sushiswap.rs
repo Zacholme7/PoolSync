@@ -6,7 +6,7 @@
 use crate::chain::Chain;
 use crate::pools::{Pool, PoolFetcher, PoolType};
 use alloy::primitives::address;
-use alloy::primitives::{Address, Log};
+use alloy::primitives::{Address, Log, U128};
 use alloy::sol_types::{sol, SolEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -29,6 +29,18 @@ pub struct SushiSwapPool {
     pub token0: Address,
     /// The address of the second token in the pair
     pub token1: Address,
+    /// The name of the first token in the pair
+    pub token0_name: String,
+    /// The name of the second token in the pair
+    pub token1_name: String,
+    /// The amount of decimals in the first token
+    pub token0_decimals: u8,
+    /// The amount of decimals in the second token
+    pub token1_decimals: u8,
+    /// The reserves for the first token
+    pub token0_reserves: U128,
+    /// the reserves for the second pair
+    pub token1_reserves: U128
 }
 
 /// SushiSwap pool fetcher implementation
