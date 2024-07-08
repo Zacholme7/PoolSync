@@ -74,7 +74,7 @@ impl PoolSync {
         }
 
         // load  in pools from cache
-        let mut pool_caches: Vec<PoolCache> = Vec::new(); 
+        let mut pool_caches: Vec<PoolCache> = Vec::new();
         for fetchers in self.fetchers.iter() {
             let pool_cache = read_cache_file(fetchers.0, self.chain);
             pool_caches.push(pool_cache);
@@ -138,9 +138,11 @@ impl PoolSync {
         Ok(all_pools)
     }
 
-
-
-    async fn fetch_pools<P, T, N>(&self, provider: Arc<P>, pool_caches: Vec<PoolCache>) -> Result<Vec<Pool>, PoolSyncError>
+    async fn fetch_pools<P, T, N>(
+        &self,
+        provider: Arc<P>,
+        pool_caches: Vec<PoolCache>,
+    ) -> Result<Vec<Pool>, PoolSyncError>
     where
         P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
@@ -149,7 +151,11 @@ impl PoolSync {
         todo!()
     }
 
-    async fn populate_pools<P, T, N>(&self, provider: Arc<P>, pools: Vec<Pool>) -> Result<Vec<Pool>, PoolSyncError>
+    async fn populate_pools<P, T, N>(
+        &self,
+        provider: Arc<P>,
+        pools: Vec<Pool>,
+    ) -> Result<Vec<Pool>, PoolSyncError>
     where
         P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
@@ -157,9 +163,6 @@ impl PoolSync {
     {
         todo!()
     }
-
-
-
 
     /// Spawns a task to process a range of blocks
     ///

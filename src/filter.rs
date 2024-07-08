@@ -1,7 +1,7 @@
-use std::collections::HashSet;
-use reqwest::header::{HeaderMap, HeaderValue};
 use crate::{Pool, PoolInfo};
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
+use std::collections::HashSet;
 use thiserror::Error;
 
 #[derive(Debug, Deserialize)]
@@ -29,13 +29,19 @@ pub enum FilterError {
     InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
 }
 
-pub async fn filter_top_volume(pools: Vec<Pool>, num_results: usize) -> Result<Vec<Pool>, FilterError> {
+pub async fn filter_top_volume(
+    pools: Vec<Pool>,
+    num_results: usize,
+) -> Result<Vec<Pool>, FilterError> {
     let top_volume_tokens = query_birdeye(num_results).await?;
     let token_set: HashSet<_> = top_volume_tokens.into_iter().collect();
 
     let filtered_pools: Vec<Pool> = pools
         .into_iter()
-        .filter(|pool| token_set.contains(&pool.token0().to_string()) && token_set.contains(&pool.token1().to_string()))
+        .filter(|pool| {
+            token_set.contains(&pool.token0().to_string())
+                && token_set.contains(&pool.token1().to_string())
+        })
         .collect();
 
     Ok(filtered_pools)
@@ -61,8 +67,16 @@ async fn query_birdeye(num_results: usize) -> Result<Vec<String>, FilterError> {
 
     if response.status().is_success() {
         let birdeye_response: BirdeyeResponse = response.json().await?;
-        Ok(birdeye_response.data.tokens.into_iter().map(|token| token.address).collect())
+        Ok(birdeye_response
+            .data
+            .tokens
+            .into_iter()
+            .map(|token| token.address)
+            .collect())
     } else {
-        Err(FilterError::ApiError(response.error_for_status().unwrap_err()))
+        Err(FilterError::ApiError(
+            response.error_for_status().unwrap_err(),
+        ))
     }
 }
+

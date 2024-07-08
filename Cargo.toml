@@ -24,7 +24,7 @@ tokio = {version = "1.37.0", features = ["rt-multi-thread", "macros"]}
 dotenv = "0.15.0"
 serde = {version = "1.0.203", features = ["derive"]}
 async-trait = "0.1.80"
-alloy = {version = "0.1.3", features = ["full", "sol-types"]}
+alloy = {version = "0.1.3", features = ["full", "sol-types", ]}
 indicatif = "0.17.8"
 futures = "0.3.30"
 thiserror = "1.0.61"
@@ -34,3 +34,8 @@ alloy-sol-types = "0.7.6"
 alloy-sol-macro = "0.7.6"
 alloy-contract = "0.1.3"
 reqwest = "0.12.5"
+alloy-node-bindings = "0.1.3"
+
+
+
+

@@ -17,7 +17,7 @@ pub struct PoolSyncBuilder {
     /// The chain to be synced on
     chain: Option<Chain>,
     /// Rate limit on the rpc endpoint
-    rate_limit: Option<usize>
+    rate_limit: Option<usize>,
 }
 
 impl PoolSyncBuilder {
@@ -64,7 +64,7 @@ impl PoolSyncBuilder {
 
     /// Set the rate limit of the rpc
     ///
-    /// # Arguments 
+    /// # Arguments
     ///
     /// * `rate_limit` - The rate limit of the rpc
     ///

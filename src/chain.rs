@@ -24,16 +24,20 @@ pub enum Chain {
 /// and the contract addresses for the same protocol may differ across chains.
 static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
     let mut m = HashMap::new();
-    
+
     // Protocols supported by Ethereum
     m.insert(
         Chain::Ethereum,
-        [PoolType::UniswapV2, PoolType::UniswapV3, PoolType::SushiSwap]
-            .iter()
-            .cloned()
-            .collect(),
+        [
+            PoolType::UniswapV2,
+            PoolType::UniswapV3,
+            PoolType::SushiSwap,
+        ]
+        .iter()
+        .cloned()
+        .collect(),
     );
-    
+
     // Protocols supported by Base
     m.insert(
         Chain::Base,
@@ -42,9 +46,9 @@ static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
             .cloned()
             .collect(),
     );
-    
+
     // Additional chains can be configured here
-    
+
     m
 });
 
