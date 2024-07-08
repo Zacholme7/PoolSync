@@ -1,0 +1,4 @@
+// need to get all the pool addresses
+// for each pool address, I need to know what protocol
+// call the contract to populate the pools with the addresses
+

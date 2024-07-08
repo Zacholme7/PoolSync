@@ -21,7 +21,7 @@ sol!(
 );
 
 /// Represents a Uniswap V2 Automated Market Maker (AMM) pool
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UniswapV2Pool {
     /// The address of the pool contract
     pub address: Address,
@@ -88,8 +88,7 @@ impl PoolFetcher for UniswapV2Fetcher {
         let decoded_log = UniswapV2Factory::PairCreated::decode_log(log, false).unwrap();
         Some(Pool::UniswapV2(UniswapV2Pool {
             address: decoded_log.data.pair,
-            token0: decoded_log.data.token0,
-            token1: decoded_log.data.token1,
+            ..Default::default()
         }))
     }
 }

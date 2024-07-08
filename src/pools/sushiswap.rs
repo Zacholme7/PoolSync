@@ -21,7 +21,7 @@ sol! {
 }
 
 /// Represents a SushiSwap pool
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SushiSwapPool {
     /// The address of the pool contract
     pub address: Address,
@@ -84,8 +84,7 @@ impl PoolFetcher for SushiSwapFetcher {
         let decoded_log = SushiSwapFactory::PairCreated::decode_log(log, false).ok()?;
         Some(Pool::SushiSwap(SushiSwapPool {
             address: decoded_log.data.pair,
-            token0: decoded_log.data.token0,
-            token1: decoded_log.data.token1,
+            ..Default::default()
         }))
     }
 }

@@ -27,7 +27,7 @@ sol! {
 }
 
 /// Represents a Uniswap V3 pool
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UniswapV3Pool {
     /// The address of the pool contract
     pub address: Address,
@@ -94,10 +94,7 @@ impl PoolFetcher for UniswapV3Fetcher {
         let decoded_log = UniswapV3Factory::PoolCreated::decode_log(log, false).ok()?;
         Some(Pool::UniswapV3(UniswapV3Pool {
             address: decoded_log.data.pool,
-            token0: decoded_log.data.token0,
-            token1: decoded_log.data.token1,
-            fee: decoded_log.data.fee,
-            tick_spacing: decoded_log.data.tickSpacing,
-        }))
+            ..Default::default()
+       }))
     }
 }

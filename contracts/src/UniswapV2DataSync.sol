@@ -32,39 +32,43 @@ contract UniswapV2DataSync {
 
     function syncPoolData(
         address[] memory poolAddresses
-    ) external view returns (PoolData[] memory syncedPoolData) {
+    )
+        external
+        view
+        returns (PoolData[] memory syncedPoolData, string[] memory errors)
+    {
         PoolData[] memory allPoolData = new PoolData[](poolAddresses.length);
+        string[] memory errorMessages = new string[](poolAddresses.length);
 
         for (uint256 i = 0; i < poolAddresses.length; i++) {
-            address poolAddress = poolAddresses[i];
-
-            PoolData memory poolData;
-
-            // Pair
-            IUniswapV2Pair pair = IUniswapV2Pair(poolAddress);
-
-            // token addresss
-            poolData.token0Address = pair.token0();
-            poolData.token1Address = pair.token1();
-
-            (poolData.reserve0, poolData.reserve1, ) = pair.getReserves();
-
-            // Get the token specific information
-
-            // token0
-            IERC20Token token0 = IERC20Token(poolData.token0Address);
-            poolData.token0Symbol = token0.symbol();
-            poolData.token0Decimals = token0.decimals();
-
-            // token1
-            IERC20Token token1 = IERC20Token(poolData.token1Address);
-            poolData.token1Symbol = token1.symbol();
-            poolData.token1Decimals = token1.decimals();
-
-            // save the populated data
-            allPoolData[i] = poolData;
+            try this.syncSinglePool(poolAddresses[i]) returns (
+                PoolData memory poolData
+            ) {
+                allPoolData[i] = poolData;
+            } catch Error(string memory reason) {
+                errorMessages[i] = reason;
+            } catch (bytes memory /*lowLevelData*/) {
+                errorMessages[i] = "Unknown error";
+            }
         }
-        return allPoolData;
+
+        return (allPoolData, errorMessages);
+    }
+
+    function syncSinglePool(
+        address poolAddress
+    ) external view returns (PoolData memory poolData) {
+        IUniswapV2Pair pair = IUniswapV2Pair(poolAddress);
+        poolData.token0Address = pair.token0();
+        poolData.token1Address = pair.token1();
+        (poolData.reserve0, poolData.reserve1, ) = pair.getReserves();
+
+        IERC20Token token0 = IERC20Token(poolData.token0Address);
+        poolData.token0Symbol = token0.symbol();
+        poolData.token0Decimals = token0.decimals();
+
+        IERC20Token token1 = IERC20Token(poolData.token1Address);
+        poolData.token1Symbol = token1.symbol();
+        poolData.token1Decimals = token1.decimals();
     }
 }
-

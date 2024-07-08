@@ -8,6 +8,7 @@ use alloy::network::Network;
 use alloy::providers::Provider;
 use alloy::rpc::types::Filter;
 use alloy::transports::Transport;
+use futures::future::join_all;
 use futures::future::try_join_all;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::collections::HashMap;
@@ -73,18 +74,23 @@ impl PoolSync {
             let _ = fs::create_dir_all(path);
         }
 
-        // load  in pools from cache
+        // load in pools from the cache
         let mut pool_caches: Vec<PoolCache> = Vec::new();
         for fetchers in self.fetchers.iter() {
             let pool_cache = read_cache_file(fetchers.0, self.chain);
             pool_caches.push(pool_cache);
         }
 
+        // go though each cache, may or may not already by synced up to some point
         for cache in &mut pool_caches {
+            // start at the last block this pool synced to, will be 10_000_000 if first sync
+            // go to the current block
             let start_block = cache.last_synced_block;
             let end_block = provider.get_block_number().await.unwrap();
-            let block_difference = end_block.saturating_sub(start_block);
 
+            // determine the number of steps we need in STEP_SIZE increments
+            // this is just for progress bar
+            let block_difference = end_block.saturating_sub(start_block);
             let (total_steps, step_size) = if block_difference < STEP_SIZE {
                 (1, block_difference)
             } else {
@@ -93,12 +99,17 @@ impl PoolSync {
                     STEP_SIZE,
                 )
             };
-
             let progress_bar = self.create_progress_bar(total_steps);
+
+            // the rate limiter is simply a semaphore, we will spawn all the tasks but only
+            // 'rate_limit' amount will be able to request at one time
             let rate_limiter = Arc::new(Semaphore::new(self.rate_limit));
+
+            // the handles of all the rpc requests to join on
             let mut handles = vec![];
 
             if block_difference > 0 {
+                // go through each step in our range and spawn a task for it
                 for from_block in (start_block..=end_block).step_by(step_size as usize) {
                     let to_block = (from_block + step_size - 1).min(end_block);
                     let handle = self.spawn_block_range_task(
@@ -113,11 +124,22 @@ impl PoolSync {
                     handles.push(handle);
                 }
 
-                for handle in handles {
-                    let pools = handle
-                        .await
-                        .map_err(|e| PoolSyncError::ProviderError(e.to_string()))??;
-                    cache.pools.extend(pools);
+                // this is all of the pools that we have found, each pool is default init with just
+                // the pool address
+                let pools_with_addr = join_all(handles).await;
+
+                // once we have all the pools, we will populate each pool with its data
+                //let populated_pools = self.populate_pool_data(provider.clone(), pools_with_addr);
+                for result in pools_with_addr {
+                    match result {
+                        Ok(Ok(pools)) => cache.pools.extend(pools),
+                        Ok(Err(provider_error)) => {
+                            return Err(PoolSyncError::ProviderError(provider_error.to_string()))
+                        }
+                        Err(join_error) => {
+                            return Err(PoolSyncError::ProviderError(join_error.to_string()))
+                        }
+                    }
                 }
             }
 
@@ -156,7 +178,6 @@ impl PoolSync {
     /// # Returns
     ///
     /// A JoinHandle for the spawned task
-    /*
     fn spawn_block_range_task<P, T, N>(
         &self,
         provider: Arc<P>,
@@ -186,36 +207,6 @@ impl PoolSync {
             progress_bar.inc(1);
             result
         })
-    }
-    */
-    async fn spawn_block_range_task<P, T, N>(
-        &self,
-        provider: Arc<P>,
-        semaphore: Arc<Semaphore>,
-        fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
-        from_block: u64,
-        to_block: u64,
-        progress_bar: ProgressBar,
-        chain: Chain,
-    ) -> tokio::task::JoinHandle<Result<Vec<Pool>, PoolSyncError>>
-    where
-        P: Provider<T, N> + 'static,
-        T: Transport + Clone + 'static,
-        N: Network,
-    {
-
-        // for rate limiting, how many times we have retried
-        let mut retries = 0;
-        loop {
-            // aquire the semaphore, ensures we dont send off too many request
-            let _permit = semaphore
-                .acquire()
-                .await
-                .map_err(|e| PoolSyncError::ProviderError(e.to_string()))?;
-
-            
-        }
-        todo!()
     }
 
     /// Processes a range of blocks to find and decode pool creation events
@@ -279,10 +270,6 @@ impl PoolSync {
                             }
                         }
                     }
-
-
-
-
 
                     return Ok(pools);
                 }
