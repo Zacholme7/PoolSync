@@ -7,6 +7,7 @@ use alloy::network::EthereumWallet;
 use alloy::providers::ProviderBuilder;
 use alloy_node_bindings::anvil::Anvil;
 use anyhow::Result;
+use futures::future::join_all;
 use futures::stream::{self, StreamExt};
 use pool_sync::filter::filter_top_volume;
 use pool_sync::{Chain, Pool, PoolInfo, PoolSync, PoolType};
@@ -82,22 +83,34 @@ async fn main() -> Result<()> {
     // -----
 
     // deploy and create contract instance
-    let contract = UniswapV2DataSync::deploy(&provider).await?;
+    let contract = UniswapV2DataSync::deploy(provider.clone()).await?;
     println!("Deployed contract at address: {}", contract.address());
 
     let addresses: Vec<Address> = pools.iter().take(1000).map(|pool| pool.address()).collect();
+    let mut handles = vec![];
 
-    for chunk in addresses.chunks(100) {
-        let handle = tokio::spawn( async |chunck, contract| {
-            let chunk = chunk.to_vec();
-            let res = contract.syncPoolData(chunk).call().await;
-            match res {
-                Ok(_) => println!("{:#?}", res),
-                Err(e) => println!("{:#?}", e),
+    for chunk in addresses.chunks(50) {
+        let contract_clone = contract.clone();
+        let chunk = chunk.to_vec();
+
+        let handle = tokio::spawn(async move {
+            match contract_clone.syncPoolData(chunk).call().await {
+                Ok(res) => println!("Chunk processed successfully: {:#?}", res),
+                Err(e) => println!("Error processing chunk: {:#?}", e),
             }
         });
 
+        handles.push(handle);
+    }
 
+    // Wait for all tasks to complete
+    let results = join_all(handles).await;
+
+    // Process results if needed
+    for result in results {
+        if let Err(e) = result {
+            println!("Task panicked: {}", e);
+        }
     }
 
     Ok(())
