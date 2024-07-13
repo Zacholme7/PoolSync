@@ -6,6 +6,8 @@
 //!
 use alloy::network::Network;
 use alloy::providers::Provider;
+use alloy::providers::RootProvider;
+use alloy::pubsub::PubSubFrontend;
 use alloy::rpc::types::Filter;
 use alloy::transports::Transport;
 use futures::future::join_all;
@@ -62,7 +64,11 @@ impl PoolSync {
     /// # Returns
     ///
     /// A Result containing a vector of all synchronized pools or a PoolSyncError
-    pub async fn sync_pools<P, T, N>(&self, provider: Arc<P>) -> Result<Vec<Pool>, PoolSyncError>
+    pub async fn sync_pools<P, T, N>(
+        &self,
+        provider: Arc<P>,
+        ws: Arc<RootProvider<PubSubFrontend, N>>,
+    ) -> Result<Vec<Pool>, PoolSyncError>
     where
         P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
@@ -144,6 +150,24 @@ impl PoolSync {
             }
 
             cache.last_synced_block = end_block;
+
+            // start the reserve syncing task
+            //tokio::task::spawn(sync_reserves(ws));
+        }
+
+
+        pub async fn sync_reserves(ws) {
+            let filter = Filter::new()
+                .event(UniswapV2Pool::sync);
+
+            let sub = ws.subscribe_logs(&filter).await;
+            let stream = sub.into_stream();
+            
+            while let Some(sync_event) = stream.next().await {
+                let let Ok(data) = UniswapV2Pool::Sync::decode_log(sync_event, true) {
+
+                }
+            }
         }
 
         // write all of the caches back to file
