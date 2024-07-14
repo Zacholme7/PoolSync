@@ -11,13 +11,11 @@ use alloy::pubsub::PubSubFrontend;
 use alloy::rpc::types::Filter;
 use alloy::transports::Transport;
 use futures::future::join_all;
-use futures::future::try_join_all;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::Semaphore;
 
 use crate::builder::PoolSyncBuilder;
@@ -49,21 +47,6 @@ impl PoolSync {
     }
 
     /// Synchronizes all added pools for the specified chain
-    ///
-    /// This method performs the following steps:
-    /// 1. Creates a cache folder if it doesn't exist
-    /// 2. Reads the cache for each pool type
-    /// 3. Synchronizes new data for each pool type
-    /// 4. Updates and writes back the cache
-    /// 5. Combines all synchronized pools into a single vector
-    ///
-    /// # Arguments
-    ///
-    /// * `provider` - An Arc-wrapped provider for interacting with the blockchain
-    ///
-    /// # Returns
-    ///
-    /// A Result containing a vector of all synchronized pools or a PoolSyncError
     pub async fn sync_pools<P, T, N>(
         &self,
         provider: Arc<P>,
@@ -118,56 +101,43 @@ impl PoolSync {
                 // go through each step in our range and spawn a task for it
                 for from_block in (start_block..=end_block).step_by(step_size as usize) {
                     let to_block = (from_block + step_size - 1).min(end_block);
-                    let handle = self.spawn_block_range_task(
-                        provider.clone(),
-                        rate_limiter.clone(),
-                        self.fetchers.clone(),
-                        from_block,
-                        to_block,
-                        progress_bar.clone(),
-                        self.chain,
-                    );
+                    let fetcher = self.fetchers[&cache.pool_type].clone();
+                    let handle = tokio::task::spawn(
+                        PoolSync::fetch_and_process_block_range(
+                            provider.clone(),
+                            rate_limiter.clone(),
+                            self.chain.clone(),
+                            from_block,
+                            to_block,
+                            fetcher
+                    ));
                     handles.push(handle);
                 }
 
                 // this is all of the pools that we have found, each pool is default init with just
                 // the pool address
+                let mut pools = Vec::new();
                 let pools_with_addr = join_all(handles).await;
+                for result in pools_with_addr {
+                    if let Ok(p)  = result {
+                        pools.extend(p);
+                    }
+                }
+                println!("{:?}", pools.len());
 
                 // once we have all the pools, we will populate each pool with its data
                 //let populated_pools = self.populate_pool_data(provider.clone(), pools_with_addr);
+                /* 
                 for result in pools_with_addr {
                     match result {
                         Ok(Ok(pools)) => cache.pools.extend(pools),
-                        Ok(Err(provider_error)) => {
-                            return Err(PoolSyncError::ProviderError(provider_error.to_string()))
-                        }
-                        Err(join_error) => {
-                            return Err(PoolSyncError::ProviderError(join_error.to_string()))
-                        }
+                        Err(_) =>  return Err(PoolSyncError::ProviderError("blah".to_string()))
                     }
                 }
+                */
             }
 
             cache.last_synced_block = end_block;
-
-            // start the reserve syncing task
-            //tokio::task::spawn(sync_reserves(ws));
-        }
-
-
-        pub async fn sync_reserves(ws) {
-            let filter = Filter::new()
-                .event(UniswapV2Pool::sync);
-
-            let sub = ws.subscribe_logs(&filter).await;
-            let stream = sub.into_stream();
-            
-            while let Some(sync_event) = stream.next().await {
-                let let Ok(data) = UniswapV2Pool::Sync::decode_log(sync_event, true) {
-
-                }
-            }
         }
 
         // write all of the caches back to file
@@ -184,140 +154,46 @@ impl PoolSync {
         Ok(all_pools)
     }
 
-    /// Spawns a task to process a range of blocks
-    ///
-    /// This method creates a new asynchronous task for processing a specific range of blocks.
-    /// It uses a semaphore for rate limiting and updates a progress bar.
-    ///
-    /// # Arguments
-    ///
-    /// * `provider` - The blockchain provider
-    /// * `semaphore` - A semaphore for rate limiting
-    /// * `fetchers` - The pool fetchers
-    /// * `from_block` - The starting block number
-    /// * `to_block` - The ending block number
-    /// * `progress_bar` - A progress bar for visual feedback
-    /// * `chain` - The blockchain being synced
-    ///
-    /// # Returns
-    ///
-    /// A JoinHandle for the spawned task
-    fn spawn_block_range_task<P, T, N>(
-        &self,
+
+
+    pub async fn fetch_and_process_block_range<P, T, N>(
         provider: Arc<P>,
         semaphore: Arc<Semaphore>,
-        fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
+        chain: Chain,
         from_block: u64,
         to_block: u64,
-        progress_bar: ProgressBar,
-        chain: Chain,
-    ) -> tokio::task::JoinHandle<Result<Vec<Pool>, PoolSyncError>>
+        fetcher: Arc<dyn PoolFetcher>,
+    ) -> Vec<Pool> 
     where
         P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
         N: Network,
     {
-        tokio::spawn(async move {
-            let result = Self::process_block_range(
-                provider,
-                semaphore,
-                fetchers,
-                from_block,
-                to_block,
-                MAX_RETRIES,
-                chain,
-            )
-            .await;
-            progress_bar.inc(1);
-            result
-        })
-    }
-
-    /// Processes a range of blocks to find and decode pool creation events
-    ///
-    /// This method queries the blockchain for logs within the specified block range,
-    /// decodes the logs into pool objects, and implements a retry mechanism for failed queries.
-    ///
-    /// # Arguments
-    ///
-    /// * `provider` - The blockchain provider
-    /// * `semaphore` - A semaphore for rate limiting
-    /// * `fetchers` - The pool fetchers
-    /// * `from_block` - The starting block number
-    /// * `to_block` - The ending block number
-    /// * `max_retries` - The maximum number of retries for failed queries
-    /// * `chain` - The blockchain being synced
-    ///
-    /// # Returns
-    ///
-    /// A Result containing a vector of found pools or a PoolSyncError
-    async fn process_block_range<P, T, N>(
-        provider: Arc<P>,
-        semaphore: Arc<Semaphore>,
-        fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
-        from_block: u64,
-        to_block: u64,
-        max_retries: u32,
-        chain: Chain,
-    ) -> Result<Vec<Pool>, PoolSyncError>
-    where
-        P: Provider<T, N>,
-        T: Transport + Clone + 'static,
-        N: Network,
-    {
-        let mut retries = 0;
-        loop {
-            let _permit = semaphore
+        let _permit = semaphore
                 .acquire()
-                .await
-                .map_err(|e| PoolSyncError::ProviderError(e.to_string()))?;
+                .await.unwrap();
 
-            let filters: Vec<Filter> = fetchers
-                .values()
-                .map(|fetcher| {
-                    Filter::new()
-                        .address(fetcher.factory_address(chain))
-                        .event(fetcher.pair_created_signature())
-                        .from_block(from_block)
-                        .to_block(to_block)
-                })
-                .collect();
+        let filter = Filter::new()
+            .address(fetcher.factory_address(chain))
+            .event(fetcher.pair_created_signature())
+            .from_block(from_block)
+            .to_block(to_block);
 
-            let log_futures = filters.iter().map(|filter| provider.get_logs(filter));
-            match try_join_all(log_futures).await {
-                Ok(all_logs) => {
-                    let mut pools = Vec::new();
-                    for (logs, fetcher) in all_logs.into_iter().zip(fetchers.values()) {
-                        for log in logs {
-                            if let Some(pool) = fetcher.from_log(&log.inner).await {
-                                pools.push(pool);
-                            }
-                        }
-                    }
+        let logs = provider.get_logs(&filter).await.unwrap();
+        let mut pools = Vec::new();
 
-                    return Ok(pools);
-                }
-                Err(e) => {
-                    if retries >= max_retries {
-                        return Err(PoolSyncError::ProviderError(e.to_string()));
-                    }
-                    retries += 1;
-                    let delay = 2u64.pow(retries) * 1000;
-                    tokio::time::sleep(Duration::from_millis(delay)).await;
-                }
+        for log in logs {
+            if let Some(pool) = fetcher.from_log(&log.inner).await {
+                pools.push(pool);
             }
         }
+
+        // populate all of the pools with the rest of the inforation
+        //fetcher.populate_pool_data(pools);
+        pools
     }
 
     /// Creates a progress bar for visual feedback during synchronization
-    ///
-    /// # Arguments
-    ///
-    /// * `total_steps` - The total number of steps in the synchronization process
-    ///
-    /// # Returns
-    ///
-    /// A configured ProgressBar instance
     fn create_progress_bar(&self, total_steps: u64) -> ProgressBar {
         let pb = ProgressBar::new(total_steps);
         pb.set_style(
