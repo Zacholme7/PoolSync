@@ -6,10 +6,10 @@
 
 use crate::chain::Chain;
 use crate::impl_pool_info;
-use alloy::primitives::{Address, Log};
+use alloy::{dyn_abi::DynSolValue, network::Network, primitives::{Address, Log}, providers::Provider, transports::Transport};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use std::{fmt, sync::Arc};
 use sushiswap::SushiSwapPool;
 use uniswap_v2::UniswapV2Pool;
 use uniswap_v3::UniswapV3Pool;
@@ -72,16 +72,17 @@ pub trait PoolFetcher: Send + Sync {
     fn pair_created_signature(&self) -> &str;
 
     /// Attempts to create a `Pool` instance from a log entry
-    ///
-    /// # Arguments
-    ///
-    /// * `log` - The log entry containing pool creation data
-    ///
-    /// # Returns
-    ///
-    /// An `Option<Pool>` which is `Some(Pool)` if the log was successfully parsed,
-    /// or `None` if the log did not represent a valid pool creation event.
     async fn from_log(&self, log: &Log) -> Option<Pool>;
+
+    fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool;
+
+    /* 
+    async fn sync_pool_data<P, T, N>(&self, provider: Arc<P>, addresses: Vec<Address>) -> Vec<Pool>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network;
+        */
 }
 
 /// Defines common methods that are used to access information about the pools

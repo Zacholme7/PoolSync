@@ -2118,6 +2118,7 @@ dependencies = [
  "async-trait",
  "dotenv",
  "futures",
+ "hex",
  "indicatif",
  "once_cell",
  "reqwest",

@@ -6,6 +6,7 @@
 //!
 use alloy::network::Network;
 use alloy::providers::Provider;
+use alloy::sol_types::{SolCall, SolInterface};
 use alloy::dyn_abi::{DynSolType, DynSolValue};
 use alloy::providers::RootProvider;
 use alloy::pubsub::PubSubFrontend;
@@ -15,6 +16,7 @@ use alloy::primitives::Address;
 use alloy::transports::Transport;
 use futures::future::join_all;
 use indicatif::{ProgressBar, ProgressStyle};
+use tokio::task::JoinHandle;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -102,8 +104,11 @@ impl PoolSync {
             let mut handles = vec![];
 
             if block_difference > 0 {
-                // go through each step in our range and spawn a task for it
+                let mut i = 0;
+                // go though every range and fetch the blocks for that range
                 for from_block in (start_block..=end_block).step_by(step_size as usize) {
+                        if i < 10 {
+
                     let to_block = (from_block + step_size - 1).min(end_block);
                     let fetcher = self.fetchers[&cache.pool_type].clone();
                     let handle = tokio::task::spawn(
@@ -117,10 +122,12 @@ impl PoolSync {
                             progress_bar.clone()
                     ));
                     handles.push(handle);
+                    i += 1;
+                }
                 }
 
-                // this is all of the pools that we have found, each pool is default init with just
-                // the pool address
+
+                // process the results and add all the pools to the cache instance
                 let pools_with_addr = join_all(handles).await;
                 for result in pools_with_addr {
                     if let Ok(p)  = result {
@@ -128,6 +135,11 @@ impl PoolSync {
                     }
                 }
            }
+
+           // once we have extracted all of the pools for this type, we need to fetch the data
+           self.populate_pool_data(provider.clone(), cache).await;
+
+           // set hte last block that we have syned
             cache.last_synced_block = end_block;
         }
 
@@ -180,33 +192,85 @@ impl PoolSync {
             }
         }
 
-        let tmp: Vec<Address> = pools.iter().map(|p| p.address()).collect();
-        PoolSync::populate_pool_data(provider.clone(), tmp).await;
-
-
-        // populate all of the pools with the rest of the inforation
-        //fetcher.populate_pool_data(pools);
         progress_bar.inc(1);
         pools
     }
+    
+pub async fn populate_pool_data_helper<P, T, N>(provider: Arc<P>, cache: Vec<Address>, semaphore: Arc<Semaphore>, fetcher: Arc<dyn PoolFetcher>)
+where    
+    P: Provider<T, N> + 'static,
+    T: Transport + Clone + 'static,
+    N: Network,
+{
+        let _permit = semaphore
+                .acquire()
+                .await.unwrap();
 
-    pub async fn populate_pool_data<P, T, N>(provider: Arc<P>, pools: Vec<Address>)
-    where    
-        P: Provider<T, N> + 'static,
-        T: Transport + Clone + 'static,
-        N: Network,
-    {
-        let uniswap_v2 = UniswapV2DataSync::deploy_builder(provider, pools);
-        let pools = uniswap_v2.call().await.unwrap();
-        println!("{:?}", pools);
-        
+        let deployer = UniswapV2DataSync::deploy_builder(provider, cache);
+        let res = deployer.call().await.unwrap();
+        let constructor_return = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+                DynSolType::Address,
+                DynSolType::Uint(8),
+                DynSolType::Address,
+                DynSolType::Uint(8),
+                DynSolType::Uint(112),
+                DynSolType::Uint(112),
+        ])));
+        let return_data_tokens = constructor_return.abi_decode_sequence(&res).unwrap();
 
+        if let Some(tokens_arr)  = return_data_tokens.as_array() {
+                for token in tokens_arr {
+                        if let Some(tokens) = token.as_tuple() {
+                                let pool = fetcher.construct_pool_from_data(tokens);
+                                println!("{:?}", pool);
+                        }
+                }
+        }
 
-        
+}
 
+pub async fn populate_pool_data<P, T, N>(&self, provider: Arc<P>, cache: &mut PoolCache)
+where    
+    P: Provider<T, N> + 'static,
+    T: Transport + Clone + 'static,
+    N: Network,
+{
+    let pool_addresses: Vec<Address> = cache.pools.iter().map(|p| p.address()).collect();
+    let addr_chunks: Vec<Vec<Address>> = pool_addresses.chunks(70).map(|chunk| chunk.to_vec()).collect();
+    let mut handles = Vec::new();
 
-
+        let rate_limiter = Arc::new(Semaphore::new(self.rate_limit));
+    
+let fetcher = self.fetchers[&cache.pool_type].clone();
+    for chunk in addr_chunks {
+        let provider_clone = provider.clone();
+        let handle = tokio::task::spawn(PoolSync::populate_pool_data_helper(provider.clone(), chunk, rate_limiter.clone(), fetcher.clone()));
+        handles.push(handle);
     }
+
+    let results = join_all(handles).await;
+
+
+}
+
+/* 
+fn populate_pool_data_from_tokens(
+        mut pool: UniswapV2Pool,
+        tokens: &[DynSolValue],
+    ) -> Option<UniswapV2Pool> {
+        pool.token_a = tokens[0].as_address()?;
+        pool.token_a_decimals = tokens[1].as_uint()?.0.to::<u8>();
+        pool.token_b = tokens[2].as_address()?;
+        pool.token_b_decimals = tokens[3].as_uint()?.0.to::<u8>();
+        pool.reserve_0 = tokens[4].as_uint()?.0.to::<u128>();
+        pool.reserve_1 = tokens[5].as_uint()?.0.to::<u128>();
+    
+        Some(pool)
+    }
+    */
+
+
+
 
     /// Creates a progress bar for visual feedback during synchronization
     fn create_progress_bar(&self, total_steps: u64) -> ProgressBar {

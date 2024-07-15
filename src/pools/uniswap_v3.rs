@@ -3,11 +3,17 @@
 //! This module provides the Uniswap V3-specific implementations for pool synchronization,
 //! including the pool structure, factory contract interface, and pool fetcher.
 
+use std::sync::Arc;
+
 use crate::chain::Chain;
 use crate::pools::{Pool, PoolFetcher, PoolType};
+use alloy::dyn_abi::DynSolValue;
+use alloy::network::Network;
 use alloy::primitives::address;
 use alloy::primitives::{Address, Log, U128};
+use alloy::providers::Provider;
 use alloy::sol_types::{sol, SolEvent};
+use alloy::transports::Transport;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -97,4 +103,20 @@ impl PoolFetcher for UniswapV3Fetcher {
             ..Default::default()
        }))
     }
+
+    fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool{
+        todo!()
+
+    }
+
+    /* 
+    async fn sync_pool_data<P, T, N>(&self, provider: Arc<P>, addresses: Vec<Address>) -> Vec<Pool>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network
+    {
+        todo!()
+    }
+    */
 }
