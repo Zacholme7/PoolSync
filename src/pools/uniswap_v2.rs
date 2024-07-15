@@ -32,7 +32,7 @@ sol!(
     #[derive(Debug)]
     #[sol(rpc)]
     UniswapV2DataSync,
-    "src/abis/abidata.json"
+    "src/abis/UniswapV2DataSync.json"
 );
 
 /// Represents a Uniswap V2 Automated Market Maker (AMM) pool
@@ -92,13 +92,15 @@ impl PoolFetcher for UniswapV2Fetcher {
 
     fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool{
         Pool::UniswapV2(UniswapV2Pool {
-                token0: data[0].as_address().unwrap(),
-                token0_decimals: data[1].as_uint().unwrap().0.to::<u8>(),
-                token1: data[2].as_address().unwrap(),
-                token1_decimals: data[3].as_uint().unwrap().0.to::<u8>(),
-                token0_reserves: data[4].as_uint().unwrap().0.to::<U128>(),
-                token1_reserves: data[5].as_uint().unwrap().0.to::<U128>(),
-                ..Default::default()
+                address: data[0].as_address().unwrap(),
+                token0: data[1].as_address().unwrap(),
+                token0_decimals: data[2].as_uint().unwrap().0.to::<u8>(),
+                token0_name: data[3].as_str().unwrap().to_string(),
+                token1: data[4].as_address().unwrap(),
+                token1_decimals: data[5].as_uint().unwrap().0.to::<u8>(),
+                token1_name: data[6].as_str().unwrap().to_string(),
+                token0_reserves: data[7].as_uint().unwrap().0.to::<U128>(),
+                token1_reserves: data[8].as_uint().unwrap().0.to::<U128>(),
         })
     }
 }
