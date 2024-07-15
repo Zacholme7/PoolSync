@@ -21,7 +21,7 @@ pub use uniswap_v3::UniswapV3Fetcher;
 
 // Pool modules
 mod sushiswap;
-mod uniswap_v2;
+pub mod uniswap_v2;
 mod uniswap_v3;
 
 /// Enumerates the supported pool types

@@ -56,23 +56,12 @@ async fn main() -> Result<()> {
     let pool_sync = PoolSync::builder()
         .add_pool(PoolType::UniswapV2) // Add all the pools you would like to sync
         .chain(Chain::Ethereum) // Specify the chain
-        .rate_limit(20) // Specify the rate limit
+        .rate_limit(50) // Specify the rate limit
         .build()?;
 
     // Initiate the sync process
     let pools = pool_sync.sync_pools(http_provider.clone(), ws_provider.clone()).await?;
-
     println!("Number of synchronized pools: {}", pools.len());
-
-    // print out common pool information
-    for pool in &pools {
-        println!(
-            "Pool Address {:?}, Token 0: {:?}, Token 1: {:?}",
-            pool.address(),
-            pool.token0(),
-            pool.token1()
-        );
-    }
 
     // extract all pools with top volume tokens
     //let pools_over_top_volume_tokens = filter_top_volume(pools, 10).await?;

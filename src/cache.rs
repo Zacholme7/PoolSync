@@ -21,22 +21,6 @@ pub struct PoolCache {
 }
 
 /// Reads the cache file for the specified pool type and chain
-///
-/// If the cache file exists, it reads and deserializes the content.
-/// If the file doesn't exist, it returns a new PoolCache with default values.
-///
-/// # Arguments
-///
-/// * `pool_type` - The type of pool to read the cache for
-/// * `chain` - The blockchain on which the pools exist
-///
-/// # Returns
-///
-/// A `PoolCache` instance, either from the file or newly created
-///
-/// # Panics
-///
-/// This function will panic if it fails to read the existing cache file or parse its JSON content.
 pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> PoolCache {
     let pool_cache_file = format!("cache/{}_{}_cache.json", chain, pool_type);
     if Path::new(&pool_cache_file).exists() {
@@ -53,15 +37,6 @@ pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> PoolCache {
 }
 
 /// Writes the provided PoolCache to a cache file
-///
-/// # Arguments
-///
-/// * `pool_cache` - The PoolCache instance to be written to the file
-/// * `chain` - The blockchain for which the cache is being written
-///
-/// # Panics
-///
-/// This function will panic if it fails to serialize the PoolCache to JSON or write to the file.
 pub fn write_cache_file(pool_cache: &PoolCache, chain: Chain) {
     let pool_cache_file = format!("cache/{}_{}_cache.json", chain, pool_cache.pool_type);
     let json = serde_json::to_string(&pool_cache).unwrap();

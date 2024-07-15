@@ -22,13 +22,6 @@ pub struct PoolSyncBuilder {
 
 impl PoolSyncBuilder {
     /// Adds a new pool type to be synced
-    ///
-    /// # Arguments
-    ///
-    /// * `pool_type` - The type of pool to add
-    ///
-    /// # Returns
-    ///
     /// The builder instance for method chaining
     pub fn add_pool(mut self, pool_type: PoolType) -> Self {
         match pool_type {
@@ -49,13 +42,6 @@ impl PoolSyncBuilder {
     }
 
     /// Sets the chain to sync on
-    ///
-    /// # Arguments
-    ///
-    /// * `chain` - The chain to set
-    ///
-    /// # Returns
-    ///
     /// The builder instance for method chaining
     pub fn chain(mut self, chain: Chain) -> Self {
         self.chain = Some(chain);
@@ -63,30 +49,13 @@ impl PoolSyncBuilder {
     }
 
     /// Set the rate limit of the rpc
-    ///
-    /// # Arguments
-    ///
-    /// * `rate_limit` - The rate limit of the rpc
-    ///
-    /// # Returns
-    ///
-    /// # The builder instance for method chaining
+    /// The builder instance for method chaining
     pub fn rate_limit(mut self, rate_limit: usize) -> Self {
         self.rate_limit = Some(rate_limit);
         self
     }
 
     /// Consumes the builder and produces a constructed PoolSync
-    ///
-    /// # Returns
-    ///
-    /// A Result containing either the constructed PoolSync or a PoolSyncError
-    ///
-    /// # Errors
-    ///
-    /// Returns a PoolSyncError if:
-    /// - The chain is not set
-    /// - Any of the added pool types are not supported on the specified chain
     pub fn build(self) -> Result<PoolSync, PoolSyncError> {
         // Ensure the chain is set
         let chain = self.chain.ok_or(PoolSyncError::ChainNotSet)?;

@@ -54,14 +54,6 @@ static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
 
 impl Chain {
     /// Determines if a given pool type is supported on this chain
-    ///
-    /// # Arguments
-    ///
-    /// * `pool_type` - The pool type to check for support
-    ///
-    /// # Returns
-    ///
-    /// `true` if the pool type is supported on this chain, `false` otherwise
     pub fn supported(&self, pool_type: &PoolType) -> bool {
         CHAIN_POOLS
             .get(self)

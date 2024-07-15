@@ -6,9 +6,12 @@
 //!
 use alloy::network::Network;
 use alloy::providers::Provider;
+use alloy::dyn_abi::{DynSolType, DynSolValue};
 use alloy::providers::RootProvider;
 use alloy::pubsub::PubSubFrontend;
 use alloy::rpc::types::Filter;
+use alloy::signers::k256::sha2::digest::KeyInit;
+use alloy::primitives::Address;
 use alloy::transports::Transport;
 use futures::future::join_all;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -23,6 +26,7 @@ use crate::cache::{read_cache_file, write_cache_file, PoolCache};
 use crate::chain::Chain;
 use crate::errors::*;
 use crate::pools::*;
+use crate::pools::uniswap_v2::UniswapV2DataSync;
 
 /// The number of blocks to query in one call to get_logs
 const STEP_SIZE: u64 = 10_000;
@@ -109,34 +113,21 @@ impl PoolSync {
                             self.chain.clone(),
                             from_block,
                             to_block,
-                            fetcher
+                            fetcher,
+                            progress_bar.clone()
                     ));
                     handles.push(handle);
                 }
 
                 // this is all of the pools that we have found, each pool is default init with just
                 // the pool address
-                let mut pools = Vec::new();
                 let pools_with_addr = join_all(handles).await;
                 for result in pools_with_addr {
                     if let Ok(p)  = result {
-                        pools.extend(p);
+                        cache.pools.extend(p);
                     }
                 }
-                println!("{:?}", pools.len());
-
-                // once we have all the pools, we will populate each pool with its data
-                //let populated_pools = self.populate_pool_data(provider.clone(), pools_with_addr);
-                /* 
-                for result in pools_with_addr {
-                    match result {
-                        Ok(Ok(pools)) => cache.pools.extend(pools),
-                        Err(_) =>  return Err(PoolSyncError::ProviderError("blah".to_string()))
-                    }
-                }
-                */
-            }
-
+           }
             cache.last_synced_block = end_block;
         }
 
@@ -163,6 +154,7 @@ impl PoolSync {
         from_block: u64,
         to_block: u64,
         fetcher: Arc<dyn PoolFetcher>,
+        progress_bar: ProgressBar,
     ) -> Vec<Pool> 
     where
         P: Provider<T, N> + 'static,
@@ -188,9 +180,32 @@ impl PoolSync {
             }
         }
 
+        let tmp: Vec<Address> = pools.iter().map(|p| p.address()).collect();
+        PoolSync::populate_pool_data(provider.clone(), tmp).await;
+
+
         // populate all of the pools with the rest of the inforation
         //fetcher.populate_pool_data(pools);
+        progress_bar.inc(1);
         pools
+    }
+
+    pub async fn populate_pool_data<P, T, N>(provider: Arc<P>, pools: Vec<Address>)
+    where    
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        let uniswap_v2 = UniswapV2DataSync::deploy_builder(provider, pools);
+        let pools = uniswap_v2.call().await.unwrap();
+        println!("{:?}", pools);
+        
+
+
+        
+
+
+
     }
 
     /// Creates a progress bar for visual feedback during synchronization
