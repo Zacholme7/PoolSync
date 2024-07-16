@@ -87,21 +87,15 @@ impl PoolFetcher for UniswapV3Fetcher {
     }
 
     /// Attempts to create a `Pool` instance from a log entry
-    ///
-    /// # Arguments
-    ///
-    /// * `log` - The log entry potentially containing pool creation data
-    ///
-    /// # Returns
-    ///
-    /// An `Option<Pool>` which is `Some(Pool)` if the log was successfully parsed,
-    /// or `None` if the log did not represent a valid pool creation event or could not be decoded.
-    async fn from_log(&self, log: &Log) -> Option<Pool> {
+    fn log_to_address(&self, log: &Log) -> Address {
+        todo!()
+        /* 
         let decoded_log = UniswapV3Factory::PoolCreated::decode_log(log, false).ok()?;
         Some(Pool::UniswapV3(UniswapV3Pool {
             address: decoded_log.data.pool,
             ..Default::default()
        }))
+       */
     }
 
     fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool{

@@ -85,12 +85,15 @@ impl PoolFetcher for SushiSwapFetcher {
     ///
     /// An `Option<Pool>` which is `Some(Pool)` if the log was successfully parsed,
     /// or `None` if the log did not represent a valid pool creation event.
-    async fn from_log(&self, log: &Log) -> Option<Pool> {
+    fn log_to_address(&self, log: &Log) -> Address {
+        todo!()
+        /* 
         let decoded_log = SushiSwapFactory::PairCreated::decode_log(log, false).ok()?;
         Some(Pool::SushiSwap(SushiSwapPool {
             address: decoded_log.data.pair,
             ..Default::default()
         }))
+        */
     }
     
     fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool{

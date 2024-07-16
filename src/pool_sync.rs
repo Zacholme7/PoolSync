@@ -4,35 +4,24 @@
 //! blockchain networks and protocols. It includes the main `PoolSync` struct and its
 //! associated methods for configuring and executing the synchronization process.
 //!
-use alloy::dyn_abi::{DynSolType, DynSolValue};
 use alloy::network::Network;
-use alloy::primitives::Address;
 use alloy::providers::Provider;
 use alloy::providers::RootProvider;
 use alloy::pubsub::PubSubFrontend;
-use alloy::rpc::types::Filter;
-use alloy::signers::k256::sha2::digest::KeyInit;
-use alloy::sol_types::{SolCall, SolInterface};
 use alloy::transports::Transport;
-use futures::future::join_all;
-use indicatif::{ProgressBar, ProgressStyle};
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
-use tokio::task::JoinHandle;
 
 use crate::builder::PoolSyncBuilder;
 use crate::cache::{read_cache_file, write_cache_file, PoolCache};
 use crate::chain::Chain;
 use crate::errors::*;
-use crate::pools::uniswap_v2::UniswapV2DataSync;
 use crate::pools::*;
+use crate::rpc::Rpc;
 
 /// The number of blocks to query in one call to get_logs
 const STEP_SIZE: u64 = 10_000;
-
 /// The maximum number of retries for a failed query
 const MAX_RETRIES: u32 = 5;
 
@@ -66,7 +55,7 @@ impl PoolSync {
         // create the cache files
         std::fs::create_dir_all("cache").unwrap();
 
-        // get all teh eachers
+        // create all of the caches
         let mut pool_caches: Vec<PoolCache> = self
             .fetchers
             .keys()
@@ -78,34 +67,28 @@ impl PoolSync {
 
         // go though each cache, may or may not already by synced up to some point
         for cache in &mut pool_caches {
-            // start at the last block this pool synced to, will be 10_000_000 if first sync
-            // go to the current block
             let start_block = cache.last_synced_block;
-            let block_difference = end_block.saturating_sub(start_block);
+            let fetcher = self.fetchers[&cache.pool_type].clone();
 
+            // fetch all of the pool addresses
+            let pools = Rpc::fetch_pool_addrs(
+                start_block,
+                end_block,
+                provider.clone(),
+                fetcher,
+                self.chain
+            ).await;
 
-            let pools = Vec::new();
+            // populate all of the pool addresses
+            let populated_pools = Rpc::populate_pools(
+                pools,
+                provider.clone()
+            ).await;
 
-            if block_difference > 0 {
-                let (total_steps, step_size) = if block_difference < STEP_SIZE {
-                    (1, block_difference)
-                } else {
-                    (
-                        ((block_difference as f64) / (STEP_SIZE as f64)).ceil() as u64,
-                        STEP_SIZE,
-                    )
-                };
-
-                let progress_bar = self.create_progress_bar(total_steps);
-                let fetcher = self.fetchers[&cache.pool_type].clone();
-
-                let pool_addrs = Rpc::fetch_pool_addrs(provider.clone());
-                let populated_pools = Rpc::populate_pools(pool_addrs, provider.clone());
-                cache.pools = populated_pools;
-            }
-
+            // update the cache
+            cache.pools.extend(populated_pools);
             cache.last_synced_block = end_block;
-             write_cache_file(cache, self.chain)?;
+            write_cache_file(cache, self.chain)?;
         }
 
         // return all the pools
@@ -113,19 +96,7 @@ impl PoolSync {
             .into_iter()
             .flat_map(|cache| cache.pools)
             .collect())
+
     }
 
-
-}
-
-/// Creates a progress bar for visual feedback during synchronization
-fn create_progress_bar(total_steps: u64) -> ProgressBar {
-let pb = ProgressBar::new(total_steps);
-pb.set_style(
-        ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] All pools: tasks completed {bar:40.cyan/blue} {pos}/{len} {msg}")
-        .unwrap()
-        .progress_chars("##-"),
-);
-pb
 }

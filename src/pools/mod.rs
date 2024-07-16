@@ -72,7 +72,7 @@ pub trait PoolFetcher: Send + Sync {
     fn pair_created_signature(&self) -> &str;
 
     /// Attempts to create a `Pool` instance from a log entry
-    async fn from_log(&self, log: &Log) -> Option<Pool>;
+    fn log_to_address(&self, log: &Log) -> Address;
 
     fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool;
 

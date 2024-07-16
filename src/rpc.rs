@@ -1,115 +1,121 @@
+use alloy::providers::Provider;
+use alloy::transports::Transport;
+use alloy::network::Network;
+use futures::future::join_all;
+use tokio::sync::Semaphore;
+use tokio::task::JoinHandle;
+use std::sync::Arc;
+use alloy::primitives::Address;
+use alloy::rpc::types::Filter;
 
+use crate::pools::PoolFetcher;
+use crate::util::create_progress_bar;
+use crate::Chain;
 
+/// The number of blocks to query in one call to get_logs
+const STEP_SIZE: u64 = 10_000;
 
 pub struct Rpc;
-
 impl Rpc {
-        pub fn fetch_pool_addrs(start_block: u64, end_block: u64, provder: Blah) -> Vec<Address> {
-                // this is the same for all pools
-                // just have to use the fethcer to get addrress and stuff and can decode the address
-                //this 
-
-
-
-
-
-                todo!()
-        }
-
-
-        pub fn populate_pools(pools_addrs: Vec<Address> ) -> Vec<Pool> {
-                // I need to break it all up a,nd then some
-
-
-
-        }
-}       /* 
-                let handles: Vec<_> = (start_block..=end_block)
-                    .step_by(step_size as usize)
-                    .map(|from_block| {
-                        let to_block = (from_block + step_size - 1).min(end_block);
-                        self.fetch_and_process_block_range(
-                            provider.clone(),
-                            rate_limiter.clone(),
-                            self.chain,
-                            from_block,
-                            to_block,
-                            fetcher.clone(),
-                            progress_bar.clone(),
-                        )
-                    })
-                    .collect();
-                let pools_with_addr = join_all(handles).await;
-                pools.extend(pools_with_addr.into_iter().flatten());
-                */
-
-
-                /*
-                
-                  async fn fetch_and_process_block_range<P, T, N>(
-        &self,
-        provider: Arc<P>,
-        semaphore: Arc<Semaphore>,
-        chain: Chain,
-        from_block: u64,
-        to_block: u64,
-        fetcher: Arc<dyn PoolFetcher>,
-        progress_bar: ProgressBar,
-    ) -> Vec<Pool>
+    // Will fetch all of the pool addresses for the specified pool in the range start_block..end_block
+    pub async fn fetch_pool_addrs<P, T, N>(
+        start_block: u64, 
+        end_block: u64, 
+        provider: Arc<P>, 
+        fetcher: Arc<dyn PoolFetcher>, 
+        chain: Chain
+    ) -> Option<Vec<Address>> 
     where
         P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let _permit = semaphore.acquire().await.unwrap();
+        let rate_limiter = Arc::new(Semaphore::new(25));
+        let block_difference = end_block.saturating_sub(start_block);
 
-        let filter = Filter::new()
-            .address(fetcher.factory_address(chain))
-            .event(fetcher.pair_created_signature())
-            .from_block(from_block)
-            .to_block(to_block);
+        // if this is the first sync or there are new blocks
+        if block_difference > 0 {
+            // dertemine total steps and size
+            let (total_steps, step_size) = if block_difference < STEP_SIZE {
+                (1, block_difference)
+            } else {
+                (((block_difference as f64) / (STEP_SIZE as f64)).ceil() as u64,STEP_SIZE,)
+            };
 
-        let logs = provider.get_logs(&filter).await.unwrap();
-        let pools = join_all(
-            logs.iter()
-                .map(|log| async { fetcher.from_log(&log.inner).await }),
-        )
-        .await
-        .into_iter()
-        .flatten()
-        .collect();
+            let progress_bar = create_progress_bar(total_steps);
 
-        progress_bar.inc(1);
-        pools
+            // create all of the fetching futures
+            let future_handles: Vec<JoinHandle<Vec<Address>>> = (start_block..=end_block)
+                .step_by(step_size as usize)
+                .map(|from_block| {
+                    // state for the task,
+                    // shadow arc variables
+                    let to_block = (from_block + step_size -1).min(end_block);
+                    let rate_limiter = rate_limiter.clone();
+                    let provider = provider.clone();
+                    let progress_bar = progress_bar.clone();
+                    let fetcher = fetcher.clone();
+
+                    // spawn the task that will query and process the logs
+                    tokio::task::spawn(async move {
+                        // if we can acquire, then we can request
+                        let _permit = rate_limiter.acquire().await.unwrap();
+
+                        // setup filter for the pool
+                        let filter = Filter::new()
+                            .address(fetcher.factory_address(chain))
+                            .event(fetcher.pair_created_signature())
+                            .from_block(from_block)
+                            .to_block(to_block);
+
+                        // fetch and process the logs
+                        let logs = provider.get_logs(&filter).await.unwrap();
+                        let addresses: Vec<Address> = logs.iter().map(|log| fetcher.log_to_address(&log.inner)).collect();
+                        progress_bar.inc(1);
+                        addresses
+                    })
+                }).collect();
+
+                // await the futures and extract the addresses
+                let pool_addrs = join_all(future_handles).await;
+                let pool_addrs = pool_addrs.into_iter().filter_map(Result::ok).flatten().collect();
+                return Some(pool_addrs)
+        };
+        None 
     }
 
-    pub async fn populate_pool_data_helper<P, T, N>(
-        provider: Arc<P>,
-        cache: Vec<Address>,
-        semaphore: Arc<Semaphore>,
-        fetcher: Arc<dyn PoolFetcher>,
-    ) -> Vec<Pool>
-    where
-        P: Provider<T, N> + 'static,
-        T: Transport + Clone + 'static,
-        N: Network,
-    {
-        let _permit = semaphore.acquire().await.unwrap();
 
-        let deployer = UniswapV2DataSync::deploy_builder(provider, cache);
-        let res = deployer.call().await.unwrap();
-        let constructor_return = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
-            DynSolType::Address,
-            DynSolType::Address,
-            DynSolType::Uint(8),
-            DynSolType::String,
-            DynSolType::Address,
-            DynSolType::Uint(8),
-            DynSolType::String,
-            DynSolType::Uint(112),
-            DynSolType::Uint(112),
-        ])));
-        let return_data_tokens = constructor_return.abi_decode_sequence(&res).unwrap();
+
+}
+
+            /* 
+pub async fn populate_pool_data_helper<P, T, N>(
+    provider: Arc<P>,
+    cache: Vec<Address>,
+    semaphore: Arc<Semaphore>,
+    fetcher: Arc<dyn PoolFetcher>,
+) -> Vec<Pool>
+where
+    P: Provider<T, N> + 'static,
+    T: Transport + Clone + 'static,
+    N: Network,
+{
+    let _permit = semaphore.acquire().await.unwrap();
+
+    let deployer = UniswapV2DataSync::deploy_builder(provider, cache);
+    let res = deployer.call().await.unwrap();
+    let constructor_return = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+        DynSolType::Address,
+        DynSolType::Address,
+        DynSolType::Uint(8),
+        DynSolType::String,
+        DynSolType::Address,
+        DynSolType::Uint(8),
+        DynSolType::String,
+        DynSolType::Uint(112),
+        DynSolType::Uint(112),
+    ])));
+    let return_data_tokens = constructor_return.abi_decode_sequence(&res).unwrap();
 
         let mut pools = Vec::new();
         if let Some(tokens_arr) = return_data_tokens.as_array() {

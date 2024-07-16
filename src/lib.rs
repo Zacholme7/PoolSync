@@ -19,3 +19,5 @@ mod rpc;
 pub mod filter;
 mod pool_sync;
 mod pools;
+mod util;
+

@@ -28,13 +28,6 @@ sol!(
 );
 
 
-sol!(
-    #[derive(Debug)]
-    #[sol(rpc)]
-    UniswapV2DataSync,
-    "src/abis/UniswapV2DataSync.json"
-);
-
 /// Represents a Uniswap V2 Automated Market Maker (AMM) pool
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UniswapV2Pool {
@@ -82,12 +75,9 @@ impl PoolFetcher for UniswapV2Fetcher {
     }
 
     /// Attempts to create a `Pool` instance from a log entry
-    async fn from_log(&self, log: &Log) -> Option<Pool> {
+    fn log_to_address(&self, log: &Log) -> Address {
         let decoded_log = UniswapV2Factory::PairCreated::decode_log(log, false).unwrap();
-        Some(Pool::UniswapV2(UniswapV2Pool {
-            address: decoded_log.data.pair,
-            ..Default::default()
-        }))
+        decoded_log.data.pair
     }
 
     fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool{
