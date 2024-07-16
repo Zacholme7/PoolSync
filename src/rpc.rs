@@ -11,6 +11,8 @@ use alloy::rpc::types::Filter;
 use crate::pools::PoolFetcher;
 use crate::util::create_progress_bar;
 use crate::Chain;
+use crate::Pool;
+use crate::PoolType;
 
 /// The number of blocks to query in one call to get_logs
 const STEP_SIZE: u64 = 10_000;
@@ -84,11 +86,35 @@ impl Rpc {
         None 
     }
 
+    pub async fn populate_pools<P, T, N>(
+        pool_addrs: Vec<Address>,
+        provider: Arc<P>,
+        pool: PoolType
+    ) -> Vec<Pool> 
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        // map all the addresses into chunks the contract can handle
+        let addr_chuncks : Vec<Vec<Address>> = pool_addrs.chunks(50).map(|chunk| chunk.to_vec()).collect();
 
+        let future_handles: Vec<JoinHandle<Vec<Pool>>> = addr_chuncks
+            .into_iter()
+            .map(|chunk| {
+                let provider = provider.clone();
+                tokio::task::spawn( async move {
+                    pool.build_pools_from_addrs(provider, chunk).await
+                })
+            }).collect();
 
+        let populated_pools = join_all(future_handles).await;
+        let populated_pools: Vec<Pool> = populated_pools.into_iter().filter_map(Result::ok).flatten().collect();
+        populated_pools
+    }
 }
 
-            /* 
+/* 
 pub async fn populate_pool_data_helper<P, T, N>(
     provider: Arc<P>,
     cache: Vec<Address>,

@@ -35,6 +35,26 @@ pub enum PoolType {
     SushiSwap,
 }
 
+
+impl PoolType {
+    pub async fn build_pools_from_addrs<P, T, N>(
+        &self,
+        provider: Arc<P>,
+        addresses: Vec<Address>
+    ) -> Vec<Pool>
+    where
+        P: Provider<T, N> + Sync,
+        T: Transport + Sync + Clone,
+        N: Network
+    {
+        match  self {
+            PoolType::UniswapV2 => UniswapV2Fetcher.build_pools_from_addrs(provider, addresses).await,
+            PoolType::UniswapV3 => todo!(),
+            PoolType::SushiSwap => todo!()
+        }
+    }
+}
+
 impl fmt::Display for PoolType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)

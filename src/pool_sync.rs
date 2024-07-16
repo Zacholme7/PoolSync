@@ -63,7 +63,6 @@ impl PoolSync {
             .collect();
 
         let end_block = provider.get_block_number().await.unwrap();
-        let rate_limiter = Arc::new(Semaphore::new(self.rate_limit));
 
         // go though each cache, may or may not already by synced up to some point
         for cache in &mut pool_caches {
@@ -71,24 +70,25 @@ impl PoolSync {
             let fetcher = self.fetchers[&cache.pool_type].clone();
 
             // fetch all of the pool addresses
-            let pools = Rpc::fetch_pool_addrs(
+            let pool_addrs = Rpc::fetch_pool_addrs(
                 start_block,
                 end_block,
                 provider.clone(),
-                fetcher,
+                fetcher.clone(),
                 self.chain
-            ).await;
+            ).await.unwrap();
 
             // populate all of the pool addresses
             let populated_pools = Rpc::populate_pools(
-                pools,
-                provider.clone()
+                pool_addrs,
+                provider.clone(),
+                cache.pool_type
             ).await;
 
             // update the cache
             cache.pools.extend(populated_pools);
             cache.last_synced_block = end_block;
-            write_cache_file(cache, self.chain)?;
+            write_cache_file(cache, self.chain);
         }
 
         // return all the pools

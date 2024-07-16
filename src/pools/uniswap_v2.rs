@@ -54,6 +54,24 @@ pub struct UniswapV2Pool {
 /// Uniswap V2 pool fetcher implementation
 pub struct UniswapV2Fetcher;
 
+
+impl UniswapV2Fetcher {
+    pub async fn build_pools_from_addrs<P, T, N>(
+        &self,
+        provider: Arc<P>,
+        addresses: Vec<Address>
+    ) -> Vec<Pool>
+    where
+        P: Provider<T, N> + Sync,
+        T: Transport + Sync + Clone,
+        N: Network
+    {
+        let pools: Vec<Pool> = Vec::new();
+        println!("{:?}", addresses);
+        pools
+    }
+}
+
 #[async_trait]
 impl PoolFetcher for UniswapV2Fetcher {
     /// Returns the pool type for Uniswap V2
@@ -80,17 +98,7 @@ impl PoolFetcher for UniswapV2Fetcher {
         decoded_log.data.pair
     }
 
-    fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool{
-        Pool::UniswapV2(UniswapV2Pool {
-                address: data[0].as_address().unwrap(),
-                token0: data[1].as_address().unwrap(),
-                token0_decimals: data[2].as_uint().unwrap().0.to::<u8>(),
-                token0_name: data[3].as_str().unwrap().to_string(),
-                token1: data[4].as_address().unwrap(),
-                token1_decimals: data[5].as_uint().unwrap().0.to::<u8>(),
-                token1_name: data[6].as_str().unwrap().to_string(),
-                token0_reserves: data[7].as_uint().unwrap().0.to::<U128>(),
-                token1_reserves: data[8].as_uint().unwrap().0.to::<U128>(),
-        })
+    fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool {
+        todo!()
     }
 }
