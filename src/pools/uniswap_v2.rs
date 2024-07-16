@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use crate::chain::Chain;
 use crate::pools::{Pool, PoolFetcher, PoolType};
-use alloy::dyn_abi::DynSolValue;
+use alloy::dyn_abi::{DynSolType, DynSolValue};
 use alloy::network::Network;
 use alloy::primitives::{address, Address, Log};
 use alloy::primitives::U128;
@@ -26,6 +26,14 @@ sol!(
         event PairCreated(address indexed token0, address indexed token1, address pair, uint256);
     }
 );
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    UniswapV2DataSync,
+    "src/abi/UniswapV2DataSync.json"
+);
+
 
 
 /// Represents a Uniswap V2 Automated Market Maker (AMM) pool
@@ -55,6 +63,7 @@ pub struct UniswapV2Pool {
 pub struct UniswapV2Fetcher;
 
 
+
 impl UniswapV2Fetcher {
     pub async fn build_pools_from_addrs<P, T, N>(
         &self,
@@ -62,13 +71,53 @@ impl UniswapV2Fetcher {
         addresses: Vec<Address>
     ) -> Vec<Pool>
     where
-        P: Provider<T, N> + Sync,
+        P: Provider<T, N> + Sync + 'static,
         T: Transport + Sync + Clone,
         N: Network
     {
-        let pools: Vec<Pool> = Vec::new();
-        println!("{:?}", addresses);
-        pools
+        let uniswapv2_data: DynSolType =  DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+            DynSolType::Address,
+            DynSolType::Address,
+            DynSolType::Uint(8),
+            DynSolType::String,
+            DynSolType::Address,
+            DynSolType::Uint(8),
+            DynSolType::String,
+            DynSolType::Uint(112),
+            DynSolType::Uint(112),
+        ])));
+
+        let mut populated_pools: Vec<Pool> = Vec::new();
+        let data = UniswapV2DataSync::deploy_builder(provider, addresses).await.unwrap();
+        let decoded_data = uniswapv2_data.abi_decode_sequence(&data).unwrap();
+
+        if let Some(pool_data_arr) = decoded_data.as_array() {
+            for pool_data_tuple in pool_data_arr {
+                if let Some(pool_data) = pool_data_tuple.as_tuple() {
+                    let pool = Pool::UniswapV2(UniswapV2Pool::from(pool_data));
+                    populated_pools.push(pool);
+                }
+            }
+        }
+
+        populated_pools
+    }
+}
+
+
+impl From<&[DynSolValue]> for UniswapV2Pool {
+    fn from(data: &[DynSolValue]) -> Self {
+        Self {
+            address: data[0].as_address().unwrap(),
+            token0: data[1].as_address().unwrap(),
+            token0_decimals: data[2].as_uint().unwrap().0.to::<u8>(),
+            token0_name: data[3].as_str().unwrap().into(),
+            token1: data[4].as_address().unwrap(),
+            token1_decimals: data[5].as_uint().unwrap().0.to::<u8>(),
+            token1_name: data[6].as_str().unwrap().into(),
+            token0_reserves: data[7].as_uint().unwrap().0.to::<U128>(),
+            token1_reserves: data[8].as_uint().unwrap().0.to::<U128>(),
+        }
     }
 }
 

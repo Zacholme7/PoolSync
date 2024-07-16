@@ -29,7 +29,7 @@ pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> PoolCache {
         pool_cache
     } else {
         PoolCache {
-            last_synced_block: 10000000,
+            last_synced_block: 20000000,
             pool_type: *pool_type,
             pools: Vec::new(),
         }

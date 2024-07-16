@@ -43,7 +43,7 @@ impl PoolType {
         addresses: Vec<Address>
     ) -> Vec<Pool>
     where
-        P: Provider<T, N> + Sync,
+        P: Provider<T, N> + Sync + 'static,
         T: Transport + Sync + Clone,
         N: Network
     {

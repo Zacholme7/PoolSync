@@ -62,6 +62,7 @@ async fn main() -> Result<()> {
     // Initiate the sync process
     let pools = pool_sync.sync_pools(http_provider.clone(), ws_provider.clone()).await?;
     println!("Number of synchronized pools: {}", pools.len());
+    println!("{:?}", pools);
 
     // extract all pools with top volume tokens
     //let pools_over_top_volume_tokens = filter_top_volume(pools, 10).await?;

@@ -96,15 +96,25 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
+        let total_tasks = pool_addrs.len() / 40;
+        let progress_bar = create_progress_bar(total_tasks as u64);
+        
         // map all the addresses into chunks the contract can handle
-        let addr_chuncks : Vec<Vec<Address>> = pool_addrs.chunks(50).map(|chunk| chunk.to_vec()).collect();
+        let addr_chuncks : Vec<Vec<Address>> = pool_addrs.chunks(40).map(|chunk| chunk.to_vec()).collect();
+
+        let rate_limiter = Arc::new(Semaphore::new(20));
 
         let future_handles: Vec<JoinHandle<Vec<Pool>>> = addr_chuncks
             .into_iter()
             .map(|chunk| {
                 let provider = provider.clone();
+                let rate_limiter = rate_limiter.clone();
+                let progress_bar = progress_bar.clone();
                 tokio::task::spawn( async move {
-                    pool.build_pools_from_addrs(provider, chunk).await
+                    let _permit = rate_limiter.acquire().await.unwrap();
+                    let populated_pools = pool.build_pools_from_addrs(provider, chunk).await;
+                    progress_bar.inc(1);
+                    populated_pools
                 })
             }).collect();
 
@@ -113,89 +123,3 @@ impl Rpc {
         populated_pools
     }
 }
-
-/* 
-pub async fn populate_pool_data_helper<P, T, N>(
-    provider: Arc<P>,
-    cache: Vec<Address>,
-    semaphore: Arc<Semaphore>,
-    fetcher: Arc<dyn PoolFetcher>,
-) -> Vec<Pool>
-where
-    P: Provider<T, N> + 'static,
-    T: Transport + Clone + 'static,
-    N: Network,
-{
-    let _permit = semaphore.acquire().await.unwrap();
-
-    let deployer = UniswapV2DataSync::deploy_builder(provider, cache);
-    let res = deployer.call().await.unwrap();
-    let constructor_return = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
-        DynSolType::Address,
-        DynSolType::Address,
-        DynSolType::Uint(8),
-        DynSolType::String,
-        DynSolType::Address,
-        DynSolType::Uint(8),
-        DynSolType::String,
-        DynSolType::Uint(112),
-        DynSolType::Uint(112),
-    ])));
-    let return_data_tokens = constructor_return.abi_decode_sequence(&res).unwrap();
-
-        let mut pools = Vec::new();
-        if let Some(tokens_arr) = return_data_tokens.as_array() {
-            for token in tokens_arr {
-                if let Some(tokens) = token.as_tuple() {
-                    let pool = fetcher.construct_pool_from_data(tokens);
-                    pools.push(pool);
-                }
-            }
-        }
-        pools
-    }
-
-    pub async fn populate_pool_data<P, T, N>(&self, provider: Arc<P>, cache: &mut PoolCache)
-    where
-        P: Provider<T, N> + 'static,
-        T: Transport + Clone + 'static,
-        N: Network,
-    {
-        // collect the pool addresses and separate them into chuncks
-        let pool_addresses: Vec<Address> = cache.pools.iter().map(|p| p.address()).collect();
-        
-        let addr_chunks: Vec<Vec<Address>> = pool_addresses
-            .chunks(5)
-            .map(|chunk| chunk.to_vec())
-            .collect();
-
-
-
-
-        let mut handles = Vec::new();
-
-        let rate_limiter = Arc::new(Semaphore::new(self.rate_limit));
-
-        let fetcher = self.fetchers[&cache.pool_type].clone();
-        for chunk in addr_chunks {
-            let provider_clone = provider.clone();
-            let handle = tokio::task::spawn(PoolSync::populate_pool_data_helper(
-                provider.clone(),
-                chunk,
-                rate_limiter.clone(),
-                fetcher.clone(),
-            ));
-            handles.push(handle);
-        }
-
-        let mut data_pools = Vec::new();
-        let results = join_all(handles).await;
-        for res in results {
-            if let Ok(res) = res {
-                data_pools.extend(res);
-            }
-        }
-        println!("data_pools: {}", data_pools.len());
-    }
-                
-                 */
