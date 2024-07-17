@@ -95,20 +95,4 @@ impl PoolFetcher for SushiSwapFetcher {
         }))
         */
     }
-    
-    fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool{
-        todo!()
-
-    }
-
-    /* 
-    async fn sync_pool_data<P, T, N>(&self, provider: Arc<P>, addresses: Vec<Address>) -> Vec<Pool>
-    where
-        P: Provider<T, N> + 'static,
-        T: Transport + Clone + 'static,
-        N: Network
-    {
-        todo!()
-    }
-    */
 }

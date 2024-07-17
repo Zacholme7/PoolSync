@@ -34,16 +34,16 @@ async fn main() -> Result<()> {
     // Load environment variables from a .env file if present
     dotenv::dotenv().ok();
     let url = std::env::var("ETH")?;
-    let anvil = Anvil::new().fork(url).try_spawn()?;
-    let signer: PrivateKeySigner = anvil.keys()[0].clone().into();
-    let wallet = EthereumWallet::from(signer);
+    //let anvil = Anvil::new().fork(url).try_spawn()?;
+    //let signer: PrivateKeySigner = anvil.keys()[0].clone().into();
+    //let wallet = EthereumWallet::from(signer);
 
     let http_provider = Arc::new(
         ProviderBuilder::new()
             .network::<alloy::network::AnyNetwork>()
-            .with_recommended_fillers()
-            .wallet(wallet)
-            .on_http(anvil.endpoint_url()),
+            //.with_recommended_fillers()
+            //.wallet(wallet)
+            .on_http(url.parse().unwrap())
     );
 
     let ws_provider = Arc::new(
@@ -62,7 +62,6 @@ async fn main() -> Result<()> {
     // Initiate the sync process
     let pools = pool_sync.sync_pools(http_provider.clone(), ws_provider.clone()).await?;
     println!("Number of synchronized pools: {}", pools.len());
-    println!("{:?}", pools);
 
     // extract all pools with top volume tokens
     //let pools_over_top_volume_tokens = filter_top_volume(pools, 10).await?;

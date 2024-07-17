@@ -32,7 +32,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let rate_limiter = Arc::new(Semaphore::new(25));
+        let rate_limiter = Arc::new(Semaphore::new(100));
         let block_difference = end_block.saturating_sub(start_block);
 
         // if this is the first sync or there are new blocks
@@ -102,7 +102,7 @@ impl Rpc {
         // map all the addresses into chunks the contract can handle
         let addr_chuncks : Vec<Vec<Address>> = pool_addrs.chunks(40).map(|chunk| chunk.to_vec()).collect();
 
-        let rate_limiter = Arc::new(Semaphore::new(20));
+        let rate_limiter = Arc::new(Semaphore::new(100));
 
         let future_handles: Vec<JoinHandle<Vec<Pool>>> = addr_chuncks
             .into_iter()

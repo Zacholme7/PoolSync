@@ -93,16 +93,6 @@ pub trait PoolFetcher: Send + Sync {
 
     /// Attempts to create a `Pool` instance from a log entry
     fn log_to_address(&self, log: &Log) -> Address;
-
-    fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool;
-
-    /* 
-    async fn sync_pool_data<P, T, N>(&self, provider: Arc<P>, addresses: Vec<Address>) -> Vec<Pool>
-    where
-        P: Provider<T, N> + 'static,
-        T: Transport + Clone + 'static,
-        N: Network;
-        */
 }
 
 /// Defines common methods that are used to access information about the pools

@@ -45,9 +45,9 @@ pub struct UniswapV2Pool {
     pub token0: Address,
     /// The address of the second token in the pair
     pub token1: Address,
-    /// The name of the first token in the pair
+    // The name of the first token in the pair
     pub token0_name: String,
-    /// The name of the second token in the pair
+    // The name of the second token in the pair
     pub token1_name: String,
     /// The amount of decimals in the first token
     pub token0_decimals: u8,
@@ -78,11 +78,9 @@ impl UniswapV2Fetcher {
         let uniswapv2_data: DynSolType =  DynSolType::Array(Box::new(DynSolType::Tuple(vec![
             DynSolType::Address,
             DynSolType::Address,
-            DynSolType::Uint(8),
-            DynSolType::String,
             DynSolType::Address,
             DynSolType::Uint(8),
-            DynSolType::String,
+            DynSolType::Uint(8),
             DynSolType::Uint(112),
             DynSolType::Uint(112),
         ])));
@@ -110,13 +108,12 @@ impl From<&[DynSolValue]> for UniswapV2Pool {
         Self {
             address: data[0].as_address().unwrap(),
             token0: data[1].as_address().unwrap(),
-            token0_decimals: data[2].as_uint().unwrap().0.to::<u8>(),
-            token0_name: data[3].as_str().unwrap().into(),
-            token1: data[4].as_address().unwrap(),
-            token1_decimals: data[5].as_uint().unwrap().0.to::<u8>(),
-            token1_name: data[6].as_str().unwrap().into(),
-            token0_reserves: data[7].as_uint().unwrap().0.to::<U128>(),
-            token1_reserves: data[8].as_uint().unwrap().0.to::<U128>(),
+            token1: data[2].as_address().unwrap(),
+            token0_decimals: data[3].as_uint().unwrap().0.to::<u8>(),
+            token1_decimals: data[4].as_uint().unwrap().0.to::<u8>(),
+            token0_reserves: data[5].as_uint().unwrap().0.to::<U128>(),
+            token1_reserves: data[6].as_uint().unwrap().0.to::<U128>(),
+            ..Default::default()
         }
     }
 }
@@ -147,7 +144,4 @@ impl PoolFetcher for UniswapV2Fetcher {
         decoded_log.data.pair
     }
 
-    fn construct_pool_from_data(&self, data: &[DynSolValue]) -> Pool {
-        todo!()
-    }
 }
