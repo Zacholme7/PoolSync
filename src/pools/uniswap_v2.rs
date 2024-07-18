@@ -34,6 +34,14 @@ sol!(
     "src/abi/UniswapV2DataSync.json"
 );
 
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    contract ERC20 {
+        function symbol() public view returns (string memory name);
+    }
+);
+
 
 
 /// Represents a Uniswap V2 Automated Market Maker (AMM) pool
@@ -58,6 +66,15 @@ pub struct UniswapV2Pool {
     /// the reserves for the second pair
     pub token1_reserves: U128
 }
+
+impl UniswapV2Pool {
+    fn is_valid(&self) -> bool {
+        self.address != Address::ZERO
+        && self.token0 != Address::ZERO
+        && self.token1 != Address::ZERO
+    }
+}
+
 
 /// Uniswap V2 pool fetcher implementation
 pub struct UniswapV2Fetcher;
@@ -85,19 +102,43 @@ impl UniswapV2Fetcher {
             DynSolType::Uint(112),
         ])));
 
-        let mut populated_pools: Vec<Pool> = Vec::new();
-        let data = UniswapV2DataSync::deploy_builder(provider, addresses).await.unwrap();
+        let mut uniswap_v2_pools: Vec<UniswapV2Pool> = Vec::new();
+
+        // fetche information via deploy and constructor return
+        let data = UniswapV2DataSync::deploy_builder(provider.clone(), addresses).await.unwrap();
         let decoded_data = uniswapv2_data.abi_decode_sequence(&data).unwrap();
 
+        // extract information and construct pool object
         if let Some(pool_data_arr) = decoded_data.as_array() {
             for pool_data_tuple in pool_data_arr {
                 if let Some(pool_data) = pool_data_tuple.as_tuple() {
-                    let pool = Pool::UniswapV2(UniswapV2Pool::from(pool_data));
-                    populated_pools.push(pool);
+                    //let pool = Pool::UniswapV2(UniswapV2Pool::from(pool_data));
+                    let pool = UniswapV2Pool::from(pool_data);
+                    uniswap_v2_pools.push(pool);
                 }
             }
         }
 
+        // fiter out anything contract could not fetche
+        let mut uniswap_v2_pools: Vec<UniswapV2Pool> = uniswap_v2_pools
+            .into_iter()
+            .filter(|pool| pool.is_valid())
+            .collect();
+
+        // missing the names of the the tokens
+        for pool in &mut uniswap_v2_pools {
+            let token0_contract = ERC20::new(pool.token0, provider.clone());
+            if let Ok(ERC20::symbolReturn { name }) = token0_contract.symbol().call().await {
+                pool.token0_name = name;
+            }
+
+            let token1_contract = ERC20::new(pool.token0, provider.clone());
+            if let Ok(ERC20::symbolReturn { name }) = token1_contract.symbol().call().await {
+                pool.token1_name = name;
+            }
+        }
+
+        let populated_pools = uniswap_v2_pools.into_iter().map(Pool::UniswapV2).collect();
         populated_pools
     }
 }

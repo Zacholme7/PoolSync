@@ -6,12 +6,9 @@
 //!
 use alloy::network::Network;
 use alloy::providers::Provider;
-use alloy::providers::RootProvider;
-use alloy::pubsub::PubSubFrontend;
 use alloy::transports::Transport;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Semaphore;
 
 use crate::builder::PoolSyncBuilder;
 use crate::cache::{read_cache_file, write_cache_file, PoolCache};
@@ -20,8 +17,6 @@ use crate::errors::*;
 use crate::pools::*;
 use crate::rpc::Rpc;
 
-/// The number of blocks to query in one call to get_logs
-const STEP_SIZE: u64 = 10_000;
 /// The maximum number of retries for a failed query
 const MAX_RETRIES: u32 = 5;
 
@@ -45,7 +40,6 @@ impl PoolSync {
     pub async fn sync_pools<P, T, N>(
         &self,
         provider: Arc<P>,
-        ws: Arc<RootProvider<PubSubFrontend, N>>,
     ) -> Result<Vec<Pool>, PoolSyncError>
     where
         P: Provider<T, N> + 'static,

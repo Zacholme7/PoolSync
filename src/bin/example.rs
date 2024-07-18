@@ -34,22 +34,10 @@ async fn main() -> Result<()> {
     // Load environment variables from a .env file if present
     dotenv::dotenv().ok();
     let url = std::env::var("ETH")?;
-    //let anvil = Anvil::new().fork(url).try_spawn()?;
-    //let signer: PrivateKeySigner = anvil.keys()[0].clone().into();
-    //let wallet = EthereumWallet::from(signer);
 
     let http_provider = Arc::new(
         ProviderBuilder::new()
-            .network::<alloy::network::AnyNetwork>()
-            //.with_recommended_fillers()
-            //.wallet(wallet)
             .on_http(url.parse().unwrap())
-    );
-
-    let ws_provider = Arc::new(
-        ProviderBuilder::new()
-            .network::<alloy::network::AnyNetwork>()
-            .on_ws(WsConnect::new("wss://eth.merkle.io")).await?
     );
 
     // Configure and build the PoolSync instance
@@ -60,7 +48,7 @@ async fn main() -> Result<()> {
         .build()?;
 
     // Initiate the sync process
-    let pools = pool_sync.sync_pools(http_provider.clone(), ws_provider.clone()).await?;
+    let pools = pool_sync.sync_pools(http_provider.clone()).await?;
     println!("Number of synchronized pools: {}", pools.len());
 
     // extract all pools with top volume tokens
