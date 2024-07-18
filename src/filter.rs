@@ -39,8 +39,8 @@ pub async fn filter_top_volume(
     let filtered_pools: Vec<Pool> = pools
         .into_iter()
         .filter(|pool| {
-            token_set.contains(&pool.token0().to_string())
-                && token_set.contains(&pool.token1().to_string())
+            token_set.contains(&pool.token0_address().to_string())
+                && token_set.contains(&pool.token1_address().to_string())
         })
         .collect();
 

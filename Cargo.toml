@@ -36,6 +36,7 @@ alloy-contract = "0.1.3"
 reqwest = "0.12.5"
 alloy-node-bindings = "0.1.3"
 hex = "0.4.3"
+dashmap = "6.0.1"
 
 
 

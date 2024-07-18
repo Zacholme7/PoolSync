@@ -3,15 +3,10 @@
 //! This program synchronizes pools from a specified blockchain using the PoolSync library.
 //! It demonstrates how to set up a provider, configure pool synchronization, and execute the sync process.
 
-use alloy::network::EthereumWallet;
-use alloy::providers::{ProviderBuilder, WsConnect};
-use alloy_node_bindings::anvil::Anvil;
+use alloy::providers::ProviderBuilder;
 use anyhow::Result;
-use pool_sync::filter::filter_top_volume;
 use pool_sync::{Chain, Pool, PoolInfo, PoolSync, PoolType};
 use std::sync::Arc;
-
-use alloy::signers::local::PrivateKeySigner;
 
 /// The main entry point for the pool synchronization program.
 ///
@@ -42,9 +37,10 @@ async fn main() -> Result<()> {
 
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
-        .add_pool(PoolType::UniswapV2) // Add all the pools you would like to sync
+        //k.add_pool(PoolType::UniswapV2) // Add all the pools you would like to sync
+        .add_pools(&[PoolType::UniswapV2])
         .chain(Chain::Ethereum) // Specify the chain
-        .rate_limit(50) // Specify the rate limit
+        .rate_limit(100) // Specify the rate limit
         .build()?;
 
     // Initiate the sync process

@@ -69,14 +69,16 @@ impl PoolSync {
                 end_block,
                 provider.clone(),
                 fetcher.clone(),
-                self.chain
+                self.chain,
+                self.rate_limit,
             ).await.unwrap();
 
             // populate all of the pool addresses
             let populated_pools = Rpc::populate_pools(
                 pool_addrs,
                 provider.clone(),
-                cache.pool_type
+                cache.pool_type,
+                self.rate_limit
             ).await;
 
             // update the cache

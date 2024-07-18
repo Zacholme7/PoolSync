@@ -25,14 +25,15 @@ impl Rpc {
         end_block: u64, 
         provider: Arc<P>, 
         fetcher: Arc<dyn PoolFetcher>, 
-        chain: Chain
+        chain: Chain,
+        rate_limit: usize
     ) -> Option<Vec<Address>> 
     where
         P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let rate_limiter = Arc::new(Semaphore::new(100));
+        let rate_limiter = Arc::new(Semaphore::new(rate_limit));
         let block_difference = end_block.saturating_sub(start_block);
 
         // if this is the first sync or there are new blocks
@@ -44,7 +45,8 @@ impl Rpc {
                 (((block_difference as f64) / (STEP_SIZE as f64)).ceil() as u64,STEP_SIZE,)
             };
 
-            let progress_bar = create_progress_bar(total_steps);
+            let info = format!("{} address sync", fetcher.pool_type());
+            let progress_bar = create_progress_bar(total_steps, info);
 
             // create all of the fetching futures
             let future_handles: Vec<JoinHandle<Vec<Address>>> = (start_block..=end_block)
@@ -89,7 +91,8 @@ impl Rpc {
     pub async fn populate_pools<P, T, N>(
         pool_addrs: Vec<Address>,
         provider: Arc<P>,
-        pool: PoolType
+        pool: PoolType,
+        rate_limit: usize
     ) -> Vec<Pool> 
     where
         P: Provider<T, N> + 'static,
@@ -97,12 +100,13 @@ impl Rpc {
         N: Network,
     {
         let total_tasks = pool_addrs.len() / 40;
-        let progress_bar = create_progress_bar(total_tasks as u64);
+        let info = format!("{} data sync", pool);
+        let progress_bar = create_progress_bar(total_tasks as u64, info);
         
         // map all the addresses into chunks the contract can handle
         let addr_chuncks : Vec<Vec<Address>> = pool_addrs.chunks(40).map(|chunk| chunk.to_vec()).collect();
 
-        let rate_limiter = Arc::new(Semaphore::new(100));
+        let rate_limiter = Arc::new(Semaphore::new(rate_limit));
 
         let future_handles: Vec<JoinHandle<Vec<Pool>>> = addr_chuncks
             .into_iter()

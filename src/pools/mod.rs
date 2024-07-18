@@ -98,8 +98,12 @@ pub trait PoolFetcher: Send + Sync {
 /// Defines common methods that are used to access information about the pools
 pub trait PoolInfo {
     fn address(&self) -> Address;
-    fn token0(&self) -> Address;
-    fn token1(&self) -> Address;
+    fn token0_address(&self) -> Address;
+    fn token1_address(&self) -> Address;
+    fn token0_name(&self) -> String;
+    fn token1_name(&self) -> String;
+    fn token0_decimals(&self) -> u8;
+    fn token1_decimals(&self) -> u8;
     fn pool_type(&self) -> PoolType;
 }
 
@@ -117,7 +121,7 @@ macro_rules! impl_pool_info {
                 }
             }
 
-            fn token0(&self) -> Address {
+            fn token0_address(&self) -> Address {
                 match self {
                     $(
                         $enum_name::$variant(pool) => pool.token0,
@@ -125,10 +129,40 @@ macro_rules! impl_pool_info {
                 }
             }
 
-            fn token1(&self) -> Address {
+            fn token1_address(&self) -> Address {
                 match self {
                     $(
                         $enum_name::$variant(pool) => pool.token1,
+                    )+
+                }
+            }
+
+            fn token0_name(&self) -> String {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.token0_name.clone(),
+                    )+
+                }
+            }
+            fn token1_name(&self) -> String {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.token1_name.clone(),
+                    )+
+                }
+            }
+
+            fn token0_decimals(&self) -> u8 {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.token0_decimals,
+                    )+
+                }
+            }
+            fn token1_decimals(&self) -> u8 {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.token1_decimals,
                     )+
                 }
             }

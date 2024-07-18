@@ -41,6 +41,14 @@ impl PoolSyncBuilder {
         self
     }
 
+    /// Add multiple pools to be synced
+    pub fn add_pools(mut self, pools: &[PoolType]) -> Self {
+        for pool in pools.into_iter() {
+            self = self.add_pool(*pool);
+        }
+        self
+    }
+
     /// Sets the chain to sync on
     /// The builder instance for method chaining
     pub fn chain(mut self, chain: Chain) -> Self {
