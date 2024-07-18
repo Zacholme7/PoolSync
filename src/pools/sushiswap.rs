@@ -4,15 +4,10 @@
 //! including the pool structure, factory contract interface, and pool fetcher.
 
 use crate::chain::Chain;
-use std::sync::Arc;
-use crate::pools::{Pool, PoolFetcher, PoolType};
-use alloy::dyn_abi::DynSolValue;
-use alloy::network::Network;
+use crate::pools::{PoolFetcher, PoolType};
 use alloy::primitives::address;
 use alloy::primitives::{Address, Log, U128};
-use alloy::providers::Provider;
 use alloy::sol_types::{sol, SolEvent};
-use alloy::transports::Transport;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
