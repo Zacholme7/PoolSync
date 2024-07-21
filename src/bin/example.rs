@@ -5,6 +5,7 @@
 
 use alloy::providers::ProviderBuilder;
 use anyhow::Result;
+use pool_sync::filter::filter_top_volume;
 use pool_sync::{Chain, Pool, PoolInfo, PoolSync, PoolType};
 use pool_sync::filter::filter_top_volume;
 use std::sync::Arc;
@@ -31,10 +32,7 @@ async fn main() -> Result<()> {
     dotenv::dotenv().ok();
     let url = std::env::var("ETH")?;
 
-    let http_provider = Arc::new(
-        ProviderBuilder::new()
-            .on_http(url.parse().unwrap())
-    );
+    let http_provider = Arc::new(ProviderBuilder::new().on_http(url.parse().unwrap()));
 
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
@@ -49,8 +47,13 @@ async fn main() -> Result<()> {
     println!("Number of synchronized pools: {}", pools.len());
 
     // extract all pools with top volume tokens
+<<<<<<< HEAD
     let pools_over_top_volume_tokens = filter_top_volume(pools, 10).await?;
     println!("{:?}", pools_over_top_volume_tokens);
 
+=======
+    let pools_over_top_volume_tokens = filter_top_volume(pools, 100).await;
+    println!("{:?}", pools_over_top_volume_tokens.len());
+>>>>>>> 2f1cb5273b0e26612f92cad94b4fe4cf1db73c42
     Ok(())
 }

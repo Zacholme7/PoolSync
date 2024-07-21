@@ -1,7 +1,9 @@
 use crate::{Pool, PoolInfo};
+use alloy::primitives::Address;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use std::collections::HashSet;
+use std::str::FromStr;
 use thiserror::Error;
 
 #[derive(Debug, Deserialize)]
@@ -29,54 +31,56 @@ pub enum FilterError {
     InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
 }
 
-pub async fn filter_top_volume(
-    pools: Vec<Pool>,
-    num_results: usize,
-) -> Result<Vec<Pool>, FilterError> {
-    let top_volume_tokens = query_birdeye(num_results).await?;
-    let token_set: HashSet<_> = top_volume_tokens.into_iter().collect();
-
-    let filtered_pools: Vec<Pool> = pools
+pub async fn filter_top_volume(pools: Vec<Pool>, num_results: usize) -> Vec<Address> {
+    let top_volume_tokens = query_birdeye(num_results).await;
+    top_volume_tokens
         .into_iter()
-        .filter(|pool| {
-            token_set.contains(&pool.token0_address().to_string())
-                && token_set.contains(&pool.token1_address().to_string())
-        })
-        .collect();
-
-    Ok(filtered_pools)
+        .map(|addr| Address::from_str(&addr).unwrap())
+        .collect()
 }
 
-async fn query_birdeye(num_results: usize) -> Result<Vec<String>, FilterError> {
+async fn query_birdeye(num_results: usize) -> Vec<String> {
     let client = reqwest::Client::new();
     let mut headers = HeaderMap::new();
-    let api_key = std::env::var("BIRDEYE_KEY")?;
-    headers.insert("X-API-KEY", HeaderValue::from_str(&api_key)?);
-    headers.insert("x-chain", HeaderValue::from_static("base"));
+    let api_key = std::env::var("BIRDEYE_KEY").unwrap();
+    headers.insert("X-API-KEY", HeaderValue::from_str(&api_key).unwrap());
+    headers.insert("x-chain", HeaderValue::from_static("ethereum"));
 
-    let response = client
-        .get("https://public-api.birdeye.so/defi/tokenlist")
-        .headers(headers)
-        .query(&[
-            ("sort_by", "v24hUSD"),
-            ("sort_type", "desc"),
-            ("limit", &num_results.to_string()),
-        ])
-        .send()
-        .await?;
+    let mut query_params: Vec<(usize, usize)> = Vec::new();
 
-    if response.status().is_success() {
-        let birdeye_response: BirdeyeResponse = response.json().await?;
-        Ok(birdeye_response
-            .data
-            .tokens
-            .into_iter()
-            .map(|token| token.address)
-            .collect())
+    if num_results < 50 {
+        query_params.push((0, num_results));
     } else {
-        Err(FilterError::ApiError(
-            response.error_for_status().unwrap_err(),
-        ))
+        for offset in (0..num_results).step_by(50) {
+            query_params.push((offset, 50));
+        }
     }
-}
 
+    let mut addresses: Vec<String> = Vec::new();
+    for (offset, num) in query_params {
+        let response = client
+            .get("https://public-api.birdeye.so/defi/tokenlist")
+            .headers(headers.clone())
+            .query(&[
+                ("sort_by", "v24hUSD"),
+                ("sort_type", "desc"),
+                ("offset", &offset.to_string()),
+                ("limit", &num.to_string()),
+            ])
+            .send()
+            .await
+            .unwrap();
+        if response.status().is_success() {
+            let birdeye_response: BirdeyeResponse = response.json().await.unwrap();
+            let results: Vec<String> = birdeye_response
+                .data
+                .tokens
+                .into_iter()
+                .map(|token| token.address)
+                .collect();
+            addresses.extend(results);
+        }
+    }
+
+    addresses
+}
