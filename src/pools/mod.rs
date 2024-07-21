@@ -10,6 +10,7 @@ use alloy::{dyn_abi::DynSolValue, network::Network, primitives::{Address, Log}, 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::{fmt, sync::Arc};
+use alloy::primitives::U128;
 use sushiswap::SushiSwapPool;
 use uniswap_v2::UniswapV2Pool;
 use uniswap_v3::UniswapV3Pool;
@@ -105,6 +106,7 @@ pub trait PoolInfo {
     fn token0_decimals(&self) -> u8;
     fn token1_decimals(&self) -> u8;
     fn pool_type(&self) -> PoolType;
+    fn reserves(&self) -> (U128, U128);
 }
 
 
@@ -171,6 +173,14 @@ macro_rules! impl_pool_info {
                 match self {
                     $(
                         $enum_name::$variant(_) => PoolType::$variant,
+                    )+
+                }
+            }
+
+            fn reserves(&self) -> (U128, U128) {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => (pool.token0_reserves, pool.token1_reserves),
                     )+
                 }
             }

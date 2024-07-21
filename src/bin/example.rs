@@ -6,6 +6,7 @@
 use alloy::providers::ProviderBuilder;
 use anyhow::Result;
 use pool_sync::{Chain, Pool, PoolInfo, PoolSync, PoolType};
+use pool_sync::filter::filter_top_volume;
 use std::sync::Arc;
 
 /// The main entry point for the pool synchronization program.
@@ -48,7 +49,8 @@ async fn main() -> Result<()> {
     println!("Number of synchronized pools: {}", pools.len());
 
     // extract all pools with top volume tokens
-    //let pools_over_top_volume_tokens = filter_top_volume(pools, 10).await?;
+    let pools_over_top_volume_tokens = filter_top_volume(pools, 10).await?;
+    println!("{:?}", pools_over_top_volume_tokens);
 
     Ok(())
 }
