@@ -47,13 +47,7 @@ async fn main() -> Result<()> {
     println!("Number of synchronized pools: {}", pools.len());
 
     // extract all pools with top volume tokens
-<<<<<<< HEAD
-    let pools_over_top_volume_tokens = filter_top_volume(pools, 10).await?;
-    println!("{:?}", pools_over_top_volume_tokens);
-
-=======
     let pools_over_top_volume_tokens = filter_top_volume(pools, 100).await;
     println!("{:?}", pools_over_top_volume_tokens.len());
->>>>>>> 2f1cb5273b0e26612f92cad94b4fe4cf1db73c42
     Ok(())
 }
