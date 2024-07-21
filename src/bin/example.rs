@@ -7,7 +7,6 @@ use alloy::providers::ProviderBuilder;
 use anyhow::Result;
 use pool_sync::filter::filter_top_volume;
 use pool_sync::{Chain, Pool, PoolInfo, PoolSync, PoolType};
-use pool_sync::filter::filter_top_volume;
 use std::sync::Arc;
 
 /// The main entry point for the pool synchronization program.
