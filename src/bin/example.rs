@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
     println!("Number of synchronized pools: {}", pools.len());
 
     // extract all pools with top volume tokens
-    let pools_over_top_volume_tokens = filter_top_volume(pools, 100).await;
+    let pools_over_top_volume_tokens = filter_top_volume(pools, 100, Chain::Ethereum).await;
     println!("{:?}", pools_over_top_volume_tokens.len());
     Ok(())
 }

@@ -5,6 +5,7 @@ use serde::Deserialize;
 use std::collections::HashSet;
 use std::str::FromStr;
 use thiserror::Error;
+use crate::Chain;
 
 #[derive(Debug, Deserialize)]
 struct BirdeyeResponse {
@@ -31,20 +32,24 @@ pub enum FilterError {
     InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
 }
 
-pub async fn filter_top_volume(pools: Vec<Pool>, num_results: usize) -> Vec<Address> {
-    let top_volume_tokens = query_birdeye(num_results).await;
+pub async fn filter_top_volume(pools: Vec<Pool>, num_results: usize, chain: Chain) -> Vec<Address> {
+    let top_volume_tokens = query_birdeye(num_results, chain).await;
     top_volume_tokens
         .into_iter()
         .map(|addr| Address::from_str(&addr).unwrap())
         .collect()
 }
 
-async fn query_birdeye(num_results: usize) -> Vec<String> {
+async fn query_birdeye(num_results: usize, chain: Chain) -> Vec<String> {
     let client = reqwest::Client::new();
     let mut headers = HeaderMap::new();
     let api_key = std::env::var("BIRDEYE_KEY").unwrap();
     headers.insert("X-API-KEY", HeaderValue::from_str(&api_key).unwrap());
-    headers.insert("x-chain", HeaderValue::from_static("ethereum"));
+    if chain == Chain::Ethereum {
+        headers.insert("x-chain", HeaderValue::from_static("ethereum"));
+    } else if chain == Chain::Base {
+        headers.insert("x-chain", HeaderValue::from_static("base"));
+    }
 
     let mut query_params: Vec<(usize, usize)> = Vec::new();
 
