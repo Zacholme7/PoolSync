@@ -9,11 +9,11 @@ use crate::chain::Chain;
 use crate::pools::{Pool, PoolFetcher, PoolType};
 use alloy::dyn_abi::{DynSolType, DynSolValue};
 use alloy::network::Network;
-use alloy::primitives::{address, Address, Log};
 use alloy::primitives::U128;
+use alloy::primitives::{address, Address, Log};
 use alloy::providers::Provider;
-use alloy::sol_types::{SolEvent};
 use alloy::sol;
+use alloy::sol_types::SolEvent;
 use alloy::transports::Transport;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -42,8 +42,6 @@ sol!(
     }
 );
 
-
-
 /// Represents a Uniswap V2 Automated Market Maker (AMM) pool
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UniswapV2Pool {
@@ -64,35 +62,32 @@ pub struct UniswapV2Pool {
     /// The reserves for the first token
     pub token0_reserves: U128,
     /// the reserves for the second pair
-    pub token1_reserves: U128
+    pub token1_reserves: U128,
 }
 
 impl UniswapV2Pool {
     fn is_valid(&self) -> bool {
         self.address != Address::ZERO
-        && self.token0 != Address::ZERO
-        && self.token1 != Address::ZERO
+            && self.token0 != Address::ZERO
+            && self.token1 != Address::ZERO
     }
 }
 
-
 /// Uniswap V2 pool fetcher implementation
 pub struct UniswapV2Fetcher;
-
-
 
 impl UniswapV2Fetcher {
     pub async fn build_pools_from_addrs<P, T, N>(
         &self,
         provider: Arc<P>,
-        addresses: Vec<Address>
+        addresses: Vec<Address>,
     ) -> Vec<Pool>
     where
         P: Provider<T, N> + Sync + 'static,
         T: Transport + Sync + Clone,
-        N: Network
+        N: Network,
     {
-        let uniswapv2_data: DynSolType =  DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+        let uniswapv2_data: DynSolType = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
             DynSolType::Address,
             DynSolType::Address,
             DynSolType::Address,
@@ -105,7 +100,9 @@ impl UniswapV2Fetcher {
         let mut uniswap_v2_pools: Vec<UniswapV2Pool> = Vec::new();
 
         // fetche information via deploy and constructor return
-        let data = UniswapV2DataSync::deploy_builder(provider.clone(), addresses).await.unwrap();
+        let data = UniswapV2DataSync::deploy_builder(provider.clone(), addresses)
+            .await
+            .unwrap();
         let decoded_data = uniswapv2_data.abi_decode_sequence(&data).unwrap();
 
         // extract information and construct pool object
@@ -138,11 +135,9 @@ impl UniswapV2Fetcher {
             }
         }
 
-        let populated_pools = uniswap_v2_pools.into_iter().map(Pool::UniswapV2).collect();
-        populated_pools
+        uniswap_v2_pools.into_iter().map(Pool::UniswapV2).collect()
     }
 }
-
 
 impl From<&[DynSolValue]> for UniswapV2Pool {
     fn from(data: &[DynSolValue]) -> Self {
@@ -184,5 +179,4 @@ impl PoolFetcher for UniswapV2Fetcher {
         let decoded_log = UniswapV2Factory::PairCreated::decode_log(log, false).unwrap();
         decoded_log.data.pair
     }
-
 }

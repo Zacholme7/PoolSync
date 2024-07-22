@@ -33,15 +33,16 @@ async fn main() -> Result<()> {
 
     let http_provider = Arc::new(
         ProviderBuilder::new()
-        .network::<alloy::network::AnyNetwork>()
-        .on_http(url.parse().unwrap()));
+            .network::<alloy::network::AnyNetwork>()
+            .on_http(url.parse().unwrap()),
+    );
 
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         //k.add_pool(PoolType::UniswapV2) // Add all the pools you would like to sync
         .add_pools(&[PoolType::UniswapV2])
         .chain(Chain::Base) // Specify the chain
-        .rate_limit(5)
+        .rate_limit(100)
         .build()?;
 
     // Initiate the sync process
