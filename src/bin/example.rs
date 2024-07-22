@@ -29,16 +29,19 @@ use std::sync::Arc;
 async fn main() -> Result<()> {
     // Load environment variables from a .env file if present
     dotenv::dotenv().ok();
-    let url = std::env::var("ETH")?;
+    let url = std::env::var("BASE")?;
 
-    let http_provider = Arc::new(ProviderBuilder::new().on_http(url.parse().unwrap()));
+    let http_provider = Arc::new(
+        ProviderBuilder::new()
+        .network::<alloy::network::AnyNetwork>()
+        .on_http(url.parse().unwrap()));
 
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         //k.add_pool(PoolType::UniswapV2) // Add all the pools you would like to sync
         .add_pools(&[PoolType::UniswapV2])
-        .chain(Chain::Ethereum) // Specify the chain
-        .rate_limit(100) // Specify the rate limit
+        .chain(Chain::Base) // Specify the chain
+        .rate_limit(5)
         .build()?;
 
     // Initiate the sync process
@@ -46,7 +49,7 @@ async fn main() -> Result<()> {
     println!("Number of synchronized pools: {}", pools.len());
 
     // extract all pools with top volume tokens
-    let pools_over_top_volume_tokens = filter_top_volume(pools, 100, Chain::Ethereum).await;
+    let pools_over_top_volume_tokens = filter_top_volume(pools, 100, Chain::Base).await;
     println!("{:?}", pools_over_top_volume_tokens.len());
     Ok(())
 }

@@ -77,7 +77,7 @@ impl PoolSyncBuilder {
 
         // set rate limit to user defined if specified, otherwise set high value
         // that will not be hit to simulate unlimited requests
-        let rate_limit = self.rate_limit.unwrap_or(10000);
+        let rate_limit = self.rate_limit.unwrap_or(10000) as u64;
 
         // Construct PoolSync
         Ok(PoolSync {

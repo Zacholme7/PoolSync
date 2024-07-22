@@ -27,7 +27,7 @@ pub struct PoolSync {
     /// The chain to sync on
     pub chain: Chain,
     /// The rate limit of the rpc
-    pub rate_limit: usize,
+    pub rate_limit: u64,
 }
 
 impl PoolSync {
@@ -57,6 +57,7 @@ impl PoolSync {
             .collect();
 
         let end_block = provider.get_block_number().await.unwrap();
+        println!("end_block: {:?}", end_block);
 
         // go though each cache, may or may not already by synced up to some point
         for cache in &mut pool_caches {
