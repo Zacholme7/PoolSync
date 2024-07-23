@@ -1,6 +1,6 @@
 [package]
 name = "pool-sync"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2021"
 authors = ["Zac Holme"]
 description = "A library for synchronizing and managing various types of liquidity pools across different blockchains"

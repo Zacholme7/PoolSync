@@ -14,6 +14,7 @@ use alloy::primitives::{address, Address, Log};
 use alloy::providers::Provider;
 use alloy::sol;
 use alloy::sol_types::SolEvent;
+use rand::Rng;
 use alloy::transports::Transport;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -76,16 +77,19 @@ impl UniswapV2Pool {
 /// Uniswap V2 pool fetcher implementation
 pub struct UniswapV2Fetcher;
 
+const MAX_RETRIES: u32 = 5;
+const INITIAL_BACKOFF: u64 = 1000; // 1 second
+
 impl UniswapV2Fetcher {
     pub async fn build_pools_from_addrs<P, T, N>(
         &self,
         provider: Arc<P>,
-        addresses: Vec<Address>,
+        addresses: Vec<Address>
     ) -> Vec<Pool>
     where
         P: Provider<T, N> + Sync + 'static,
         T: Transport + Sync + Clone,
-        N: Network,
+        N: Network
     {
         let uniswapv2_data: DynSolType = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
             DynSolType::Address,
@@ -97,45 +101,69 @@ impl UniswapV2Fetcher {
             DynSolType::Uint(112),
         ])));
 
-        let mut uniswap_v2_pools: Vec<UniswapV2Pool> = Vec::new();
+        let mut retry_count = 0;
+        let mut backoff = INITIAL_BACKOFF;
 
-        // fetche information via deploy and constructor return
-        let data = UniswapV2DataSync::deploy_builder(provider.clone(), addresses)
-            .await
-            .unwrap();
-        let decoded_data = uniswapv2_data.abi_decode_sequence(&data).unwrap();
+        loop {
+            match self.attempt_build_pools(provider.clone(), &addresses, &uniswapv2_data).await {
+                Ok(pools) => return pools,
+                Err(e) => {
+                    if retry_count >= MAX_RETRIES {
+                        eprintln!("Max retries reached. Error: {:?}", e);
+                        return Vec::new();
+                    }
 
-        // extract information and construct pool object
+                    let jitter = rand::thread_rng().gen_range(0..=100);
+                    let sleep_duration = std::time::Duration::from_millis(backoff + jitter);
+                    tokio::time::sleep(sleep_duration).await;
+
+                    retry_count += 1;
+                    backoff *= 2; // Exponential backoff
+                }
+            }
+        }
+    }
+
+    async fn attempt_build_pools<P, T, N>(
+        &self,
+        provider: Arc<P>,
+        addresses: &[Address],
+        uniswapv2_data: &DynSolType
+    ) -> Result<Vec<Pool>, Box<dyn std::error::Error>>
+    where
+        P: Provider<T, N> + Sync + 'static,
+        T: Transport + Sync + Clone,
+        N: Network
+    {
+        let data = UniswapV2DataSync::deploy_builder(provider.clone(), addresses.to_vec()).await?;
+        let decoded_data = uniswapv2_data.abi_decode_sequence(&data)?;
+
+        let mut uniswap_v2_pools = Vec::new();
+
         if let Some(pool_data_arr) = decoded_data.as_array() {
             for pool_data_tuple in pool_data_arr {
                 if let Some(pool_data) = pool_data_tuple.as_tuple() {
-                    //let pool = Pool::UniswapV2(UniswapV2Pool::from(pool_data));
                     let pool = UniswapV2Pool::from(pool_data);
-                    uniswap_v2_pools.push(pool);
+                    if pool.is_valid() {
+                        uniswap_v2_pools.push(pool);
+                    }
                 }
             }
         }
 
-        // fiter out anything contract could not fetche
-        let mut uniswap_v2_pools: Vec<UniswapV2Pool> = uniswap_v2_pools
-            .into_iter()
-            .filter(|pool| pool.is_valid())
-            .collect();
-
-        // missing the names of the the tokens
         for pool in &mut uniswap_v2_pools {
             let token0_contract = ERC20::new(pool.token0, provider.clone());
             if let Ok(ERC20::symbolReturn { name }) = token0_contract.symbol().call().await {
                 pool.token0_name = name;
             }
 
-            let token1_contract = ERC20::new(pool.token0, provider.clone());
+            let token1_contract = ERC20::new(pool.token1, provider.clone());
             if let Ok(ERC20::symbolReturn { name }) = token1_contract.symbol().call().await {
                 pool.token1_name = name;
             }
         }
 
-        uniswap_v2_pools.into_iter().map(Pool::UniswapV2).collect()
+        Ok(uniswap_v2_pools.into_iter().map(Pool::UniswapV2).collect())
     }
 }
 
