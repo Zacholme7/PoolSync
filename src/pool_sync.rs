@@ -56,8 +56,9 @@ impl PoolSync {
             .map(|pool_type| read_cache_file(pool_type, self.chain))
             .collect();
 
-        let end_block = provider.get_block_number().await.unwrap();
+        let end_block = provider.get_block_number().await;//.unwrap();
         println!("end_block: {:?}", end_block);
+        let end_block = end_block.unwrap();
 
         // go though each cache, may or may not already by synced up to some point
         for cache in &mut pool_caches {

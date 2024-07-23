@@ -51,7 +51,7 @@ impl PoolType {
         match  self {
             PoolType::UniswapV2 => UniswapV2Fetcher.build_pools_from_addrs(provider, addresses).await,
             PoolType::UniswapV3 => todo!(),
-            PoolType::SushiSwap => todo!()
+            PoolType::SushiSwap => SushiSwapFetcher.build_pools_from_addrs(provider, addresses).await
         }
     }
 }

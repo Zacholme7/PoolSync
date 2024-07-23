@@ -41,7 +41,7 @@ static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
     // Protocols supported by Base
     m.insert(
         Chain::Base,
-        [PoolType::UniswapV2, PoolType::UniswapV3]
+        [PoolType::UniswapV2, PoolType::UniswapV3, PoolType::SushiSwap]
             .iter()
             .cloned()
             .collect(),

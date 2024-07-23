@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         //k.add_pool(PoolType::UniswapV2) // Add all the pools you would like to sync
-        .add_pools(&[PoolType::UniswapV2])
+        .add_pools(&[PoolType::SushiSwap])
         .chain(Chain::Base) // Specify the chain
         .rate_limit(100)
         .build()?;
