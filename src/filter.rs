@@ -32,7 +32,7 @@ pub enum FilterError {
     InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
 }
 
-pub async fn filter_top_volume(pools: Vec<Pool>, num_results: usize, chain: Chain) -> Vec<Address> {
+pub async fn fetch_top_volume_tokens(num_results: usize, chain: Chain) -> Vec<Address> {
     let top_volume_tokens = query_birdeye(num_results, chain).await;
     top_volume_tokens
         .into_iter()

@@ -1,6 +1,6 @@
 [package]
 name = "pool-sync"
-version = "0.1.11"
+version = "0.1.12"
 edition = "2021"
 authors = ["Zac Holme"]
 description = "A library for synchronizing and managing various types of liquidity pools across different blockchains"
@@ -24,7 +24,7 @@ tokio = {version = "1.37.0", features = ["rt-multi-thread", "macros"]}
 dotenv = "0.15.0"
 serde = {version = "1.0.203", features = ["derive"]}
 async-trait = "0.1.80"
-alloy = {version = "0.2.0", features = ["full", "sol-types", ]}
+alloy = { version = "0.2.0", features = ["full", "node-bindings", "sol-types"] }
 indicatif = "0.17.8"
 futures = "0.3.30"
 thiserror = "1.0.61"
@@ -40,6 +40,8 @@ dashmap = "6.0.1"
 ratelimit = "0.9.1"
 rang = "0.1.1"
 rand = "0.8.5"
+env_logger = "0.11.4"
+log = "0.4.22"
 
 
 
