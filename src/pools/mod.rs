@@ -50,7 +50,7 @@ impl PoolType {
     {
         match  self {
             PoolType::UniswapV2 => UniswapV2Fetcher.build_pools_from_addrs(provider, addresses).await,
-            PoolType::UniswapV3 => todo!(),
+            PoolType::UniswapV3 => UniswapV3Fetcher.build_pools_from_addrs(provider, addresses).await,
             PoolType::SushiSwap => SushiSwapFetcher.build_pools_from_addrs(provider, addresses).await
         }
     }
@@ -63,7 +63,7 @@ impl fmt::Display for PoolType {
 }
 
 /// Represents a populated pool from any of the supported protocols
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone,  Serialize, Deserialize)]
 pub enum Pool {
     /// A Uniswap V2 pool
     UniswapV2(UniswapV2Pool),
@@ -119,6 +119,7 @@ macro_rules! impl_pool_info {
                 match self {
                     $(
                         $enum_name::$variant(pool) => pool.address,
+
                     )+
                 }
             }
@@ -179,9 +180,9 @@ macro_rules! impl_pool_info {
 
             fn reserves(&self) -> (U128, U128) {
                 match self {
-                    $(
-                        $enum_name::$variant(pool) => (pool.token0_reserves, pool.token1_reserves),
-                    )+
+                    $enum_name::UniswapV3(pool) => (pool.liquidity.into(), pool.liquidity.into()),
+                    $enum_name::UniswapV2(pool) => (pool.token0_reserves, pool.token1_reserves),
+                    $enum_name::SushiSwap(pool) => (pool.token0_reserves, pool.token1_reserves),
                 }
             }
         }

@@ -14,9 +14,9 @@ use alloy::primitives::{address, Address, Log};
 use alloy::providers::Provider;
 use alloy::sol;
 use alloy::sol_types::SolEvent;
-use rand::Rng;
 use alloy::transports::Transport;
 use async_trait::async_trait;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 // Uniswap V2 factory contract interface
@@ -84,12 +84,12 @@ impl UniswapV2Fetcher {
     pub async fn build_pools_from_addrs<P, T, N>(
         &self,
         provider: Arc<P>,
-        addresses: Vec<Address>
+        addresses: Vec<Address>,
     ) -> Vec<Pool>
     where
         P: Provider<T, N> + Sync + 'static,
         T: Transport + Sync + Clone,
-        N: Network
+        N: Network,
     {
         let uniswapv2_data: DynSolType = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
             DynSolType::Address,
@@ -105,7 +105,10 @@ impl UniswapV2Fetcher {
         let mut backoff = INITIAL_BACKOFF;
 
         loop {
-            match self.attempt_build_pools(provider.clone(), &addresses, &uniswapv2_data).await {
+            match self
+                .attempt_build_pools(provider.clone(), &addresses, &uniswapv2_data)
+                .await
+            {
                 Ok(pools) => return pools,
                 Err(e) => {
                     if retry_count >= MAX_RETRIES {
@@ -128,12 +131,12 @@ impl UniswapV2Fetcher {
         &self,
         provider: Arc<P>,
         addresses: &[Address],
-        uniswapv2_data: &DynSolType
+        uniswapv2_data: &DynSolType,
     ) -> Result<Vec<Pool>, Box<dyn std::error::Error>>
     where
         P: Provider<T, N> + Sync + 'static,
         T: Transport + Sync + Clone,
-        N: Network
+        N: Network,
     {
         let data = UniswapV2DataSync::deploy_builder(provider.clone(), addresses.to_vec()).await?;
         let decoded_data = uniswapv2_data.abi_decode_sequence(&data)?;
