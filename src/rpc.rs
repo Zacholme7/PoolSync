@@ -40,6 +40,7 @@ impl Rpc {
         N: Network,
     {
         let block_difference = end_block.saturating_sub(start_block);
+        println!("Block Difference: {}", block_difference);
 
         if block_difference > 0 {
             let (total_steps, step_size) = if block_difference < STEP_SIZE {

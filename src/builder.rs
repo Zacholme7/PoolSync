@@ -3,12 +3,15 @@
 //! This module provides a builder pattern for constructing a PoolSync instance,
 //! allowing for flexible configuration of pool types and chains to be synced.
 
+use pancake_swap::PancakeSwapV2Fetcher;
+
 use crate::errors::*;
 use crate::pools::*;
 use crate::{Chain, PoolSync, PoolType};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::pools::uniswap::uniswap_v2_fetcher::UniswapV2Fetcher;
+use crate::pools::uniswap::UniswapV2Fetcher;
+use crate::pools::sushiswap::SushiSwapV2Fetcher;
 
 /// Builder for constructing a PoolSync instance
 #[derive(Default)]
@@ -36,9 +39,12 @@ impl PoolSyncBuilder {
                 todo!()
             }
             PoolType::SushiSwap => {
-                //self.fetchers
-                //    .insert(PoolType::SushiSwap, Arc::new(SushiSwapFetcher));
-                todo!()
+                self.fetchers
+                    .insert(PoolType::SushiSwap, Arc::new(SushiSwapV2Fetcher));
+            }
+            PoolType::PancakeSwap => {
+                self.fetchers
+                    .insert(PoolType::PancakeSwap, Arc::new(PancakeSwapV2Fetcher));
             }
             PoolType::Aerodome => {
                 //self.fetchers

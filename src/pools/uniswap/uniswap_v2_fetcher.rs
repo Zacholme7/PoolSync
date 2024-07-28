@@ -1,16 +1,13 @@
-use std::sync::Arc;
-use alloy::{dyn_abi::{DynSolType, DynSolValue}, network::Network, primitives::{address, Address, U128}, providers::Provider, transports::Transport};
-use alloy_sol_types::SolEvent;
-use async_trait::async_trait;
-use alloy::primitives::Log;
-use crate::Chain;
+use alloy::primitives::{address, Address};
 use crate::pools::gen::UniswapV2Factory;
+use alloy_sol_types::SolEvent;
 use crate::pools::PoolFetcher;
+use alloy::primitives::Log;
 use crate::pools::PoolType;
+use crate::Chain;
 
 pub struct UniswapV2Fetcher;
 
-#[async_trait]
 impl PoolFetcher for UniswapV2Fetcher {
     fn pool_type(&self) -> PoolType {
         PoolType::UniswapV2

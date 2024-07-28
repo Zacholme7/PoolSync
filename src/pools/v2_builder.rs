@@ -1,18 +1,12 @@
-
-
-
 use alloy::{dyn_abi::{DynSolType, DynSolValue}, primitives::U128};
 use rand::Rng;
 use std::sync::Arc;
 use alloy::providers::Provider;
 use alloy::transports::Transport;
 use alloy::network::Network;
-use std::future::Future;
-use alloy::sol_types::SolEvent;
 use alloy::sol;
-use crate::pools::{Pool, PoolFetcher, PoolType};
+use crate::pools::{Pool, PoolType};
 use alloy::primitives::Address;
-use async_trait::async_trait;
 
 use std::time::Duration;
 

@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
     // Load environment variables from a .env file if present
     dotenv::dotenv().ok();
     //env_logger::builder().filter_level(log::LevelFilter::Debug).init();
-    let url = std::env::var("ETH")?;
+    let url = std::env::var("BASE_HTTP")?;
 
     let http_provider = Arc::new(
         ProviderBuilder::new()
@@ -47,8 +47,8 @@ async fn main() -> Result<()> {
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         //k.add_pool(PoolType::UniswapV2) // Add all the pools you would like to sync
-        .add_pools(&[PoolType::UniswapV3])
-        .chain(Chain::Ethereum) // Specify the chain
+        .add_pools(&[PoolType::PancakeSwap])
+        .chain(Chain::Base) // Specify the chain
         .rate_limit(100)
         .build()?;
 

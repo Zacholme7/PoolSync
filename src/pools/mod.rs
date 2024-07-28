@@ -6,27 +6,16 @@
 
 use crate::chain::Chain;
 use crate::impl_pool_info;
-use alloy::{dyn_abi::DynSolValue, network::Network, primitives::{Address, Log}, providers::Provider, transports::Transport};
+use alloy::primitives::{Address, Log};
+use alloy::providers::Provider;
+use alloy::transports::Transport;
 use async_trait::async_trait;
+use alloy::network::Network;
 use pool_structure::{UniswapV2Pool, UniswapV3Pool};
 use serde::{Deserialize, Serialize};
 use std::{fmt, sync::Arc};
 use alloy::primitives::U128;
-//use sushiswap_v2::SushiSwapPool;
-//use uniswap_v2::UniswapV2Pool;
-//use uniswap_v3::UniswapV3Pool;
-//use aerodome::{AerodomeFetcher, AerodomePool};
 
-// Re-exports
-//pub use sushiswap_v2::SushiSwapFetcher;
-//pub use uniswap_v2::UniswapV2Fetcher;
-//pub use uniswap_v3::UniswapV3Fetcher;
-
-// Pool modules
-//mod sushiswap_v2;
-//pub mod uniswap_v2;
-//mod uniswap_v3;
-//mod aerodome;
 mod pool_structure;
 mod gen;
 mod v2_builder;
@@ -47,6 +36,8 @@ pub enum PoolType {
     SushiSwap,
     /// Aerodome
     Aerodome,
+    /// PancakeSwap
+    PancakeSwap,
 }
 
 /// Represents a populated pool from any of the supported protocols
@@ -60,6 +51,7 @@ pub enum Pool {
     SushiSwap(UniswapV2Pool),
     /// A Aerodome pool
     Aerodome(UniswapV2Pool),
+    PancakeSwap(UniswapV2Pool),
 }
 
 impl Pool {
@@ -68,6 +60,7 @@ impl Pool {
             PoolType::UniswapV2 => Pool::UniswapV2(pool),
             PoolType::SushiSwap => Pool::SushiSwap(pool),
             PoolType::Aerodome => Pool::Aerodome(pool),
+            PoolType::PancakeSwap => Pool::PancakeSwap(pool),
             _ => panic!("Invalid pool type")
         }
     }
@@ -82,14 +75,13 @@ impl fmt::Display for PoolType {
 
 
 // Implement the PoolInfo trait for all pool variants that are supported
-impl_pool_info!(Pool, UniswapV2, UniswapV3, SushiSwap, Aerodome);
+impl_pool_info!(Pool, UniswapV2, UniswapV3, SushiSwap, Aerodome, PancakeSwap);
 
 
 /// Defines common functionality for fetching and decoding pool creation events
 ///
 /// This trait provides a unified interface for different pool types to implement
 /// their specific logic for identifying and parsing pool creation events.
-#[async_trait]
 pub trait PoolFetcher: Send + Sync {
     /// Returns the type of pool this fetcher is responsible for
     fn pool_type(&self) -> PoolType;
@@ -102,7 +94,6 @@ pub trait PoolFetcher: Send + Sync {
 
     /// Attempts to create a `Pool` instance from a log entry
     fn log_to_address(&self, log: &Log) -> Address;
-
 }
 
 impl PoolType {
@@ -118,8 +109,9 @@ impl PoolType {
     {
         match self {
             PoolType::UniswapV2 => v2_builder::build_pools(provider, addresses, PoolType::UniswapV2).await,
+            PoolType::SushiSwap => v2_builder::build_pools(provider, addresses, PoolType::SushiSwap).await,
+            PoolType::PancakeSwap => v2_builder::build_pools(provider, addresses, PoolType::PancakeSwap).await,
             PoolType::UniswapV3 => unimplemented!(),
-            PoolType::SushiSwap => unimplemented!(),
             PoolType::Aerodome => unimplemented!(),
         }
     }
@@ -213,6 +205,7 @@ macro_rules! impl_pool_info {
                     $enum_name::UniswapV2(pool) => (pool.token0_reserves, pool.token1_reserves),
                     $enum_name::SushiSwap(pool) => (pool.token0_reserves, pool.token1_reserves),
                     $enum_name::Aerodome(pool) => (pool.token0_reserves, pool.token1_reserves),
+                    $enum_name::PancakeSwap(pool) => (pool.token0_reserves, pool.token1_reserves),
                 }
             }
         }

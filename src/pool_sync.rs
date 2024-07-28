@@ -57,6 +57,8 @@ impl PoolSync {
             .collect();
 
         let end_block = provider.get_block_number().await.unwrap();
+        println!("End Block: {}", end_block);
+
 
         // go though each cache, may or may not already by synced up to some point
         for cache in &mut pool_caches {
@@ -72,6 +74,7 @@ impl PoolSync {
                 self.chain,
                 self.rate_limit,
             ).await.unwrap();
+            println!("pool addrs {:?}", pool_addrs.len());
 
             // populate all of the pool addresses
             let populated_pools = Rpc::populate_pools(
