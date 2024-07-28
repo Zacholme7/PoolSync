@@ -33,6 +33,8 @@ pub struct UniswapV3Pool {
     pub ticks: HashMap<i32, TickInfo>,
 }
 
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TickInfo {
     pub liquidity_gross: u128,

@@ -8,6 +8,7 @@ use crate::pools::*;
 use crate::{Chain, PoolSync, PoolType};
 use std::collections::HashMap;
 use std::sync::Arc;
+use crate::pools::uniswap::uniswap_v2_fetcher::UniswapV2Fetcher;
 
 /// Builder for constructing a PoolSync instance
 #[derive(Default)]
@@ -30,12 +31,19 @@ impl PoolSyncBuilder {
                     .insert(PoolType::UniswapV2, Arc::new(UniswapV2Fetcher));
             }
             PoolType::UniswapV3 => {
-                self.fetchers
-                    .insert(PoolType::UniswapV3, Arc::new(UniswapV3Fetcher));
+                //self.fetchers
+                //    .insert(PoolType::UniswapV3, Arc::new(UniswapV3Fetcher));
+                todo!()
             }
             PoolType::SushiSwap => {
-                self.fetchers
-                    .insert(PoolType::SushiSwap, Arc::new(SushiSwapFetcher));
+                //self.fetchers
+                //    .insert(PoolType::SushiSwap, Arc::new(SushiSwapFetcher));
+                todo!()
+            }
+            PoolType::Aerodome => {
+                //self.fetchers
+                //    .insert(PoolType::Aerodome, Arc::new(AerodomeFetcher));
+                todo!()
             }
         }
         self

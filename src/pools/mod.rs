@@ -30,7 +30,11 @@ use alloy::primitives::U128;
 mod pool_structure;
 mod gen;
 mod v2_builder;
-mod uniswap_v2_fetcher;
+pub mod uniswap;
+pub mod sushiswap;
+pub mod pancake_swap;
+pub mod aerodome;
+
 
 /// Enumerates the supported pool types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -58,27 +62,17 @@ pub enum Pool {
     Aerodome(UniswapV2Pool),
 }
 
-
-impl PoolType {
-    pub async fn build_pools_from_addrs<P, T, N>(
-        &self,
-        provider: Arc<P>,
-        addresses: Vec<Address>
-    ) -> Vec<Pool>
-    where
-        P: Provider<T, N> + Sync + 'static,
-        T: Transport + Sync + Clone,
-        N: Network
-    {
-        match  self {
-            PoolType::UniswapV2 => UniswapV2Fetcher.build_pools_from_addrs(provider, addresses).await,
-            _ => unimplemented!()
-            //PoolType::UniswapV3 => UniswapV3Fetcher.build_pools_from_addrs(provider, addresses).await,
-            //PoolType::SushiSwap => SushiSwapFetcher.build_pools_from_addrs(provider, addresses).await,
-            //PoolType::Aerodome => AerodomeFetcher.build_pools_from_addrs(provider, addresses).await
+impl Pool {
+    pub fn new_v2(pool_type: PoolType, pool: UniswapV2Pool) -> Self {
+        match pool_type {
+            PoolType::UniswapV2 => Pool::UniswapV2(pool),
+            PoolType::SushiSwap => Pool::SushiSwap(pool),
+            PoolType::Aerodome => Pool::Aerodome(pool),
+            _ => panic!("Invalid pool type")
         }
     }
 }
+
 
 impl fmt::Display for PoolType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -109,7 +103,10 @@ pub trait PoolFetcher: Send + Sync {
     /// Attempts to create a `Pool` instance from a log entry
     fn log_to_address(&self, log: &Log) -> Address;
 
-    async fn build_pools_from_addrs<P, T, N>(
+}
+
+impl PoolType {
+    pub async fn build_pools_from_addrs<P, T, N>(
         &self,
         provider: Arc<P>,
         addresses: Vec<Address>,
@@ -117,9 +114,17 @@ pub trait PoolFetcher: Send + Sync {
     where
         P: Provider<T, N> + Sync + 'static,
         T: Transport + Sync + Clone,
-        N: Network;
-}
+        N: Network 
+    {
+        match self {
+            PoolType::UniswapV2 => v2_builder::build_pools(provider, addresses, PoolType::UniswapV2).await,
+            PoolType::UniswapV3 => unimplemented!(),
+            PoolType::SushiSwap => unimplemented!(),
+            PoolType::Aerodome => unimplemented!(),
+        }
+    }
 
+}
 /// Defines common methods that are used to access information about the pools
 pub trait PoolInfo {
     fn address(&self) -> Address;
