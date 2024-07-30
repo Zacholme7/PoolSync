@@ -50,8 +50,9 @@ interface IERC20 {
  * @dev This contract is not meant to be deployed. Instead, use a static call with the
  *       deployment bytecode as payload.
  */
-contract UniswapV3DataSync {
+contract V3DataSync {
     struct PoolData {
+        address poolAddr;
         address tokenA;
         uint8 tokenADecimals;
         address tokenB;
@@ -74,6 +75,7 @@ contract UniswapV3DataSync {
 
             PoolData memory poolData;
 
+            poolData.poolAddr = poolAddress;
             poolData.tokenA = IUniswapV3Pool(poolAddress).token0();
             poolData.tokenB = IUniswapV3Pool(poolAddress).token1();
 

@@ -40,7 +40,6 @@ impl Rpc {
         N: Network,
     {
         let block_difference = end_block.saturating_sub(start_block);
-        println!("Block Difference: {}", block_difference);
 
         if block_difference > 0 {
             let (total_steps, step_size) = if block_difference < STEP_SIZE {
@@ -135,6 +134,7 @@ impl Rpc {
         let total_tasks = (pool_addrs.len() + 39) / 40; // Ceiling division by 40
         let info = format!("{} data sync", pool);
         let progress_bar = create_progress_bar(total_tasks as u64, info);
+        println!("V3 addresses len: {}", pool_addrs.len());
 
         // Map all the addresses into chunks the contract can handle
         let addr_chunks: Vec<Vec<Address>> =

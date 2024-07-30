@@ -19,6 +19,7 @@ use alloy::primitives::U128;
 mod pool_structure;
 mod gen;
 mod v2_builder;
+mod v3_builder;
 pub mod uniswap;
 pub mod sushiswap;
 pub mod pancake_swap;
@@ -45,13 +46,14 @@ pub enum PoolType {
 pub enum Pool {
     /// A Uniswap V2 pool
     UniswapV2(UniswapV2Pool),
+    /// A SushiSwapV2 pool
+    SushiSwap(UniswapV2Pool),
+    /// A AerodomeV2 pool
+    Aerodome(UniswapV2Pool),
+    /// A PancakeSwapV2 pool
+    PancakeSwap(UniswapV2Pool),
     /// A Uniswap V3 pool
     UniswapV3(UniswapV3Pool),
-    /// A SushiSwap pool
-    SushiSwap(UniswapV2Pool),
-    /// A Aerodome pool
-    Aerodome(UniswapV2Pool),
-    PancakeSwap(UniswapV2Pool),
 }
 
 impl Pool {
@@ -61,6 +63,13 @@ impl Pool {
             PoolType::SushiSwap => Pool::SushiSwap(pool),
             PoolType::Aerodome => Pool::Aerodome(pool),
             PoolType::PancakeSwap => Pool::PancakeSwap(pool),
+            _ => panic!("Invalid pool type")
+        }
+    }
+
+    pub fn new_v3(pool_type: PoolType, pool: UniswapV3Pool) -> Self {
+        match pool_type {
+            PoolType::UniswapV3 => Pool::UniswapV3(pool),
             _ => panic!("Invalid pool type")
         }
     }
@@ -111,8 +120,8 @@ impl PoolType {
             PoolType::UniswapV2 => v2_builder::build_pools(provider, addresses, PoolType::UniswapV2).await,
             PoolType::SushiSwap => v2_builder::build_pools(provider, addresses, PoolType::SushiSwap).await,
             PoolType::PancakeSwap => v2_builder::build_pools(provider, addresses, PoolType::PancakeSwap).await,
-            PoolType::UniswapV3 => unimplemented!(),
-            PoolType::Aerodome => unimplemented!(),
+            PoolType::Aerodome => v2_builder::build_pools(provider, addresses, PoolType::Aerodome).await,
+            PoolType::UniswapV3 => v3_builder::build_pools(provider, addresses, PoolType::UniswapV3).await,
         }
     }
 

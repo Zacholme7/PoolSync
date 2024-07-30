@@ -15,7 +15,7 @@ pub struct UniswapV2Pool {
     pub token1_reserves: U128,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UniswapV3Pool {
     pub address: Address,
     pub token0: Address,
@@ -35,7 +35,7 @@ pub struct UniswapV3Pool {
 
 
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TickInfo {
     pub liquidity_gross: u128,
     pub liquidity_net: i128,

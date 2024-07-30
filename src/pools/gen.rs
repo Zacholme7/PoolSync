@@ -31,6 +31,13 @@ sol!(
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
+    UniswapV3Factory,
+    "src/pools/abis/UniswapV3Factory.json"
+);
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
     ERC20,
     "src/pools/abis/ERC20.json"
 );

@@ -3,7 +3,9 @@
 //! This module provides a builder pattern for constructing a PoolSync instance,
 //! allowing for flexible configuration of pool types and chains to be synced.
 
+use aerodome::AerodomeFetcher;
 use pancake_swap::PancakeSwapV2Fetcher;
+use uniswap::UniswapV3Fetcher;
 
 use crate::errors::*;
 use crate::pools::*;
@@ -34,9 +36,8 @@ impl PoolSyncBuilder {
                     .insert(PoolType::UniswapV2, Arc::new(UniswapV2Fetcher));
             }
             PoolType::UniswapV3 => {
-                //self.fetchers
-                //    .insert(PoolType::UniswapV3, Arc::new(UniswapV3Fetcher));
-                todo!()
+                self.fetchers
+                    .insert(PoolType::UniswapV3, Arc::new(UniswapV3Fetcher));
             }
             PoolType::SushiSwap => {
                 self.fetchers
@@ -47,9 +48,8 @@ impl PoolSyncBuilder {
                     .insert(PoolType::PancakeSwap, Arc::new(PancakeSwapV2Fetcher));
             }
             PoolType::Aerodome => {
-                //self.fetchers
-                //    .insert(PoolType::Aerodome, Arc::new(AerodomeFetcher));
-                todo!()
+                self.fetchers
+                    .insert(PoolType::Aerodome, Arc::new(AerodomeFetcher));
             }
         }
         self
