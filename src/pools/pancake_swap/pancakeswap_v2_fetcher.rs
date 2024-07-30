@@ -10,7 +10,7 @@ pub struct PancakeSwapV2Fetcher;
 
 impl PoolFetcher for PancakeSwapV2Fetcher {
     fn pool_type(&self) -> PoolType {
-        PoolType::PancakeSwap
+        PoolType::PancakeSwapV2
     }
 
     fn factory_address(&self, chain: Chain) -> Address {

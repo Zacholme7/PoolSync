@@ -9,7 +9,7 @@ pub struct SushiSwapV2Fetcher;
 
 impl PoolFetcher for SushiSwapV2Fetcher {
     fn pool_type(&self) -> PoolType {
-        PoolType::SushiSwap
+        PoolType::SushiSwapV2
     }
 
     fn factory_address(&self, chain: Chain) -> Address {

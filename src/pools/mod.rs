@@ -9,7 +9,6 @@ use crate::impl_pool_info;
 use alloy::primitives::{Address, Log};
 use alloy::providers::Provider;
 use alloy::transports::Transport;
-use async_trait::async_trait;
 use alloy::network::Network;
 use pool_structure::{UniswapV2Pool, UniswapV3Pool};
 use serde::{Deserialize, Serialize};
@@ -29,40 +28,38 @@ pub mod aerodome;
 /// Enumerates the supported pool types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PoolType {
-    /// Uniswap V2 pool type
     UniswapV2,
-    /// Uniswap V3 pool type
+    SushiSwapV2,
+    PancakeSwapV2,
+
     UniswapV3,
-    /// SushiSwap pool type
-    SushiSwap,
-    /// Aerodome
+    SushiSwapV3,
+    PancakeSwapV3,
+
     Aerodome,
-    /// PancakeSwap
-    PancakeSwap,
 }
 
 /// Represents a populated pool from any of the supported protocols
 #[derive(Debug, Clone,  Serialize, Deserialize)]
 pub enum Pool {
-    /// A Uniswap V2 pool
     UniswapV2(UniswapV2Pool),
-    /// A SushiSwapV2 pool
-    SushiSwap(UniswapV2Pool),
-    /// A AerodomeV2 pool
-    Aerodome(UniswapV2Pool),
-    /// A PancakeSwapV2 pool
-    PancakeSwap(UniswapV2Pool),
-    /// A Uniswap V3 pool
+    SushiSwapV2(UniswapV2Pool),
+    PancakeSwapV2(UniswapV2Pool),
+
     UniswapV3(UniswapV3Pool),
+    SushiSwapV3(UniswapV3Pool),
+    PancakeSwapV3(UniswapV3Pool),
+
+    Aerodome(UniswapV2Pool),
 }
 
 impl Pool {
     pub fn new_v2(pool_type: PoolType, pool: UniswapV2Pool) -> Self {
         match pool_type {
             PoolType::UniswapV2 => Pool::UniswapV2(pool),
-            PoolType::SushiSwap => Pool::SushiSwap(pool),
+            PoolType::SushiSwapV2 => Pool::SushiSwapV2(pool),
+            PoolType::PancakeSwapV2 => Pool::PancakeSwapV2(pool),
             PoolType::Aerodome => Pool::Aerodome(pool),
-            PoolType::PancakeSwap => Pool::PancakeSwap(pool),
             _ => panic!("Invalid pool type")
         }
     }
@@ -70,6 +67,8 @@ impl Pool {
     pub fn new_v3(pool_type: PoolType, pool: UniswapV3Pool) -> Self {
         match pool_type {
             PoolType::UniswapV3 => Pool::UniswapV3(pool),
+            PoolType::SushiSwapV3 => Pool::SushiSwapV3(pool),
+            PoolType::PancakeSwapV3 => Pool::PancakeSwapV3(pool),
             _ => panic!("Invalid pool type")
         }
     }
@@ -84,7 +83,16 @@ impl fmt::Display for PoolType {
 
 
 // Implement the PoolInfo trait for all pool variants that are supported
-impl_pool_info!(Pool, UniswapV2, UniswapV3, SushiSwap, Aerodome, PancakeSwap);
+impl_pool_info!(
+    Pool, 
+    UniswapV2, 
+    SushiSwapV2,
+    PancakeSwapV2,
+    UniswapV3, 
+    SushiSwapV3, 
+    PancakeSwapV3,
+    Aerodome
+);
 
 
 /// Defines common functionality for fetching and decoding pool creation events
@@ -118,10 +126,12 @@ impl PoolType {
     {
         match self {
             PoolType::UniswapV2 => v2_builder::build_pools(provider, addresses, PoolType::UniswapV2).await,
-            PoolType::SushiSwap => v2_builder::build_pools(provider, addresses, PoolType::SushiSwap).await,
-            PoolType::PancakeSwap => v2_builder::build_pools(provider, addresses, PoolType::PancakeSwap).await,
-            PoolType::Aerodome => v2_builder::build_pools(provider, addresses, PoolType::Aerodome).await,
+            PoolType::SushiSwapV2 => v2_builder::build_pools(provider, addresses, PoolType::SushiSwapV2).await,
+            PoolType::PancakeSwapV2 => v2_builder::build_pools(provider, addresses, PoolType::PancakeSwapV2).await,
             PoolType::UniswapV3 => v3_builder::build_pools(provider, addresses, PoolType::UniswapV3).await,
+            PoolType::SushiSwapV3 => v3_builder::build_pools(provider, addresses, PoolType::SushiSwapV3).await,
+            PoolType::PancakeSwapV3 => v3_builder::build_pools(provider, addresses, PoolType::PancakeSwapV3).await,
+            PoolType::Aerodome => v2_builder::build_pools(provider, addresses, PoolType::Aerodome).await,
         }
     }
 
@@ -210,11 +220,13 @@ macro_rules! impl_pool_info {
 
             fn reserves(&self) -> (U128, U128) {
                 match self {
-                    $enum_name::UniswapV3(pool) => (pool.liquidity.into(), pool.liquidity.into()),
                     $enum_name::UniswapV2(pool) => (pool.token0_reserves, pool.token1_reserves),
-                    $enum_name::SushiSwap(pool) => (pool.token0_reserves, pool.token1_reserves),
+                    $enum_name::SushiSwapV2(pool) => (pool.token0_reserves, pool.token1_reserves),
+                    $enum_name::PancakeSwapV2(pool) => (pool.token0_reserves, pool.token1_reserves),
                     $enum_name::Aerodome(pool) => (pool.token0_reserves, pool.token1_reserves),
-                    $enum_name::PancakeSwap(pool) => (pool.token0_reserves, pool.token1_reserves),
+                    $enum_name::UniswapV3(pool) => (pool.liquidity.into(), pool.liquidity.into()),
+                    $enum_name::SushiSwapV3(pool) => (pool.liquidity.into(), pool.liquidity.into()),
+                    $enum_name::PancakeSwapV3(pool) => (pool.liquidity.into(), pool.liquidity.into()),
                 }
             }
         }

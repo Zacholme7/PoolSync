@@ -25,9 +25,6 @@ sol!(
 pub const INITIAL_BACKOFF: u64 = 1000; // 1 second
 pub const MAX_RETRIES: u32 = 5;
 
-
-
-
 pub async fn build_pools<P, T, N>(
     provider: Arc<P>,
     addresses: Vec<Address>,
@@ -84,7 +81,8 @@ where
         DynSolType::Int(128),
     ])));
 
-    let data = V3DataSync::deploy_builder(provider.clone(), addresses.to_vec()).await?;
+    let protocol = if pool_type == PoolType::UniswapV3 { 0_u8 } else { 1_u8 } ;
+    let data = V3DataSync::deploy_builder(provider.clone(), addresses.to_vec(), protocol).await?;
     let decoded_data = v3_data.abi_decode_sequence(&data)?;
 
     let mut pools = Vec::new();

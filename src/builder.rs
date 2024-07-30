@@ -4,16 +4,15 @@
 //! allowing for flexible configuration of pool types and chains to be synced.
 
 use aerodome::AerodomeFetcher;
-use pancake_swap::PancakeSwapV2Fetcher;
-use uniswap::UniswapV3Fetcher;
+use pancake_swap::{PancakeSwapV2Fetcher, PancakeSwapV3Fetcher};
+use sushiswap::{SushiSwapV2Fetcher, SushiSwapV3Fetcher};
+use uniswap::{UniswapV2Fetcher, UniswapV3Fetcher};
 
 use crate::errors::*;
 use crate::pools::*;
 use crate::{Chain, PoolSync, PoolType};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::pools::uniswap::UniswapV2Fetcher;
-use crate::pools::sushiswap::SushiSwapV2Fetcher;
 
 /// Builder for constructing a PoolSync instance
 #[derive(Default)]
@@ -39,13 +38,21 @@ impl PoolSyncBuilder {
                 self.fetchers
                     .insert(PoolType::UniswapV3, Arc::new(UniswapV3Fetcher));
             }
-            PoolType::SushiSwap => {
+            PoolType::SushiSwapV2 => {
                 self.fetchers
-                    .insert(PoolType::SushiSwap, Arc::new(SushiSwapV2Fetcher));
+                    .insert(PoolType::SushiSwapV2, Arc::new(SushiSwapV2Fetcher));
             }
-            PoolType::PancakeSwap => {
+            PoolType::SushiSwapV3 => {
                 self.fetchers
-                    .insert(PoolType::PancakeSwap, Arc::new(PancakeSwapV2Fetcher));
+                    .insert(PoolType::SushiSwapV3, Arc::new(SushiSwapV3Fetcher));
+            }
+            PoolType::PancakeSwapV2 => {
+                self.fetchers
+                    .insert(PoolType::PancakeSwapV2, Arc::new(PancakeSwapV2Fetcher));
+            }
+            PoolType::PancakeSwapV3 => {
+                self.fetchers
+                    .insert(PoolType::PancakeSwapV3, Arc::new(PancakeSwapV3Fetcher));
             }
             PoolType::Aerodome => {
                 self.fetchers

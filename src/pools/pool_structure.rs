@@ -29,18 +29,19 @@ pub struct UniswapV3Pool {
     pub fee: u32,
     pub tick: i32,
     pub tick_spacing: i32,
-    pub tick_bitmap: HashMap<i16, U256>,
-    pub ticks: HashMap<i32, TickInfo>,
 }
 
 
-
+/* 
+pub tick_bitmap: HashMap<i16, U256>,
+pub ticks: HashMap<i32, TickInfo>,
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TickInfo {
     pub liquidity_gross: u128,
     pub liquidity_net: i128,
     pub initialized: bool,
 }
+*/
 
 impl UniswapV2Pool {
     pub fn is_valid(&self) -> bool {

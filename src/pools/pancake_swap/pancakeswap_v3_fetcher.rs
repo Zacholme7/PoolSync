@@ -1,9 +1,16 @@
-pub struct PancakeSwapV3Fetcher;
+use crate::pools::gen::PancakeSwapV3Factory;
+use alloy::primitives::{address, Address};
+use alloy_sol_types::SolEvent;
+use crate::pools::PoolFetcher;
+use alloy::primitives::Log;
+use crate::pools::PoolType;
+use crate::Chain;
 
+pub struct PancakeSwapV3Fetcher;
 
 impl PoolFetcher for PancakeSwapV3Fetcher {
     fn pool_type(&self) -> PoolType {
-        PoolType::PancakeSwap
+        PoolType::PancakeSwapV3
     }
 
     fn factory_address(&self, chain: Chain) -> Address {
@@ -14,11 +21,11 @@ impl PoolFetcher for PancakeSwapV3Fetcher {
     }
     
     fn pair_created_signature(&self) -> &str {
-        UniswapV2Factory::PairCreated::SIGNATURE
+        PancakeSwapV3Factory::PoolCreated::SIGNATURE
     }
 
     fn log_to_address(&self, log: &Log) -> Address {
-        let decoded_log = UniswapV2Factory::PairCreated::decode_log(log, false).unwrap();
-        decoded_log.data.pair
+        let decoded_log = PancakeSwapV3Factory::PoolCreated::decode_log(log, false).unwrap();
+        decoded_log.data.pool
     }
 }

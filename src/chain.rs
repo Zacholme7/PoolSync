@@ -31,8 +31,10 @@ static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
         [
             PoolType::UniswapV2,
             PoolType::UniswapV3,
-            PoolType::SushiSwap,
-            PoolType::PancakeSwap,
+            PoolType::SushiSwapV2,
+            PoolType::SushiSwapV3,
+            PoolType::PancakeSwapV2,
+            PoolType::PancakeSwapV3,
         ]
         .iter()
         .cloned()
@@ -43,10 +45,12 @@ static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
     m.insert(
         Chain::Base,
         [
-            PoolType::UniswapV2, 
-            PoolType::UniswapV3, 
-            PoolType::SushiSwap, 
-            PoolType::PancakeSwap,
+            PoolType::UniswapV2,
+            PoolType::UniswapV3,
+            PoolType::SushiSwapV2,
+            PoolType::SushiSwapV3,
+            PoolType::PancakeSwapV2,
+            PoolType::PancakeSwapV3,
             PoolType::Aerodome,
         ]
             .iter()
