@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
 
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
-        .add_pools(&[PoolType::SushiSwapV2])
+        .add_pools(&[PoolType::UniswapV3])
         .chain(Chain::Ethereum) // Specify the chain
         .rate_limit(100)
         .build()?;
@@ -57,7 +57,8 @@ async fn main() -> Result<()> {
 
     let addresses: Vec<Address> = pools.into_iter().map(|pool| pool.address()).collect();
     println!("Number of synchronized pools: {}", addresses.len());
-    let res = PoolSync::v2_pool_snapshot(addresses, http_provider).await?;
+    //let res = PoolSync::v2_pool_snapshot(addresses, http_provider).await?;
+    let res = PoolSync::v3_pool_snapshot(addresses, http_provider).await?;
     println!("{:?}", res);
 
 

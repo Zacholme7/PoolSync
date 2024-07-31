@@ -34,39 +34,6 @@ interface IUniswapV3Pool {
         );
 }
 
-interface IPancakeV3Pool {
-    function token0() external view returns (address);
-    function token1() external view returns (address);
-    function fee() external view returns (uint24);
-    function tickSpacing() external view returns (int24);
-    function liquidity() external view returns (uint128);
-    function slot0()
-        external
-        view
-        returns (
-            uint160 sqrtPriceX96,
-            int24 tick,
-            uint16 observationIndex,
-            uint16 observationCardinality,
-            uint16 observationCardinalityNext,
-            uint8 feeProtocol,
-            bool unlocked
-        );
-    function ticks(int24 tick)
-        external
-        view
-        returns (
-            uint128 liquidityGross,
-            int128 liquidityNet,
-            uint256 feeGrowthOutside0X128,
-            uint256 feeGrowthOutside1X128,
-            int56 tickCumulativeOutside,
-            uint160 secondsPerLiquidityOutsideX128,
-            uint32 secondsOutside,
-            bool initialized
-        );
-}
-
 interface IERC20 {
     function decimals() external view returns (uint8);
 }
@@ -86,15 +53,7 @@ contract V3DataSync {
         int128 liquidityNet;
     }
 
-    enum DexType {
-        Uniswap,
-        PancakeSwap
-    }
-
-    DexType public constant UNISWAP = DexType.Uniswap;
-    DexType public constant PANCAKESWAP = DexType.PancakeSwap;
-
-    constructor(address[] memory pools, DexType dexType) {
+    constructor(address[] memory pools) {
         PoolData[] memory allPoolData = new PoolData[](pools.length);
 
         for (uint256 i = 0; i < pools.length; ++i) {
@@ -106,17 +65,9 @@ contract V3DataSync {
 
             poolData.poolAddr = poolAddress;
 
-            if (dexType == DexType.Uniswap) {
-                IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
-                poolData.tokenA = pool.token0();
-                poolData.tokenB = pool.token1();
-            } else if (dexType == DexType.PancakeSwap) {
-                IPancakeV3Pool pool = IPancakeV3Pool(poolAddress);
-                poolData.tokenA = pool.token0();
-                poolData.tokenB = pool.token1();
-            } else {
-                continue; // Skip if unknown DEX type
-            }
+            IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
+            poolData.tokenA = pool.token0();
+            poolData.tokenB = pool.token1();
 
             //Check that tokenA and tokenB do not have codesize of 0
             if (codeSizeIsZero(poolData.tokenA)) continue;
@@ -178,27 +129,14 @@ contract V3DataSync {
                 continue;
             }
 
-            if (dexType == DexType.Uniswap) {
-                IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
-                (uint160 sqrtPriceX96, int24 tick, , , , , ) = pool.slot0();
-                (, int128 liquidityNet, , , , , , ) = pool.ticks(tick);
-                poolData.liquidity = pool.liquidity();
-                poolData.tickSpacing = pool.tickSpacing();
-                poolData.fee = pool.fee();
-                poolData.sqrtPrice = sqrtPriceX96;
-                poolData.tick = tick;
-                poolData.liquidityNet = liquidityNet;
-            } else if (dexType == DexType.PancakeSwap) {
-                IPancakeV3Pool pool = IPancakeV3Pool(poolAddress);
-                (uint160 sqrtPriceX96, int24 tick, , , , , ) = pool.slot0();
-                (, int128 liquidityNet, , , , , , ) = pool.ticks(tick);
-                poolData.liquidity = pool.liquidity();
-                poolData.tickSpacing = pool.tickSpacing();
-                poolData.fee = pool.fee();
-                poolData.sqrtPrice = sqrtPriceX96;
-                poolData.tick = tick;
-                poolData.liquidityNet = liquidityNet;
-            }
+            (uint160 sqrtPriceX96, int24 tick, , , , , ) = pool.slot0();
+            (, int128 liquidityNet, , , , , , ) = pool.ticks(tick);
+            poolData.liquidity = pool.liquidity();
+            poolData.tickSpacing = pool.tickSpacing();
+            poolData.fee = pool.fee();
+            poolData.sqrtPrice = sqrtPriceX96;
+            poolData.tick = tick;
+            poolData.liquidityNet = liquidityNet;
 
             allPoolData[i] = poolData;
         }

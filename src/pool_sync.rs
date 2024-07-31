@@ -8,13 +8,14 @@ use alloy::dyn_abi::{DynSolType, DynSolValue};
 use alloy::network::Network;
 use alloy::signers::k256::elliptic_curve::bigint::modular::montgomery_reduction;
 use futures::stream;
+
 use alloy::providers::Provider;
 use alloy::transports::Transport;
 use std::collections::HashMap;
 use std::sync::Arc;
 use futures::stream::StreamExt;
 use alloy::sol;
-use alloy::primitives::Address;
+use alloy::primitives::{Address, U256};
 
 use crate::builder::PoolSyncBuilder;
 use crate::cache::{read_cache_file, write_cache_file, PoolCache};
@@ -33,6 +34,15 @@ pub struct V2ReserveSnapshot {
     pub reserve0: u128,
     pub reserve1: u128,
 }
+
+#[derive(Debug)]
+pub struct V3StateSnapshot {
+    pub address: Address,
+    pub liquidity: u128,
+    pub sqrt_price: U256,
+    pub tick: i32,
+}
+
 
 /// The main struct for pool synchronization
 pub struct PoolSync {
@@ -160,7 +170,72 @@ impl PoolSync {
         Ok(results)
     }
 
+
+    pub async fn v3_pool_snapshot<P, T, N>(pool_addresses: Vec<Address>, provider: Arc<P>) -> Result<Vec<V3StateSnapshot>, PoolSyncError>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        sol!(
+            #[derive(Debug)]
+            #[sol(rpc)]
+            V3StateUpdate,
+            "src/abi/V3StateUpdate.json"
+        );
+
+        let total_tasks = (pool_addresses.len() + 39) / 40; // Ceiling division by 40
+        let info = format!("{} address sync", pool_addresses.len());
+
+
+        // Map all the addresses into chunks the contract can handle
+        let addr_chunks: Vec<Vec<Address>> =
+            pool_addresses.chunks(40).map(|chunk| chunk.to_vec()).collect();
+
+        let results = stream::iter(addr_chunks).map(|chunk| {
+            let provider = provider.clone();
+            async move {
+                let state_data: DynSolType = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+                    DynSolType::Address,
+                    DynSolType::Uint(128),
+                    DynSolType::Uint(160),
+                    DynSolType::Int(24),
+                ])));
+                let data = V3StateUpdate::deploy_builder(provider.clone(), chunk.clone()).await.unwrap();
+                let decoded_data = state_data.abi_decode_sequence(&data).unwrap();
+                let mut updated_states = Vec::new();
+                if let Some(state_data_arr) = decoded_data.as_array() {
+                    for state_data_tuple in state_data_arr {
+                        if let Some(state_data) = state_data_tuple.as_tuple() {
+                            let decoded_state = V3StateSnapshot::from(state_data);
+                            updated_states.push(decoded_state);
+                        }
+                    }
+                }
+                return updated_states;
+            }
+        }).buffer_unordered(100 as usize * 2) // Allow some buffering for smoother operation
+            .collect::<Vec<Vec<V3StateSnapshot>>>()
+            .await;
+
+        let results: Vec<V3StateSnapshot> = results.into_iter().flatten().collect();
+        Ok(results)
+    }
+
 }
+
+
+impl From<&[DynSolValue]> for V3StateSnapshot {
+    fn from(data: &[DynSolValue]) -> Self {
+        Self {
+            address: data[0].as_address().unwrap(),
+            liquidity: data[1].as_uint().unwrap().0.to::<u128>(),
+            sqrt_price: data[2].as_uint().unwrap().0,
+            tick: data[3].as_int().unwrap().0.as_i32(),
+        }
+    }
+}
+
 
 
 impl From<&[DynSolValue]> for V2ReserveSnapshot {
