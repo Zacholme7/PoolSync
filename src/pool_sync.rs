@@ -29,9 +29,9 @@ const MAX_RETRIES: u32 = 5;
 // local reserve updates
 #[derive(Debug)]
 pub struct V2ReserveSnapshot {
-    address: Address,
-    reserve0: u128,
-    reserve1: u128,
+    pub address: Address,
+    pub reserve0: u128,
+    pub reserve1: u128,
 }
 
 /// The main struct for pool synchronization
