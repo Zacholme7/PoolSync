@@ -5,6 +5,7 @@
 
 use alloy::providers::{Provider, ProviderBuilder};
 use anyhow::Result;
+use alloy::primitives::Address;
 use pool_sync::filter::fetch_top_volume_tokens;
 use pool_sync::{Chain, Pool, PoolInfo, PoolSync, PoolType};
 use std::sync::Arc;
@@ -46,14 +47,21 @@ async fn main() -> Result<()> {
 
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
-        .add_pools(&[PoolType::PancakeSwapV3])
+        .add_pools(&[PoolType::SushiSwapV2])
         .chain(Chain::Ethereum) // Specify the chain
         .rate_limit(100)
         .build()?;
 
     // Initiate the sync process
     let pools = pool_sync.sync_pools(http_provider.clone()).await?;
-    println!("Number of synchronized pools: {}", pools.len());
+
+    let addresses: Vec<Address> = pools.into_iter().map(|pool| pool.address()).collect();
+    println!("Number of synchronized pools: {}", addresses.len());
+    let res = PoolSync::v2_pool_snapshot(addresses, http_provider).await?;
+    println!("{:?}", res);
+
+
+    //println!("Number of synchronized pools: {}", pools.len());
 
     // extract all pools with top volume tokens
     //let pools_over_top_volume_tokens = fetch_top_volume_tokens(100, Chain::Base).await;
