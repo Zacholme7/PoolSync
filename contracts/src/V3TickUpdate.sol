@@ -6,7 +6,7 @@ pragma solidity ^0.8.0;
       deployment bytecode as payload.
  */
 
-contract UniswapV3TickSync {
+contract V3TickUpdate {
     int24 internal constant MIN_TICK = -887272;
     int24 internal constant MAX_TICK = -MIN_TICK;
 
@@ -71,7 +71,7 @@ contract UniswapV3TickSync {
 
         // ensure abi encoding, not needed here but increase reusability for different return types
         // note: abi.encode add a first 32 bytes word with the address of the original data
-        bytes memory abiEncodedData = abi.encode(tickData, block.number);
+        bytes memory abiEncodedData = abi.encode(tickData);
 
         assembly {
             // Return from the start of the data (discarding the original data address)

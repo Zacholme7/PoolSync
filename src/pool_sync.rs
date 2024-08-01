@@ -43,6 +43,12 @@ pub struct V3StateSnapshot {
     pub tick: i32,
 }
 
+pub struct V3TickSnapshot {
+    pub initialized: bool,
+    pub tick: i32,
+    pub liqudity_net: i128,
+}
+
 
 /// The main struct for pool synchronization
 pub struct PoolSync {
@@ -192,6 +198,7 @@ impl PoolSync {
         let addr_chunks: Vec<Vec<Address>> =
             pool_addresses.chunks(40).map(|chunk| chunk.to_vec()).collect();
 
+        // update general pool state
         let results = stream::iter(addr_chunks).map(|chunk| {
             let provider = provider.clone();
             async move {
@@ -201,6 +208,7 @@ impl PoolSync {
                     DynSolType::Uint(160),
                     DynSolType::Int(24),
                 ])));
+
                 let data = V3StateUpdate::deploy_builder(provider.clone(), chunk.clone()).await.unwrap();
                 let decoded_data = state_data.abi_decode_sequence(&data).unwrap();
                 let mut updated_states = Vec::new();
@@ -220,6 +228,51 @@ impl PoolSync {
 
         let results: Vec<V3StateSnapshot> = results.into_iter().flatten().collect();
         Ok(results)
+    }
+
+    pub async vn v3_tickbitmap_snapshot<P, T, N>(pool_addresses: Vec<Address>, provider: Arc<P>) -> Result<Vec<V3TickBitmapSnapshot>, PoolSyncError>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        todo!()
+    }
+
+    pub async fn v3_tick_snapshot<P, T, N>(pool_addresses: Vec<Address>, provider: Arc<P>) -> Result<Vec<V3TickSnapshot>, PoolSyncError>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        sol!(
+            #[derive(Debug)]
+            #[sol(rpc)]
+            V3TickUpdate,
+            "src/abi/V3TickUpdate.json"
+        );
+
+
+        let results = stream::iter(pool_addresses).map(|pool_address| {
+            let provider = provider.clone();
+            async move {
+                let tick_data: DynSolType = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+                    DynSolType::Bool,
+                    DynSolType::Int(24),
+                    DynSolType::Int(24),
+                    DynSolType::Int(128),
+                ])));
+
+                let data = V3TickUpdate::deploy_builder(
+                    provider.clone(), 
+                    pool_address
+
+                ).await.unwrap();
+            }
+
+        });
+        todo!()
+
     }
 
 }
