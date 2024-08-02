@@ -146,6 +146,7 @@ where
 
 
 
+/* 
 pub async fn v3_tickbitmap_snapshot<P, T, N>(pool_addresses: Vec<Address>, provider: Arc<P>) -> Result<Vec<V3TickBitmapSnapshot>, PoolSyncError>
 where
     P: Provider<T, N> + 'static,
@@ -154,6 +155,7 @@ where
 {
     todo!()
 }
+*/
 
 /* 
 
