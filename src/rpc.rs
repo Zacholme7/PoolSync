@@ -6,6 +6,7 @@ use alloy::transports::Transport;
 use futures::stream;
 use futures::stream::StreamExt;
 use rand::Rng;
+use tokio::sync::Semaphore;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -129,23 +130,27 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let total_tasks = (pool_addrs.len() + 39) / 40; // Ceiling division by 40
+        let total_tasks = (pool_addrs.len() + 19) / 20; // Ceiling division by 40
         let info = format!("{} data sync", pool);
         let progress_bar = create_progress_bar(total_tasks as u64, info);
+        
+        let rate_limiter = Arc::new(Semaphore::new(100 as usize));
 
         // Map all the addresses into chunks the contract can handle
         let addr_chunks: Vec<Vec<Address>> =
-            pool_addrs.chunks(40).map(|chunk| chunk.to_vec()).collect();
+            pool_addrs.chunks(20).map(|chunk| chunk.to_vec()).collect();
 
         let results = stream::iter(addr_chunks)
             .map(|chunk| {
                 let provider = provider.clone();
                 let progress_bar = progress_bar.clone();
                 let pool = pool.clone();
+                let rate_limiter = rate_limiter.clone();
 
                 async move {
                     let mut retry_count = 0;
                     let mut backoff = INITIAL_BACKOFF;
+                    let _permit = rate_limiter.acquire().await.unwrap();
 
                     loop {
                         match pool

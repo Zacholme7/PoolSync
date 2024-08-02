@@ -16,6 +16,7 @@ mod cache;
 mod chain;
 mod errors;
 mod rpc;
+pub mod snapshot;
 pub mod filter;
 mod pool_sync;
 mod pools;

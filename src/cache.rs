@@ -10,7 +10,7 @@ use std::fs;
 use std::path::Path;
 
 /// Cache for a protocol, facilitates easier syncing
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct PoolCache {
     /// The last block number that was synced
     pub last_synced_block: u64,
@@ -40,5 +40,5 @@ pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> PoolCache {
 pub fn write_cache_file(pool_cache: &PoolCache, chain: Chain) {
     let pool_cache_file = format!("cache/{}_{}_cache.json", chain, pool_cache.pool_type);
     let json = serde_json::to_string(&pool_cache).unwrap();
-    let _ = fs::write(pool_cache_file, json);
+    let _ = fs::write(pool_cache_file, json).expect("Failed to write cache file");
 }
