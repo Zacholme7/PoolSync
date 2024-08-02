@@ -25,13 +25,5 @@ async fn main() -> Result<()> {
     let addresses: Vec<Address> = pools.into_iter().map(|pool| pool.address()).collect();
     println!("Number of synchronized pools: {}", addresses.len());
 
-
-    println!("Getting snaphsot");
-
-    let provider = Arc::new(ProviderBuilder::new().on_http(std::env::var("FULL").unwrap().parse().unwrap()));
-    let start = std::time::Instant::now();
-    let snapshot = v3_pool_snapshot(addresses, provider).await?;
-    println!("Time taken: {:?}", start.elapsed());
-
     Ok(())
 }

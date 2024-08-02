@@ -37,10 +37,19 @@ pub struct V3StateSnapshot {
     pub tick: i32,
 }
 
+#[derive(Debug)]
 pub struct V3TickSnapshot {
     pub initialized: bool,
     pub tick: i32,
     pub liqudity_net: i128,
+}
+
+#[derive(Debug, Default)]
+pub struct V3TickBitmapSnapshot {
+    pub address: Address,
+    pub tick_bitmaps: [U256; 31],
+    pub word_positions: [i16; 31],
+    pub word_to_map: HashMap<i16, U256>,
 }
 
 
@@ -146,16 +155,62 @@ where
 
 
 
-/* 
 pub async fn v3_tickbitmap_snapshot<P, T, N>(pool_addresses: Vec<Address>, provider: Arc<P>) -> Result<Vec<V3TickBitmapSnapshot>, PoolSyncError>
 where
     P: Provider<T, N> + 'static,
     T: Transport + Clone + 'static,
     N: Network,
 {
-    todo!()
+
+    sol!(
+        #[derive(Debug)]
+        #[sol(rpc)]
+        V3TickBitmapUpdate,
+        "src/abi/V3TickBitmapUpdate.json"
+    );
+
+    let addr_chunks: Vec<Vec<Address>> =
+        pool_addresses.chunks(10).map(|chunk| chunk.to_vec()).collect();
+
+    let results = stream::iter(addr_chunks).map(|chunk| {
+        let provider = provider.clone();
+        async move {
+            let state_data: DynSolType = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+                DynSolType::Address,
+                DynSolType::FixedArray(Box::new(DynSolType::Uint(256)), 31),
+                DynSolType::FixedArray(Box::new(DynSolType::Int(16)), 31),
+            ])));
+
+            let data = V3TickBitmapUpdate::deploy_builder(provider.clone(), chunk.clone()).await.unwrap();
+            let decoded_data = state_data.abi_decode_sequence(&data).unwrap();
+
+            let mut updated_tickbitmaps: Vec<V3TickBitmapSnapshot> = Vec::new();
+            if let Some(state_data_arr) = decoded_data.as_array() {
+                for state_data_tuple in state_data_arr {
+                    if let Some(state_data) = state_data_tuple.as_tuple() {
+                        let decoded_state = V3TickBitmapSnapshot::from(state_data);
+                        updated_tickbitmaps.push(decoded_state);
+                    }
+                }
+            }
+
+            updated_tickbitmaps
+        }
+    }).buffer_unordered(100 * 2) // Allow some buffering for smoother operation
+        .collect::<Vec<Vec<V3TickBitmapSnapshot>>>()
+        .await;
+    let mut results: Vec<V3TickBitmapSnapshot> = results.into_iter().flatten().collect();
+
+    for result in &mut results {
+        result.word_to_map = result.word_positions.iter()
+            .zip(result.tick_bitmaps.iter())
+            .map(|(word_position, bitmap)| {
+                (*word_position, *bitmap)
+            }).collect();
+    }
+
+    Ok(results)
 }
-*/
 
 /* 
 
@@ -199,6 +254,24 @@ where
 
 // Data parsers
 
+impl From<&[DynSolValue]> for V3TickBitmapSnapshot {
+    fn from(data: &[DynSolValue]) -> Self {
+        Self {
+            address: data[0].as_address().unwrap(),
+            tick_bitmaps: data[1].as_fixed_array().unwrap().iter()
+                .map(|value| value.as_uint().unwrap().0)
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+            word_positions: data[2].as_fixed_array().unwrap().iter()
+                .map(|value| value.as_int().unwrap().0.as_i16())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+            ..Default::default()
+        }
+    }
+}
 
 impl From<&[DynSolValue]> for V3StateSnapshot {
     fn from(data: &[DynSolValue]) -> Self {

@@ -9,7 +9,8 @@ interface IUniswapV3Pool {
 contract V3TickBitmapUpdate {
     struct V3TickBitmapData {
         address poolAddr;
-        uint256[7] tickBitmaps; // Fixed-length array of 7 elements
+        uint256[31] tickBitmaps; // Fixed-length array of 7 elements
+        int16[31] wordPositions;
     }
 
     constructor(address[] memory pools) {
@@ -22,9 +23,10 @@ contract V3TickBitmapUpdate {
 
             allPoolData[i].poolAddr = poolAddress;
             // Get tickBitmaps: 3 before, current, and 3 after
-            for (int256 j = -3; j <= 3; j++) {
+            for (int256 j = -15; j <= 15; j++) {
                 uint256 bitmap = IUniswapV3Pool(poolAddress).tickBitmap(wordPosition + int16(j));
-                allPoolData[i].tickBitmaps[uint256(j + 3)] = bitmap;
+                allPoolData[i].wordPositions[uint256(j + 15)] = int16(wordPosition + int16(j));
+                allPoolData[i].tickBitmaps[uint256(j + 15)] = bitmap;
             }
         }
 
