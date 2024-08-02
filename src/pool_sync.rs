@@ -11,11 +11,14 @@ use futures::stream;
 
 use alloy::providers::Provider;
 use alloy::transports::Transport;
+use reqwest::Url;
+use std::str::FromStr;
 use std::collections::HashMap;
 use std::sync::Arc;
 use futures::stream::StreamExt;
 use alloy::sol;
 use alloy::primitives::{Address, U256};
+use alloy::providers::ProviderBuilder;
 
 use crate::builder::PoolSyncBuilder;
 use crate::cache::{read_cache_file, write_cache_file, PoolCache};
@@ -67,15 +70,20 @@ impl PoolSync {
     }
 
     /// Synchronizes all added pools for the specified chain
-    pub async fn sync_pools<P, T, N>(
-        &self,
-        provider: Arc<P>,
-    ) -> Result<Vec<Pool>, PoolSyncError>
-    where
-        P: Provider<T, N> + 'static,
-        T: Transport + Clone + 'static,
-        N: Network,
-    {
+    pub async fn sync_pools(&self) -> Result<Vec<Pool>, PoolSyncError> {
+        // load in the dotenv
+        dotenv::dotenv().ok();
+
+        // setup arvhice node provider
+        let archive = Arc::new(ProviderBuilder::new()
+            .network::<alloy::network::AnyNetwork>()
+            .on_http(std::env::var("ARCHIVE").unwrap().parse().unwrap()));
+
+        // setup full node provider
+        let full = Arc::new(ProviderBuilder::new()
+            .network::<alloy::network::AnyNetwork>()
+            .on_http(std::env::var("FULL").unwrap().parse().unwrap()));
+
         // create the cache files
         std::fs::create_dir_all("cache").unwrap();
 
@@ -86,7 +94,7 @@ impl PoolSync {
             .map(|pool_type| read_cache_file(pool_type, self.chain))
             .collect();
 
-        let end_block = provider.get_block_number().await.unwrap();
+        let end_block = archive.get_block_number().await.unwrap();
 
         // go though each cache, may or may not already by synced up to some point
         for cache in &mut pool_caches {
@@ -97,7 +105,7 @@ impl PoolSync {
             let pool_addrs = Rpc::fetch_pool_addrs(
                 start_block,
                 end_block,
-                provider.clone(),
+                archive.clone(),
                 fetcher.clone(),
                 self.chain,
                 self.rate_limit,
@@ -106,7 +114,7 @@ impl PoolSync {
             // populate all of the pool addresses
             let populated_pools = Rpc::populate_pools(
                 pool_addrs,
-                provider.clone(),
+                full.clone(),
                 cache.pool_type,
                 self.rate_limit
             ).await;
@@ -137,9 +145,6 @@ impl PoolSync {
             "src/abi/V2ReserveUpdate.json"
         );
 
-
-        let total_tasks = (pool_addresses.len() + 39) / 40; // Ceiling division by 40
-        let info = format!("{} address sync", pool_addresses.len());
 
 
         // Map all the addresses into chunks the contract can handle
@@ -230,6 +235,7 @@ impl PoolSync {
         Ok(results)
     }
 
+    /*
     pub async vn v3_tickbitmap_snapshot<P, T, N>(pool_addresses: Vec<Address>, provider: Arc<P>) -> Result<Vec<V3TickBitmapSnapshot>, PoolSyncError>
     where
         P: Provider<T, N> + 'static,
@@ -274,6 +280,7 @@ impl PoolSync {
         todo!()
 
     }
+    */
 
 }
 
