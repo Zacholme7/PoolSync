@@ -9,7 +9,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pool-sync = "2.0.1"
+pool-sync = "2.0.4"
 ```
 
 Configure your .env with a full node and a archive node. Archive must be an archive node. The full node can be either. 
