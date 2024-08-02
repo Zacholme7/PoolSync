@@ -9,7 +9,14 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pool-sync = "0.1.2"
+pool-sync = "2.0.1"
+```
+
+Configure your .env with a full node and a archive node. Archive must be an archive node. The full node can be either. 
+
+```env
+FULL = "full node endpoint"
+ARCHIVE = "archive node endpoint"
 ```
 
 ## Example Usage
@@ -18,10 +25,6 @@ use pool_sync::{PoolSync, PoolType, Chain, PoolInfo};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Set up the provider
-    let url = "https://eth.merkle.io".parse()?;
-    let provider = Arc::new(ProviderBuilder::new().on_http(url));
-
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         .add_pool(PoolType::UniswapV2)
@@ -30,7 +33,7 @@ async fn main() -> Result<()> {
         .build()?;
 
     // Synchronize pools
-    let pools = pool_sync.sync_pools(provider).await?;
+    let pools = pool_sync.sync_pools().await?;
 
     // Common Info
     for pool in &pools {
