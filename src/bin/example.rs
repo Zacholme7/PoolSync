@@ -2,13 +2,9 @@
 //!
 //! This program synchronizes pools from a specified blockchain using the PoolSync library.
 //! It demonstrates how to set up a provider, configure pool synchronization, and execute the sync process.
-
-use alloy::providers::ProviderBuilder;
 use anyhow::Result;
 use alloy::primitives::Address;
 use pool_sync::{Chain, Pool, PoolInfo, PoolSync, PoolType};
-use pool_sync::snapshot::*;
-use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
