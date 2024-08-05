@@ -35,7 +35,6 @@ pub struct UniswapV3Pool {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TickInfo {
-    pub liquidity_gross: u128,
     pub liquidity_net: i128,
     pub initialized: bool,
 }

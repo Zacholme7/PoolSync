@@ -130,7 +130,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let total_tasks = (pool_addrs.len() + 19) / 20; // Ceiling division by 40
+        let total_tasks = (pool_addrs.len() + 39) / 40; // Ceiling division by 40
         let info = format!("{} data sync", pool);
         let progress_bar = create_progress_bar(total_tasks as u64, info);
         
@@ -138,7 +138,7 @@ impl Rpc {
 
         // Map all the addresses into chunks the contract can handle
         let addr_chunks: Vec<Vec<Address>> =
-            pool_addrs.chunks(20).map(|chunk| chunk.to_vec()).collect();
+            pool_addrs.chunks(40).map(|chunk| chunk.to_vec()).collect();
 
         let results = stream::iter(addr_chunks)
             .map(|chunk| {

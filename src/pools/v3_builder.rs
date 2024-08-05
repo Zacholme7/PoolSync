@@ -5,13 +5,13 @@ use alloy::providers::Provider;
 use alloy::transports::Transport;
 use alloy::network::Network;
 use alloy::sol;
-use crate::pools::{Pool, PoolType};
+use crate::{pools::{Pool, PoolType}};//, snapshot::{v3_tick_snapshot, v3_tickbitmap_snapshot}};
 use alloy::primitives::Address;
 
 use std::time::Duration;
 
 
-use super::pool_structure::UniswapV3Pool;
+use super::{pool_structure::{TickInfo, UniswapV3Pool}, PoolInfo};
 use crate::pools::gen::ERC20;
 
 
@@ -67,6 +67,25 @@ where
     T: Transport + Sync + Clone,
     N: Network,
 {
+    // get initial pools populated with data
+    let mut pools = populate_pool_data(provider.clone(), addresses.to_vec(), pool_type).await?;
+
+    // populate pools with bitmpaps
+
+    //populate_tick_bitmap(provider.clone(), &mut pools).await?;
+    //populate_ticks(provider.clone(), &mut pools).await?;
+
+
+    Ok(pools)
+}
+
+
+async fn populate_pool_data<P, T, N>(provider: Arc<P>, pool_addresses: Vec<Address>, pool_type: PoolType) -> Result<Vec<Pool>, Box<dyn std::error::Error>>
+where
+    P: Provider<T, N> + Sync + 'static,
+    T: Transport + Sync + Clone,
+    N: Network,
+{
     let v3_data = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
         DynSolType::Address,
         DynSolType::Address,
@@ -82,7 +101,7 @@ where
     ])));
 
     let protocol = if pool_type == PoolType::UniswapV3 { 0_u8 } else { 1_u8 } ;
-    let data = V3DataSync::deploy_builder(provider.clone(), addresses.to_vec(), protocol).await?;
+    let data = V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec(), protocol).await?;
     let decoded_data = v3_data.abi_decode_sequence(&data)?;
 
     let mut pools = Vec::new();
@@ -111,10 +130,59 @@ where
         }
     }
 
+    // convert pools to generic pool
     let pools = pools.into_iter().map(|pool| Pool::new_v3(pool_type, pool)).collect();
 
     Ok(pools)
 }
+
+
+/* 
+pub async fn populate_tick_bitmap<P, T, N>(provider: Arc<P>, pools: &mut Vec<Pool>) -> Result<(), Box<dyn std::error::Error>>
+where
+    P: Provider<T, N> + Sync + 'static,
+    T: Transport + Sync + Clone,
+    N: Network,
+{
+    let tick_bitmaps = v3_tickbitmap_snapshot(pools, provider).await?;
+    for bitmap_snapshot in tick_bitmaps {
+        let pool = pools.iter_mut().find(|pool| pool.address() == bitmap_snapshot.address).unwrap();
+        match pool {
+            Pool::UniswapV3(ref mut p) | Pool::SushiSwapV3(ref mut p) | Pool::PancakeSwapV3(ref mut p) => {
+                p.tick_bitmap = bitmap_snapshot.word_to_map;
+            }
+            _ => panic!("will never reach here")
+        }
+    }
+    Ok(())
+}
+
+pub async fn populate_ticks<P, T, N>(provider: Arc<P>, pools: &mut Vec<Pool>) -> Result<(), Box<dyn std::error::Error>>
+where
+    P: Provider<T, N> + Sync + 'static,
+    T: Transport + Sync + Clone,
+    N: Network,
+{
+
+    let ticks = v3_tick_snapshot(pools, provider).await?;
+    for tick_snapshot in ticks {
+        let pool = pools.iter_mut().find(|pool| pool.address() == tick_snapshot[0].address).unwrap();
+        match pool {
+            Pool::UniswapV3(ref mut p) | Pool::SushiSwapV3(ref mut p) | Pool::PancakeSwapV3(ref mut p) => {
+                for snapshot in tick_snapshot {
+                    p.ticks.insert(snapshot.tick, TickInfo {
+                        liquidity_net: snapshot.liqudity_net,
+                        initialized: snapshot.initialized,
+                    });
+                }
+            }
+            _ => panic!("will never reach here")
+        }
+    }
+    Ok(())
+}
+    */
+
 
 impl From<&[DynSolValue]> for UniswapV3Pool {
     fn from(data: &[DynSolValue]) -> Self {

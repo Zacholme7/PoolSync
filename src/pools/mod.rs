@@ -10,12 +10,15 @@ use alloy::primitives::{Address, Log};
 use alloy::providers::Provider;
 use alloy::transports::Transport;
 use alloy::network::Network;
-use pool_structure::{UniswapV2Pool, UniswapV3Pool};
+use pool_structure::{TickInfo, UniswapV2Pool, UniswapV3Pool};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::{fmt, sync::Arc};
 use alloy::primitives::U128;
+use alloy::primitives::U256;
 
-mod pool_structure;
+
+pub mod pool_structure;
 mod gen;
 mod v2_builder;
 mod v3_builder;
@@ -94,6 +97,9 @@ impl_pool_info!(
     Aerodome
 );
 
+/* 
+*/
+
 
 /// Defines common functionality for fetching and decoding pool creation events
 ///
@@ -146,7 +152,18 @@ pub trait PoolInfo {
     fn token0_decimals(&self) -> u8;
     fn token1_decimals(&self) -> u8;
     fn pool_type(&self) -> PoolType;
-    fn reserves(&self) -> (U128, U128);
+}
+
+pub trait V2PoolInfo {
+    fn token0_reserves(&self) -> U128;
+    fn token1_reserves(&self) -> U128;
+}
+
+pub trait V3PoolInfo {
+    fn fee(&self) -> u32;
+    fn tick_spacing(&self) -> i32;
+    fn tick_bitmap(&self) -> HashMap<i16, U256>;
+    fn ticks(&self) -> HashMap<i32, TickInfo>;
 }
 
 
@@ -217,18 +234,76 @@ macro_rules! impl_pool_info {
                     )+
                 }
             }
+        }
+    };
+}
 
-            fn reserves(&self) -> (U128, U128) {
+/* 
+#[macro_export]
+macro_rules! impl_v2_pool_info {
+    ($enum_name:ident, $($variant:ident),+) => {
+        impl V2PoolInfo for $enum_name {
+            fn token0_reserves(&self) -> U128 {
                 match self {
-                    $enum_name::UniswapV2(pool) => (pool.token0_reserves, pool.token1_reserves),
-                    $enum_name::SushiSwapV2(pool) => (pool.token0_reserves, pool.token1_reserves),
-                    $enum_name::PancakeSwapV2(pool) => (pool.token0_reserves, pool.token1_reserves),
-                    $enum_name::Aerodome(pool) => (pool.token0_reserves, pool.token1_reserves),
-                    $enum_name::UniswapV3(pool) => (pool.liquidity.into(), pool.liquidity.into()),
-                    $enum_name::SushiSwapV3(pool) => (pool.liquidity.into(), pool.liquidity.into()),
-                    $enum_name::PancakeSwapV3(pool) => (pool.liquidity.into(), pool.liquidity.into()),
+                    $(
+                        $enum_name::$variant(pool) => pool.token0_reserves,
+                    )+
+                    _ => panic!("Not a V2 pool"),
+                }
+            }
+
+            fn token1_reserves(&self) -> U128 {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.token1_reserves,
+                    )+
+                    _ => panic!("Not a V2 pool"),
                 }
             }
         }
     };
 }
+
+#[macro_export]
+macro_rules! impl_v3_pool_info {
+    ($enum_name:ident, $($variant:ident),+) => {
+        impl V3PoolInfo for $enum_name {
+            fn fee(&self) -> u32 {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.fee,
+                    )+
+                    _ => panic!("Not a V3 pool"),
+                }
+            }
+
+            fn tick_spacing(&self) -> i32 {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.tick_spacing,
+                    )+
+                    _ => panic!("Not a V3 pool"),
+                }
+            }
+
+            fn tick_bitmap(&self) -> &HashMap<i16, U256> {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.tick_bitmap,
+                    )+
+                    _ => panic!("Not a V3 pool"),
+                }
+            }
+
+            fn ticks(&self) -> &HashMap<i32, TickInfo> {
+                match self {
+                    $(
+                        $enum_name::$variant(pool) => pool.ticks,
+                    )+
+                    _ => panic!("Not a V3 pool"),
+                }
+            }
+        }
+    };
+}
+*/
