@@ -152,6 +152,7 @@ pub trait PoolInfo {
     fn token0_decimals(&self) -> u8;
     fn token1_decimals(&self) -> u8;
     fn pool_type(&self) -> PoolType;
+    fn fee(&self) -> u32;
 }
 
 pub trait V2PoolInfo {
@@ -232,6 +233,13 @@ macro_rules! impl_pool_info {
                     $(
                         $enum_name::$variant(_) => PoolType::$variant,
                     )+
+                }
+            }
+
+            fn fee(&self) -> u32 {
+                match self {
+                    Pool::UniswapV3(pool) | Pool::SushiSwapV3(pool) | Pool::PancakeSwapV3(pool) => pool.fee,
+                    _ => panic!("Not a V3 pool")
                 }
             }
         }
