@@ -19,6 +19,8 @@ use alloy::primitives::U256;
 
 
 pub mod pool_structure;
+pub use v2_builder::build_pools as build_v2_pools;
+pub use v3_builder::build_pools as build_v3_pools;
 mod gen;
 mod v2_builder;
 mod v3_builder;

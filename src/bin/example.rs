@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         .add_pools(&[PoolType::UniswapV3])
-        .chain(Chain::Ethereum) // Specify the chain
+        .chain(Chain::Base) // Specify the chain
         .rate_limit(1000)
         .build()?;
 
