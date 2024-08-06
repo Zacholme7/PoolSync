@@ -239,7 +239,7 @@ macro_rules! impl_pool_info {
             fn fee(&self) -> u32 {
                 match self {
                     Pool::UniswapV3(pool) | Pool::SushiSwapV3(pool) | Pool::PancakeSwapV3(pool) => pool.fee,
-                    _ => panic!("Not a V3 pool")
+                    _ => 0
                 }
             }
         }
