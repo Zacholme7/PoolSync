@@ -243,7 +243,7 @@ where
         DynSolType::Array(Box::new(DynSolType::Int(16))),
     ])));
 
-    let address_chunks: Vec<Vec<Address>> = addresses.chunks(20).map(|chunk| {
+    let address_chunks: Vec<Vec<Address>> = addresses.chunks(10).map(|chunk| {
         chunk.to_vec()
     }).collect();
 
