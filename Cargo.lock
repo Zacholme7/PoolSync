@@ -2601,7 +2601,7 @@ checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
 
 [[package]]
 name = "pool-sync"
-version = "1.0.5"
+version = "1.0.6"
 dependencies = [
  "alloy",
  "alloy-contract",

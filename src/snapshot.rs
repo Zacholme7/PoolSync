@@ -91,7 +91,7 @@ where
 
     // Map all the addresses into chunks the contract can handle
     let addr_chunks: Vec<Vec<Address>> =
-        pool_addresses.chunks(40).map(|chunk| chunk.to_vec()).collect();
+        pool_addresses.chunks(20).map(|chunk| chunk.to_vec()).collect();
 
     // create out futurs and get all of the results
     let results = stream::iter(addr_chunks).map(|chunk| {
@@ -188,7 +188,7 @@ where
     ])));
 
 
-    let address_chunks: Vec<Vec<Address>> = addresses.chunks(40).map(|chunk| {
+    let address_chunks: Vec<Vec<Address>> = addresses.chunks(20).map(|chunk| {
         chunk.to_vec()
     }).collect();
 
@@ -243,7 +243,7 @@ where
         DynSolType::Array(Box::new(DynSolType::Int(16))),
     ])));
 
-    let address_chunks: Vec<Vec<Address>> = addresses.chunks(40).map(|chunk| {
+    let address_chunks: Vec<Vec<Address>> = addresses.chunks(20).map(|chunk| {
         chunk.to_vec()
     }).collect();
 
