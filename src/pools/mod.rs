@@ -21,6 +21,7 @@ use alloy::primitives::U256;
 pub mod pool_structure;
 pub use v2_builder::build_pools as build_v2_pools;
 pub use v3_builder::build_pools as build_v3_pools;
+pub use v3_builder::process_tick_data;
 mod gen;
 mod v2_builder;
 mod v3_builder;
@@ -124,6 +125,7 @@ pub trait PoolFetcher: Send + Sync {
 impl PoolType {
     pub async fn build_pools_from_addrs<P, T, N>(
         &self,
+        start_end: (u64, u64),
         provider: Arc<P>,
         addresses: Vec<Address>,
     ) -> Vec<Pool>
@@ -136,9 +138,9 @@ impl PoolType {
             PoolType::UniswapV2 => v2_builder::build_pools(provider, addresses, PoolType::UniswapV2).await,
             PoolType::SushiSwapV2 => v2_builder::build_pools(provider, addresses, PoolType::SushiSwapV2).await,
             PoolType::PancakeSwapV2 => v2_builder::build_pools(provider, addresses, PoolType::PancakeSwapV2).await,
-            PoolType::UniswapV3 => v3_builder::build_pools(provider, addresses, PoolType::UniswapV3).await,
-            PoolType::SushiSwapV3 => v3_builder::build_pools(provider, addresses, PoolType::SushiSwapV3).await,
-            PoolType::PancakeSwapV3 => v3_builder::build_pools(provider, addresses, PoolType::PancakeSwapV3).await,
+            PoolType::UniswapV3 => v3_builder::build_pools(start_end, provider, addresses, PoolType::UniswapV3).await,
+            PoolType::SushiSwapV3 => v3_builder::build_pools(start_end, provider, addresses, PoolType::SushiSwapV3).await,
+            PoolType::PancakeSwapV3 => v3_builder::build_pools(start_end, provider, addresses, PoolType::PancakeSwapV3).await,
             PoolType::Aerodome => v2_builder::build_pools(provider, addresses, PoolType::Aerodome).await,
         }
     }

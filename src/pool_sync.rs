@@ -77,6 +77,8 @@ impl PoolSync {
 
             // populate all of the pool addresses
             let populated_pools = Rpc::populate_pools(
+                start_block, 
+                end_block,
                 pool_addrs,
                 full.clone(),
                 cache.pool_type,

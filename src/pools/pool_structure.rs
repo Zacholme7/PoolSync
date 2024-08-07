@@ -37,6 +37,7 @@ pub struct UniswapV3Pool {
 pub struct TickInfo {
     pub liquidity_net: i128,
     pub initialized: bool,
+    pub liquidity_gross: u128,
 }
 
 impl UniswapV2Pool {
