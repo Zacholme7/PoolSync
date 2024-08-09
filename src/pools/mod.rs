@@ -125,9 +125,7 @@ pub trait PoolFetcher: Send + Sync {
 impl PoolType {
     pub async fn build_pools_from_addrs<P, T, N>(
         &self,
-        start_end: (u64, u64),
         provider: Arc<P>,
-        archive: Arc<P>,
         addresses: Vec<Address>,
     ) -> Vec<Pool>
     where
@@ -140,31 +138,12 @@ impl PoolType {
             PoolType::SushiSwapV2 => v2_builder::build_pools(provider, addresses, PoolType::SushiSwapV2).await,
             PoolType::PancakeSwapV2 => v2_builder::build_pools(provider, addresses, PoolType::PancakeSwapV2).await,
             PoolType::Aerodome => v2_builder::build_pools(provider, addresses, PoolType::Aerodome).await,
-            PoolType::UniswapV3 => v3_builder::build_pools(start_end, provider, archive, addresses, PoolType::UniswapV3).await,
-            PoolType::SushiSwapV3 => v3_builder::build_pools(start_end, provider, archive, addresses, PoolType::SushiSwapV3).await,
-            PoolType::PancakeSwapV3 => v3_builder::build_pools(start_end, provider, archive, addresses, PoolType::PancakeSwapV3).await,
+            PoolType::UniswapV3 => v3_builder::build_pools(provider,  addresses, PoolType::UniswapV3).await,
+            PoolType::SushiSwapV3 => v3_builder::build_pools(provider, addresses, PoolType::SushiSwapV3).await,
+            PoolType::PancakeSwapV3 => v3_builder::build_pools(provider, addresses, PoolType::PancakeSwapV3).await,
             _ => panic!("Invalid pool type")
         }
     }
-
-    pub async fn build_pools_from_addrs_v3<P, T, N> (
-        &self,
-        start_end: (u64, u64),
-        provider: Arc<P>,
-        archive: Arc<P>,
-        addresses: Vec<Address>,
-    ) -> Vec<UniswapV3Pool> 
-    where 
-        P: Provider<T, N> + Sync + 'static,
-        T: Transport + Sync + Clone,
-        N: Network,
-    {
-        match self {
-            _ => panic!("Invalid pool type")
-        }
-    }
-
-
 
 }
 /// Defines common methods that are used to access information about the pools

@@ -29,9 +29,7 @@ pub const INITIAL_BACKOFF: u64 = 1000; // 1 second
 pub const MAX_RETRIES: u32 = 5;
 
 pub async fn build_pools<P, T, N>(
-    start_end: (u64, u64),
     provider: Arc<P>,
-    archive: Arc<P>,
     addresses: Vec<Address>,
     pool_type: PoolType
 ) -> Vec<Pool> 
@@ -44,7 +42,7 @@ where
     let mut backoff = INITIAL_BACKOFF;
 
     loop {
-        match attempt_build_pools(start_end, provider.clone(), archive.clone(),&addresses, pool_type).await {
+        match populate_pool_data(provider.clone(),addresses.clone(), pool_type).await {
             Ok(pools) => {
                 drop(provider);
                 return pools;
@@ -67,35 +65,8 @@ where
     }
 }
 
-async fn attempt_build_pools<P, T, N>(
-    start_end: (u64, u64),
-    provider: Arc<P>,
-    archive: Arc<P>,
-    addresses: &Vec<Address>,
-    pool_type: PoolType
-) -> Result<Vec<Pool>, Box<dyn std::error::Error>>
-where
-    P: Provider<T, N> + Sync + 'static,
-    T: Transport + Sync + Clone,
-    N: Network,
-{
-    // get initial pools populated with data
-    let mut pools = populate_pool_data(provider.clone(), addresses.to_vec(), pool_type).await?;
 
-
-    // populate pools with bitmpaps
-    //Rpc::populate_tick_data(start_end.0, start_end.1, &mut pools, archive.clone()).await;
-
-    //populate_tick_bitmap(provider.clone(), &mut pools).await?;
-    //populate_ticks(provider.clone(), &mut pools).await?;
-    // convert pools to generic pool
-    //let pools = pools.into_iter().map(|pool| Pool::new_v3(pool_type, pool)).collect();
-    let pools: Vec<Pool> = pools.into_iter().map(|pool| Pool::new_v3(PoolType::SushiSwapV3, pool)).collect();
-    Ok(pools)
-}
-
-
-async fn populate_pool_data<P, T, N>(provider: Arc<P>, pool_addresses: Vec<Address>, pool_type: PoolType) -> Result<Vec<UniswapV3Pool>, Box<dyn std::error::Error>>
+async fn populate_pool_data<P, T, N>(provider: Arc<P>, pool_addresses: Vec<Address>, pool_type: PoolType) -> Result<Vec<Pool>, Box<dyn std::error::Error>>
 where
     P: Provider<T, N> + Sync + 'static,
     T: Transport + Sync + Clone,
@@ -146,6 +117,7 @@ where
     }
 
 
+    let pools: Vec<Pool> = pools.into_iter().map(|pool| Pool::new_v3(PoolType::SushiSwapV3, pool)).collect();
     Ok(pools)
 }
 
@@ -184,7 +156,6 @@ pub fn modify_position(pool: &mut UniswapV3Pool, tick_lower: i32, tick_upper: i3
     //We are only using this function when a mint or burn event is emitted,
     //therefore we do not need to checkTicks as that has happened before the event is emitted
     update_position(pool, tick_lower, tick_upper, liquidity_delta);
-
 
     /* 
     if liquidity_delta != 0 {
@@ -274,53 +245,6 @@ pub fn flip_tick(pool: &mut UniswapV3Pool, tick: i32, tick_spacing: i32) {
         pool.tick_bitmap.insert(word_pos, mask);
     }
 }
-
-/* 
-pub async fn populate_tick_bitmap<P, T, N>(provider: Arc<P>, pools: &mut Vec<Pool>) -> Result<(), Box<dyn std::error::Error>>
-where
-    P: Provider<T, N> + Sync + 'static,
-    T: Transport + Sync + Clone,
-    N: Network,
-{
-    let tick_bitmaps = v3_tickbitmap_snapshot(pools, provider).await?;
-    for bitmap_snapshot in tick_bitmaps {
-        let pool = pools.iter_mut().find(|pool| pool.address() == bitmap_snapshot.address).unwrap();
-        match pool {
-            Pool::UniswapV3(ref mut p) | Pool::SushiSwapV3(ref mut p) | Pool::PancakeSwapV3(ref mut p) => {
-                p.tick_bitmap = bitmap_snapshot.word_to_map;
-            }
-            _ => panic!("will never reach here")
-        }
-    }
-    Ok(())
-}
-
-pub async fn populate_ticks<P, T, N>(provider: Arc<P>, pools: &mut Vec<Pool>) -> Result<(), Box<dyn std::error::Error>>
-where
-    P: Provider<T, N> + Sync + 'static,
-    T: Transport + Sync + Clone,
-    N: Network,
-{
-
-    let ticks = v3_tick_snapshot(pools, provider).await?;
-    for tick_snapshot in ticks {
-        let pool = pools.iter_mut().find(|pool| pool.address() == tick_snapshot[0].address).unwrap();
-        match pool {
-            Pool::UniswapV3(ref mut p) | Pool::SushiSwapV3(ref mut p) | Pool::PancakeSwapV3(ref mut p) => {
-                for snapshot in tick_snapshot {
-                    p.ticks.insert(snapshot.tick, TickInfo {
-                        liquidity_net: snapshot.liqudity_net,
-                        initialized: snapshot.initialized,
-                    });
-                }
-            }
-            _ => panic!("will never reach here")
-        }
-    }
-    Ok(())
-}
-    */
-
 
 impl From<&[DynSolValue]> for UniswapV3Pool {
     fn from(data: &[DynSolValue]) -> Self {

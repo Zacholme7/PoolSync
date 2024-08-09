@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::os::unix::process;
 use std::sync::Arc;
 use std::time::Duration;
+use anyhow::Result;
 use alloy::sol;
 
 use crate::pools::pool_structure::UniswapV3Pool;
@@ -134,10 +135,8 @@ impl Rpc {
                 .collect::<Vec<Vec<Address>>>()
                 .await;
 
-
-                drop(provider);
+            drop(provider);
             let all_addresses: Vec<Address> = results.into_iter().flatten().collect();
-            println!("got all of the addresses {}", all_addresses.len());
             Some(all_addresses)
         } else {
             None
@@ -145,11 +144,8 @@ impl Rpc {
     }
 
     pub async fn populate_pools<P, T, N>(
-        start_block: u64, 
-        end_block: u64,
         pool_addrs: Vec<Address>,
         provider: Arc<P>,
-        archive: Arc<P>,
         pool: PoolType,
         requests_per_second: u64,
     ) -> Vec<Pool>
@@ -161,7 +157,6 @@ impl Rpc {
         let total_tasks = (pool_addrs.len() + 39) / 40; // Ceiling division by 40
         let info = format!("{} data sync", pool);
         let progress_bar = create_progress_bar(total_tasks as u64, info);
-        println!("Start block {}, end block {}", start_block, end_block);
         
         let rate_limiter = Arc::new(Semaphore::new(100 as usize));
 
@@ -172,7 +167,6 @@ impl Rpc {
         let results = stream::iter(addr_chunks)
             .map(|chunk| {
                 let provider = provider.clone();
-                let archive = archive.clone();
                 let progress_bar = progress_bar.clone();
                 let pool = pool.clone();
                 let rate_limiter = rate_limiter.clone();
@@ -184,7 +178,7 @@ impl Rpc {
 
                     loop {
                         match pool
-                            .build_pools_from_addrs((start_block, end_block),provider.clone(), archive.clone(), chunk.clone())
+                            .build_pools_from_addrs(provider.clone(), chunk.clone())
                             .await
                         {
                             populated_pools if !populated_pools.is_empty() => {
@@ -212,11 +206,7 @@ impl Rpc {
             .collect::<Vec<Vec<Pool>>>()
             .await;
 
-        let mut populated_pools: Vec<Pool> = results.into_iter().flatten().collect();
-
-        // populate the tick data
-        Rpc::populate_tick_data(start_block, end_block, &mut populated_pools, archive.clone()).await;
-
+        let populated_pools: Vec<Pool> = results.into_iter().flatten().collect();
         populated_pools
     }
 
@@ -224,18 +214,26 @@ impl Rpc {
         start_block: u64,
         end_block: u64,
         pools: &mut Vec<Pool>,
-        provider: Arc<P>
-    ) 
+        provider: Arc<P>,
+        pool_type: PoolType
+    )  -> Result<()>
     where 
         P: Provider<T, N> + Sync + 'static,
         T: Transport + Sync + Clone,
         N: Network,
     {
 
+        // do not sync ticks for v2 pools
+        if pool_type == PoolType::UniswapV2 || pool_type == PoolType::SushiSwapV2 || pool_type == PoolType::PancakeSwapV2 {
+            return Ok(());
+        }
+        
+        // get the block difference
         let block_difference = end_block.saturating_sub(start_block);
         let address_to_index: HashMap<Address, usize> = pools.iter().enumerate().map(|(i, pool)| (pool.address(), i)).collect();
 
         if block_difference > 0 {
+            // determine the number of steps and the step size
             let (total_steps, step_size) = if block_difference < 5000 {
                 (1, block_difference)
             } else {
@@ -245,9 +243,11 @@ impl Rpc {
                 )
             };
 
-            let info = format!("{} tick data sync", pools.len());
-            let progress_bar = create_progress_bar(total_steps, info);
+            // create the progress bar
+            let info = format!("{} tick sync", pool_type);
+            let progress_bar = create_progress_bar(total_steps as u64, info);
 
+            // create all of the block ranges
             let block_ranges: Vec<_> = (start_block..=end_block)
                 .step_by(5000 as usize)
                 .map(|from_block| {
@@ -256,10 +256,11 @@ impl Rpc {
                 })
                 .collect();
 
-            // fetch all of the logsa and fla
+            // fetch all of the logs
             let logs  = stream::iter(block_ranges.clone())
                 .map(|(from_block, to_block)| {
                     let provider = provider.clone();
+                    let progress_bar = progress_bar.clone();
                     async move {
                         // get all of the burn and mint events
                         let filter = Filter::new()
@@ -269,8 +270,8 @@ impl Rpc {
                             ])
                             .from_block(from_block)
                             .to_block(to_block);
-                        println!("Getting the logs for range {}-{}", from_block, to_block);
                         let logs = provider.get_logs(&filter).await.unwrap();
+                        progress_bar.inc(1);
                         logs
                     }
                 })
@@ -278,8 +279,8 @@ impl Rpc {
                 .collect::<Vec<Vec<Log>>>()
                 .await;
             let logs: Vec<Log> = logs.into_iter().flatten().collect();
-            println!("got all of the logs");
 
+            // order all of the logs by block number
             let mut ordered_logs:BTreeMap<u64, Vec<Log>> = BTreeMap::new();
             for log in logs {
                 if let Some(block_number) = log.block_number {
@@ -291,7 +292,7 @@ impl Rpc {
                 }
             }
 
-            // process all the logs for the pool
+            // process all of the logs
             for (_, log_group) in ordered_logs {
                 for log in log_group {
                     let address = log.address();
@@ -308,5 +309,7 @@ impl Rpc {
                 }
             }
         }
+
+        Ok(())
     }
 }

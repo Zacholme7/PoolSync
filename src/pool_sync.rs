@@ -75,15 +75,21 @@ impl PoolSync {
                 self.rate_limit,
             ).await.unwrap();
 
-            // populate all of the pool addresses
-            let populated_pools = Rpc::populate_pools(
-                start_block, 
-                end_block,
+            // populate all of the pool data
+            let mut populated_pools = Rpc::populate_pools(
                 pool_addrs,
                 full.clone(),
-                archive.clone(),
                 cache.pool_type,
                 self.rate_limit
+            ).await;
+
+
+            let _ = Rpc::populate_tick_data(
+                start_block,
+                end_block,
+                &mut populated_pools,
+                archive.clone(),
+                cache.pool_type,
             ).await;
 
             // update the cache
