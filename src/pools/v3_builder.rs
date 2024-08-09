@@ -31,6 +31,7 @@ pub const MAX_RETRIES: u32 = 5;
 pub async fn build_pools<P, T, N>(
     start_end: (u64, u64),
     provider: Arc<P>,
+    archive: Arc<P>,
     addresses: Vec<Address>,
     pool_type: PoolType
 ) -> Vec<Pool> 
@@ -43,11 +44,16 @@ where
     let mut backoff = INITIAL_BACKOFF;
 
     loop {
-        match attempt_build_pools(start_end, provider.clone(), &addresses, pool_type).await {
-            Ok(pools) => return pools,
+        match attempt_build_pools(start_end, provider.clone(), archive.clone(),&addresses, pool_type).await {
+            Ok(pools) => {
+                drop(provider);
+                return pools;
+            },
             Err(e) => {
                 if retry_count >= MAX_RETRIES {
                     eprintln!("Max retries reached. Error: {:?}", e);
+                    drop(provider);
+                    return Vec::new();
                 }
 
                 let jitter = rand::thread_rng().gen_range(0..=100);
@@ -64,6 +70,7 @@ where
 async fn attempt_build_pools<P, T, N>(
     start_end: (u64, u64),
     provider: Arc<P>,
+    archive: Arc<P>,
     addresses: &Vec<Address>,
     pool_type: PoolType
 ) -> Result<Vec<Pool>, Box<dyn std::error::Error>>
@@ -75,15 +82,15 @@ where
     // get initial pools populated with data
     let mut pools = populate_pool_data(provider.clone(), addresses.to_vec(), pool_type).await?;
 
+
     // populate pools with bitmpaps
-    Rpc::populate_tick_data(start_end.0, start_end.1, &mut pools, provider.clone()).await;
+    //Rpc::populate_tick_data(start_end.0, start_end.1, &mut pools, archive.clone()).await;
 
     //populate_tick_bitmap(provider.clone(), &mut pools).await?;
     //populate_ticks(provider.clone(), &mut pools).await?;
     // convert pools to generic pool
-    let pools = pools.into_iter().map(|pool| Pool::new_v3(pool_type, pool)).collect();
-
-
+    //let pools = pools.into_iter().map(|pool| Pool::new_v3(pool_type, pool)).collect();
+    let pools: Vec<Pool> = pools.into_iter().map(|pool| Pool::new_v3(PoolType::SushiSwapV3, pool)).collect();
     Ok(pools)
 }
 
@@ -137,7 +144,6 @@ where
             pool.token1_name = name;
         }
     }
-    drop(provider);
 
 
     Ok(pools)

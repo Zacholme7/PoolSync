@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use futures::stream::StreamExt;
 use alloy::sol;
+use crate::pools::pool_structure::TickInfo;
 use futures::future::join_all;
 use alloy::primitives::{Address, U256};
 
@@ -43,11 +44,6 @@ pub struct UniswapV3PoolState {
 }
 
 
-#[derive(Debug, Default, Clone)]
-pub struct TickInfo {
-    pub liquidity_net: i128,
-    pub initialized: bool,
-}
 
 pub struct V3PriceState {
     address: Address,
@@ -361,6 +357,7 @@ where
             tick_map.insert(tick_state.tick, TickInfo {
                 liquidity_net: tick_state.liqudity_net,
                 initialized: tick_state.initialized,
+                liquidity_gross: 0,
             });
         }
         (address, tick_map)

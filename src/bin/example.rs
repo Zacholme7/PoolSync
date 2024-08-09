@@ -16,9 +16,10 @@ async fn main() -> Result<()> {
     let pool_sync = PoolSync::builder()
         .add_pools(&[
             //PoolType::UniswapV2, 
-            PoolType::UniswapV3,
+            //PoolType::UniswapV3,
             //PoolType::SushiSwapV2,
-            //PoolType::SushiSwapV3,
+            PoolType::UniswapV2,
+            PoolType::UniswapV3,
         ])
         .chain(Chain::Base) // Specify the chain
         .rate_limit(1000)
@@ -26,15 +27,16 @@ async fn main() -> Result<()> {
 
     // Initiate the sync process
     let pools = pool_sync.sync_pools().await?;
+    println!("Number of synchronized pools: {:#?}", pools.len());
 
-    let addresses: Vec<Address> = pools.iter().map(|pool| pool.address()).collect();
-    println!("Number of synchronized pools: {}", addresses.len());
+    //let addresses: Vec<Address> = pools.iter().map(|pool| pool.address()).collect();
+    //println!("Number of synchronized pools: {}", addresses.len());
 
-    let provider = Arc::new(ProviderBuilder::new().on_http(std::env::var("FULL").unwrap().parse().unwrap()));
+    //let provider = Arc::new(ProviderBuilder::new().on_http(std::env::var("FULL").unwrap().parse().unwrap()));
 
-    println!("Pool len before filtering: {}", pools.len());
-    let res = filter_pools_by_liquidity(provider, pools, U256::from(5e17)).await;
-    println!("Pool len after filtering: {}", res.len());
+    //println!("Pool len before filtering: {}", pools.len());
+    //let res = filter_pools_by_liquidity(provider, pools, U256::from(5e17)).await;
+    //println!("Pool len after filtering: {}", res.len());
 
     //let addresses: Vec<Address> = addresses.clone().into_iter().rev().take(10).collect();
     //let output = v3_pool_snapshot(&addresses, provider).await.unwrap();

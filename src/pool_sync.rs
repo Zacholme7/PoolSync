@@ -81,6 +81,7 @@ impl PoolSync {
                 end_block,
                 pool_addrs,
                 full.clone(),
+                archive.clone(),
                 cache.pool_type,
                 self.rate_limit
             ).await;

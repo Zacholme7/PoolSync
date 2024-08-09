@@ -12,6 +12,7 @@ use futures::stream::StreamExt;
 use rand::Rng;
 use tokio::sync::Semaphore;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::os::unix::process;
 use std::sync::Arc;
 use std::time::Duration;
@@ -105,6 +106,7 @@ impl Rpc {
                                         .collect();
 
                                     progress_bar.inc(1);
+                                    drop(provider);
                                     return addresses;
                                 }
                                 Err(e) => {
@@ -113,6 +115,7 @@ impl Rpc {
                                             "Max retries reached for blocks {}-{}: {:?}",
                                             from_block, to_block, e
                                         );
+                                        drop(provider);
                                         return Vec::new();
                                     }
 
@@ -132,7 +135,9 @@ impl Rpc {
                 .await;
 
 
+                drop(provider);
             let all_addresses: Vec<Address> = results.into_iter().flatten().collect();
+            println!("got all of the addresses {}", all_addresses.len());
             Some(all_addresses)
         } else {
             None
@@ -144,6 +149,7 @@ impl Rpc {
         end_block: u64,
         pool_addrs: Vec<Address>,
         provider: Arc<P>,
+        archive: Arc<P>,
         pool: PoolType,
         requests_per_second: u64,
     ) -> Vec<Pool>
@@ -155,6 +161,7 @@ impl Rpc {
         let total_tasks = (pool_addrs.len() + 39) / 40; // Ceiling division by 40
         let info = format!("{} data sync", pool);
         let progress_bar = create_progress_bar(total_tasks as u64, info);
+        println!("Start block {}, end block {}", start_block, end_block);
         
         let rate_limiter = Arc::new(Semaphore::new(100 as usize));
 
@@ -165,6 +172,7 @@ impl Rpc {
         let results = stream::iter(addr_chunks)
             .map(|chunk| {
                 let provider = provider.clone();
+                let archive = archive.clone();
                 let progress_bar = progress_bar.clone();
                 let pool = pool.clone();
                 let rate_limiter = rate_limiter.clone();
@@ -176,18 +184,16 @@ impl Rpc {
 
                     loop {
                         match pool
-                            .build_pools_from_addrs((start_block, end_block),provider.clone(), chunk.clone())
+                            .build_pools_from_addrs((start_block, end_block),provider.clone(), archive.clone(), chunk.clone())
                             .await
                         {
                             populated_pools if !populated_pools.is_empty() => {
                                 progress_bar.inc(1);
-                                drop(provider);
                                 return populated_pools;
                             }
                             _ => {
                                 if retry_count >= MAX_RETRIES {
                                     eprintln!("Max retries reached for chunk");
-                                    drop(provider);
                                     return Vec::new();
                                 }
 
@@ -206,18 +212,20 @@ impl Rpc {
             .collect::<Vec<Vec<Pool>>>()
             .await;
 
-        drop(provider);
+        let mut populated_pools: Vec<Pool> = results.into_iter().flatten().collect();
 
-        let populated_pools: Vec<Pool> = results.into_iter().flatten().collect();
+        // populate the tick data
+        Rpc::populate_tick_data(start_block, end_block, &mut populated_pools, archive.clone()).await;
+
         populated_pools
     }
 
     pub async fn populate_tick_data<P, T, N>(
         start_block: u64,
         end_block: u64,
-        pools: &mut Vec<UniswapV3Pool>,
+        pools: &mut Vec<Pool>,
         provider: Arc<P>
-    ) -> Vec<Pool> 
+    ) 
     where 
         P: Provider<T, N> + Sync + 'static,
         T: Transport + Sync + Clone,
@@ -225,14 +233,15 @@ impl Rpc {
     {
 
         let block_difference = end_block.saturating_sub(start_block);
+        let address_to_index: HashMap<Address, usize> = pools.iter().enumerate().map(|(i, pool)| (pool.address(), i)).collect();
 
         if block_difference > 0 {
-            let (total_steps, step_size) = if block_difference < 100_000 {
+            let (total_steps, step_size) = if block_difference < 5000 {
                 (1, block_difference)
             } else {
                 (
-                    ((block_difference as f64) / (100_000 as f64)).ceil() as u64,
-                    STEP_SIZE,
+                    ((block_difference as f64) / (5000 as f64)).ceil() as u64,
+                    5000,
                 )
             };
 
@@ -240,60 +249,64 @@ impl Rpc {
             let progress_bar = create_progress_bar(total_steps, info);
 
             let block_ranges: Vec<_> = (start_block..=end_block)
-                .step_by(100_000 as usize)
+                .step_by(5000 as usize)
                 .map(|from_block| {
                     let to_block = (from_block + step_size - 1).min(end_block);
                     (from_block, to_block)
                 })
                 .collect();
 
-            for pool in pools {
+            // fetch all of the logsa and fla
+            let logs  = stream::iter(block_ranges.clone())
+                .map(|(from_block, to_block)| {
+                    let provider = provider.clone();
+                    async move {
+                        // get all of the burn and mint events
+                        let filter = Filter::new()
+                            .event_signature(vec![
+                                V3Events::Burn::SIGNATURE_HASH,
+                                V3Events::Mint::SIGNATURE_HASH,
+                            ])
+                            .from_block(from_block)
+                            .to_block(to_block);
+                        println!("Getting the logs for range {}-{}", from_block, to_block);
+                        let logs = provider.get_logs(&filter).await.unwrap();
+                        logs
+                    }
+                })
+                .buffer_unordered(100) // Allow some buffering for smoother operation
+                .collect::<Vec<Vec<Log>>>()
+                .await;
+            let logs: Vec<Log> = logs.into_iter().flatten().collect();
+            println!("got all of the logs");
 
-                // fetch all of the logsa and fla
-                let logs: Vec<Log> = stream::iter(block_ranges.clone())
-                    .map(|(from_block, to_block)| {
-                        let provider = provider.clone();
-                        let pool = pool.clone();
-                        async move {
-                            // get all of the burn and mint events
-                            let filter = Filter::new()
-                                .event_signature(vec![
-                                    V3Events::Burn::SIGNATURE_HASH,
-                                    V3Events::Mint::SIGNATURE_HASH,
-                                ])
-                                .address(pool.address)
-                                .from_block(from_block)
-                                .to_block(to_block);
-                            let logs = provider.get_logs(&filter).await.unwrap();
-                            logs
+            let mut ordered_logs:BTreeMap<u64, Vec<Log>> = BTreeMap::new();
+            for log in logs {
+                if let Some(block_number) = log.block_number {
+                    if let Some(log_group) = ordered_logs.get_mut(&block_number) {
+                        log_group.push(log);
+                    } else {
+                        ordered_logs.insert(block_number, vec![log]);
+                    }
+                }
+            }
 
-                        }
-                    })
-                    .buffer_unordered(100 * 2) // Allow some buffering for smoother operation
-                    .collect::<Vec<Vec<Log>>>()
-                    .await
-                    .into_iter().flatten().collect();
-
-                let mut ordered_logs:BTreeMap<u64, Vec<Log>> = BTreeMap::new();
-                for log in logs {
-                    if let Some(block_number) = log.block_number {
-                        if let Some(log_group) = ordered_logs.get_mut(&block_number) {
-                            log_group.push(log);
-                        } else {
-                            ordered_logs.insert(block_number, vec![log]);
+            // process all the logs for the pool
+            for (_, log_group) in ordered_logs {
+                for log in log_group {
+                    let address = log.address();
+                    if let Some(&index) = address_to_index.get(&address) {
+                        if let Some(pool) = pools.get_mut(index) {  // Note: removed & before index
+                            match pool {
+                                Pool::UniswapV3(p) | Pool::SushiSwapV3(p) | Pool::PancakeSwapV3(p) => {
+                                    process_tick_data(p, log);
+                                }
+                                _ => {}
+                            }
                         }
                     }
                 }
-
-                // process all the logs for the pool
-                for (_, log_group) in ordered_logs {
-                    for log in log_group {
-                        process_tick_data(pool, log);
-                    }
-                }
-
             }
         }
-        todo!()
     }
 }
