@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
     let pool_sync = PoolSync::builder()
         .add_pools(&[
             PoolType::UniswapV2,
-            PoolType::UniswapV3,
+            //PoolType::UniswapV3,
         ])
         .chain(Chain::Base) // Specify the chain
         .rate_limit(1000)

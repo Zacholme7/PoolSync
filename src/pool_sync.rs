@@ -6,6 +6,8 @@
 //!
 use alloy::providers::ProviderBuilder;
 use alloy::providers::Provider;
+use std::cmp::max;
+use std::cmp::min;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -58,51 +60,61 @@ impl PoolSync {
             .map(|pool_type| read_cache_file(pool_type, self.chain))
             .collect();
 
-        let end_block = archive.get_block_number().await.unwrap();
 
-        // go though each cache, may or may not already by synced up to some point
-        for cache in &mut pool_caches {
-            let start_block = cache.last_synced_block;
-            let fetcher = self.fetchers[&cache.pool_type].clone();
-
-            // fetch all of the pool addresses
-            let pool_addrs = Rpc::fetch_pool_addrs(
-                start_block,
-                end_block,
-                archive.clone(),
-                fetcher.clone(),
-                self.chain,
-                self.rate_limit,
-            ).await.unwrap();
-
-            // populate all of the pool data
-            let mut populated_pools = Rpc::populate_pools(
-                pool_addrs,
-                full.clone(),
-                cache.pool_type,
-                self.rate_limit
-            ).await;
+        let mut all_pools : Vec<Pool>= Vec::new();
+        let mut fully_synced = false;
 
 
-            let _ = Rpc::populate_tick_data(
-                start_block,
-                end_block,
-                &mut populated_pools,
-                archive.clone(),
-                cache.pool_type,
-            ).await;
+        while !fully_synced{
+            fully_synced = true;
+            let end_block = full.get_block_number().await.unwrap();
+            for cache in &mut pool_caches {
+                let start_block = cache.last_synced_block;
+                if start_block < end_block {
+                    fully_synced = false;
 
-            // update the cache
-            cache.pools.extend(populated_pools);
-            cache.last_synced_block = end_block;
-            write_cache_file(cache, self.chain);
+                    let fetcher = self.fetchers[&cache.pool_type].clone();
+
+
+
+                    // fetch all of the pool addresses
+                    let pool_addrs = Rpc::fetch_pool_addrs(
+                        start_block,
+                        end_block,
+                        archive.clone(),
+                        fetcher.clone(),
+                        self.chain,
+                        self.rate_limit,
+                    ).await.unwrap();
+
+                    // populate all of the pool data
+                    let mut populated_pools = Rpc::populate_pools(
+                        pool_addrs,
+                        full.clone(),
+                        cache.pool_type,
+                        self.rate_limit
+                    ).await;
+
+
+                    let _ = Rpc::populate_tick_data(
+                        start_block,
+                        end_block,
+                        &mut populated_pools,
+                        archive.clone(),
+                        cache.pool_type,
+                    ).await;
+
+                    // update the cache
+                    cache.pools.extend(populated_pools.clone());
+                    all_pools.extend(populated_pools);
+                    cache.last_synced_block = end_block;
+                    write_cache_file(cache, self.chain);
+
+                }
+            }
         }
-
         // return all the pools
-        Ok(pool_caches
-            .into_iter()
-            .flat_map(|cache| cache.pools)
-            .collect())
+        Ok(all_pools)
     }
 }
 
