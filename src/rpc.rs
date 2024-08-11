@@ -225,7 +225,6 @@ impl Rpc {
             return Ok(());
         }
         // get the block difference
-        println!("Syncing for block range {}-{}", start_block, end_block);
         let block_difference = end_block.saturating_sub(start_block);
         let address_to_index: HashMap<Address, usize> = pools
             .iter()
@@ -346,7 +345,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let swap_range = Rpc::get_block_range(2500, start_block, end_block);
+        let swap_range = Rpc::get_block_range(1500, start_block, end_block);
         let info = format!("{} swap sync", pool_type);
         let progress_bar = create_progress_bar(swap_range.len() as u64, info);
         let logs = stream::iter(swap_range)
@@ -382,7 +381,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let sync_range = Rpc::get_block_range(5000, start_block, end_block);
+        let sync_range = Rpc::get_block_range(500, start_block, end_block);
         let info = format!("{} sync sync", pool_type);
         let progress_bar = create_progress_bar(sync_range.len() as u64, info);
         let logs = stream::iter(sync_range)
