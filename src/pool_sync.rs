@@ -4,20 +4,18 @@
 //! blockchain networks and protocols. It includes the main `PoolSync` struct and its
 //! associated methods for configuring and executing the synchronization process.
 //!
-use alloy::providers::ProviderBuilder;
 use alloy::providers::Provider;
-use std::cmp::max;
-use std::cmp::min;
+use alloy::providers::ProviderBuilder;
+use alloy::rpc::types::serde_helpers::quantity::vec;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::cache::{read_cache_file, write_cache_file, PoolCache};
 use crate::builder::PoolSyncBuilder;
+use crate::cache::{read_cache_file, write_cache_file, PoolCache};
 use crate::chain::Chain;
 use crate::errors::*;
 use crate::pools::*;
 use crate::rpc::Rpc;
-
 
 /// The main struct for pool synchronization
 pub struct PoolSync {
@@ -41,14 +39,18 @@ impl PoolSync {
         dotenv::dotenv().ok();
 
         // setup arvhice node provider
-        let archive = Arc::new(ProviderBuilder::new()
-            .network::<alloy::network::AnyNetwork>()
-            .on_http(std::env::var("ARCHIVE").unwrap().parse().unwrap()));
+        let archive = Arc::new(
+            ProviderBuilder::new()
+                .network::<alloy::network::AnyNetwork>()
+                .on_http(std::env::var("ARCHIVE").unwrap().parse().unwrap()),
+        );
 
         // setup full node provider
-        let full = Arc::new(ProviderBuilder::new()
-            .network::<alloy::network::AnyNetwork>()
-            .on_http(std::env::var("FULL").unwrap().parse().unwrap()));
+        let full = Arc::new(
+            ProviderBuilder::new()
+                .network::<alloy::network::AnyNetwork>()
+                .on_http(std::env::var("FULL").unwrap().parse().unwrap()),
+        );
 
         // create the cache files
         std::fs::create_dir_all("cache").unwrap();
@@ -57,25 +59,23 @@ impl PoolSync {
         let mut pool_caches: Vec<PoolCache> = self
             .fetchers
             .keys()
-            .map(|pool_type| read_cache_file(pool_type, self.chain))
+            .map(|pool_type| read_cache_file(pool_type, self.chain).unwrap())
             .collect();
 
-
-        let mut all_pools : Vec<Pool>= Vec::new();
         let mut fully_synced = false;
 
-
-        while !fully_synced{
+        while !fully_synced {
             fully_synced = true;
             let end_block = full.get_block_number().await.unwrap();
+
             for cache in &mut pool_caches {
-                let start_block = cache.last_synced_block;
-                if start_block < end_block {
+                let start_block = cache.last_synced_block + 1;
+                //println!("Start Block: {:#?}", start_block);
+                //println!("End Block: {:#?}", end_block);
+                if start_block <= end_block {
                     fully_synced = false;
 
                     let fetcher = self.fetchers[&cache.pool_type].clone();
-
-
 
                     // fetch all of the pool addresses
                     let pool_addrs = Rpc::fetch_pool_addrs(
@@ -85,37 +85,62 @@ impl PoolSync {
                         fetcher.clone(),
                         self.chain,
                         self.rate_limit,
-                    ).await.unwrap();
+                    )
+                    .await.unwrap();
 
                     // populate all of the pool data
-                    let mut populated_pools = Rpc::populate_pools(
+                    let mut new_pools = Rpc::populate_pools(
                         pool_addrs,
                         full.clone(),
                         cache.pool_type,
-                        self.rate_limit
-                    ).await;
+                        self.rate_limit,
+                    )
+                    .await;
 
-
-                    let _ = Rpc::populate_tick_data(
+                    // sync old pools up to the current tip
+                    // v2: the populate pools will have already got all of the reserves up to end block for the current
+                    // set of pools, we do not want to fetch it again since we already have it, so we just process the new logs for 
+                    // the old pools since those logs are going to modify the state of them
+                    // v3: same for v3, the cache.pools have synced up to start block - 1, so all logs from start block to end block
+                    // are new logs that can modify the state of the v3 pools, so fetch the state for them
+                    /* 
+                    let _ = Rpc::populate_liquidity(
                         start_block,
                         end_block,
-                        &mut populated_pools,
+                        &mut cache.pools,
                         archive.clone(),
-                        cache.pool_type,
+                        cache.pool_type
                     ).await;
+                */
 
-                    // update the cache
-                    cache.pools.extend(populated_pools.clone());
-                    all_pools.extend(populated_pools);
+                    // populate the state for the new pools, if this is v2 we will already have the state and dont need it,
+                    // for the v3 start, we do  not nee dthe swap logs because we will already have an up to date state of 
+                    // the tick, sqrt price, and liquidyt from populate pools, but we do need to fill in the tick data
+                    cache.pools.extend(new_pools);
+
+                    // we need to do the initial tick sync
+                    Rpc::populate_liquidity(
+                        start_block,
+                        end_block,
+                        &mut cache.pools,
+                        archive.clone(), 
+                        cache.pool_type,
+                    ).await.unwrap();
+
                     cache.last_synced_block = end_block;
-                    write_cache_file(cache, self.chain);
-
                 }
             }
         }
+
+        // write all of the cache files
+        pool_caches
+            .iter()
+            .for_each(|cache| write_cache_file(cache, self.chain).unwrap());
+
         // return all the pools
-        Ok(all_pools)
+        Ok(pool_caches
+            .into_iter()
+            .flat_map(|cache| cache.pools)
+            .collect())
     }
 }
-
-

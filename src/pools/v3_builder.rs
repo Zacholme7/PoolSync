@@ -1,22 +1,29 @@
-use alloy::{dyn_abi::{DynSolType, DynSolValue}, primitives::U128, rpc::types::Log};
+use crate::{
+    pools::{Pool, PoolType}, rpc::{DataEvents, Rpc}
+}; //, snapshot::{v3_tick_snapshot, v3_tickbitmap_snapshot}};
+use alloy::network::Network;
+use alloy::primitives::Address;
+use alloy::primitives::U256;
+use alloy::providers::Provider;
+use alloy::sol;
+use alloy::transports::Transport;
+use alloy::{
+    dyn_abi::{DynSolType, DynSolValue},
+    primitives::U128,
+    rpc::types::Log,
+};
 use alloy_sol_types::SolEvent;
 use rand::Rng;
 use std::sync::Arc;
-use alloy::providers::Provider;
-use alloy::transports::Transport;
-use alloy::network::Network;
-use alloy::primitives::U256;
-use alloy::sol;
-use crate::{pools::{Pool, PoolType}, rpc::{Rpc, V3Events}};//, snapshot::{v3_tick_snapshot, v3_tickbitmap_snapshot}};
-use alloy::primitives::Address;
 
 use std::time::Duration;
 use uniswap_v3_math;
 
-
-use super::{pool_structure::{TickInfo, UniswapV3Pool}, PoolInfo};
+use super::{
+    pool_structure::{TickInfo, UniswapV2Pool, UniswapV3Pool},
+    PoolInfo,
+};
 use crate::pools::gen::ERC20;
-
 
 sol!(
     #[derive(Debug)]
@@ -31,8 +38,8 @@ pub const MAX_RETRIES: u32 = 5;
 pub async fn build_pools<P, T, N>(
     provider: Arc<P>,
     addresses: Vec<Address>,
-    pool_type: PoolType
-) -> Vec<Pool> 
+    pool_type: PoolType,
+) -> Vec<Pool>
 where
     P: Provider<T, N> + Sync + 'static,
     T: Transport + Sync + Clone,
@@ -42,11 +49,11 @@ where
     let mut backoff = INITIAL_BACKOFF;
 
     loop {
-        match populate_pool_data(provider.clone(),addresses.clone(), pool_type).await {
+        match populate_pool_data(provider.clone(), addresses.clone(), pool_type).await {
             Ok(pools) => {
                 drop(provider);
                 return pools;
-            },
+            }
             Err(e) => {
                 if retry_count >= MAX_RETRIES {
                     eprintln!("Max retries reached. Error: {:?}", e);
@@ -65,8 +72,11 @@ where
     }
 }
 
-
-async fn populate_pool_data<P, T, N>(provider: Arc<P>, pool_addresses: Vec<Address>, pool_type: PoolType) -> Result<Vec<Pool>, Box<dyn std::error::Error>>
+async fn populate_pool_data<P, T, N>(
+    provider: Arc<P>,
+    pool_addresses: Vec<Address>,
+    pool_type: PoolType,
+) -> Result<Vec<Pool>, Box<dyn std::error::Error>>
 where
     P: Provider<T, N> + Sync + 'static,
     T: Transport + Sync + Clone,
@@ -86,8 +96,13 @@ where
         DynSolType::Int(128),
     ])));
 
-    let protocol = if pool_type == PoolType::UniswapV3 { 0_u8 } else { 1_u8 } ;
-    let data = V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec(), protocol).await?;
+    let protocol = if pool_type == PoolType::UniswapV3 {
+        0_u8
+    } else {
+        1_u8
+    };
+    let data =
+        V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec(), protocol).await?;
     let decoded_data = v3_data.abi_decode_sequence(&data)?;
 
     let mut pools = Vec::new();
@@ -116,23 +131,27 @@ where
         }
     }
 
-
-    let pools: Vec<Pool> = pools.into_iter().map(|pool| Pool::new_v3(PoolType::SushiSwapV3, pool)).collect();
+    let pools: Vec<Pool> = pools
+        .into_iter()
+        .map(|pool| Pool::new_v3(pool_type, pool))
+        .collect();
     Ok(pools)
 }
 
 pub fn process_tick_data(pool: &mut UniswapV3Pool, log: Log) {
     let event_sig = log.topic0().unwrap();
 
-    if *event_sig == V3Events::Burn::SIGNATURE_HASH {
+    if *event_sig == DataEvents::Burn::SIGNATURE_HASH {
         process_burn(pool, log);
-    } else if *event_sig == V3Events::Mint::SIGNATURE_HASH {
+    } else if *event_sig == DataEvents::Mint::SIGNATURE_HASH {
         process_mint(pool, log);
+    } else if *event_sig == DataEvents::Swap::SIGNATURE_HASH {
+        process_swap(pool, log);
     }
 }
 
 fn process_burn(pool: &mut UniswapV3Pool, log: Log) {
-    let burn_event = V3Events::Burn::decode_log(log.as_ref(), true).unwrap();
+    let burn_event = DataEvents::Burn::decode_log(log.as_ref(), true).unwrap();
     modify_position(
         pool,
         burn_event.tickLower,
@@ -142,7 +161,7 @@ fn process_burn(pool: &mut UniswapV3Pool, log: Log) {
 }
 
 fn process_mint(pool: &mut UniswapV3Pool, log: Log) {
-    let mint_event = V3Events::Mint::decode_log(log.as_ref(), true).unwrap();
+    let mint_event = DataEvents::Mint::decode_log(log.as_ref(), true).unwrap();
     modify_position(
         pool,
         mint_event.tickLower,
@@ -151,13 +170,24 @@ fn process_mint(pool: &mut UniswapV3Pool, log: Log) {
     );
 }
 
+fn process_swap(pool: &mut UniswapV3Pool, log: Log) {
+    let swap_event = DataEvents::Swap::decode_log(log.as_ref(), true).unwrap();
+    pool.tick = swap_event.tick;
+    pool.sqrt_price = swap_event.sqrtPriceX96;
+    pool.liquidity = swap_event.liquidity;
+}
+
 /// Modifies a positions liquidity in the pool.
-pub fn modify_position(pool: &mut UniswapV3Pool, tick_lower: i32, tick_upper: i32, liquidity_delta: i128) {
+pub fn modify_position(
+    pool: &mut UniswapV3Pool,
+    tick_lower: i32,
+    tick_upper: i32,
+    liquidity_delta: i128,
+) {
     //We are only using this function when a mint or burn event is emitted,
     //therefore we do not need to checkTicks as that has happened before the event is emitted
     update_position(pool, tick_lower, tick_upper, liquidity_delta);
 
-    /* 
     if liquidity_delta != 0 {
         //if the tick is between the tick lower and tick upper, update the liquidity between the ticks
         if pool.tick > tick_lower && pool.tick < tick_upper {
@@ -168,10 +198,14 @@ pub fn modify_position(pool: &mut UniswapV3Pool, tick_lower: i32, tick_upper: i3
             }
         }
     }
-    */
 }
 
-pub fn update_position(pool: &mut UniswapV3Pool, tick_lower: i32, tick_upper: i32, liquidity_delta: i128) {
+pub fn update_position(
+    pool: &mut UniswapV3Pool,
+    tick_lower: i32,
+    tick_upper: i32,
+    liquidity_delta: i128,
+) {
     let mut flipped_lower = false;
     let mut flipped_upper = false;
 
@@ -197,7 +231,12 @@ pub fn update_position(pool: &mut UniswapV3Pool, tick_lower: i32, tick_upper: i3
     }
 }
 
-pub fn update_tick(pool: &mut UniswapV3Pool, tick: i32, liquidity_delta: i128, upper: bool) -> bool {
+pub fn update_tick(
+    pool: &mut UniswapV3Pool,
+    tick: i32,
+    liquidity_delta: i128,
+    upper: bool,
+) -> bool {
     let info = match pool.ticks.get_mut(&tick) {
         Some(info) => info,
         None => {
@@ -254,7 +293,6 @@ impl From<&[DynSolValue]> for UniswapV3Pool {
             token0_decimals: data[2].as_uint().unwrap().0.to::<u8>(),
             token1: data[3].as_address().unwrap(),
             token1_decimals: data[4].as_uint().unwrap().0.to::<u8>(),
-            liquidity: data[5].as_uint().unwrap().0.to::<U128>(),
             sqrt_price: data[6].as_uint().unwrap().0,
             tick: data[7].as_int().unwrap().0.as_i32(),
             tick_spacing: data[8].as_int().unwrap().0.as_i32(),

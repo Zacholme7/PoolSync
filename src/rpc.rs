@@ -3,29 +3,28 @@ use alloy::primitives::Address;
 use alloy::providers::Provider;
 use alloy::rpc::types::Filter;
 use alloy::rpc::types::Log;
-use alloy::signers::k256::elliptic_curve::bigint::modular::montgomery_reduction;
-use alloy::signers::k256::elliptic_curve::rand_core::block;
+use alloy::sol;
 use alloy::transports::Transport;
 use alloy_sol_types::SolEvent;
+use anyhow::Result;
 use futures::stream;
 use futures::stream::StreamExt;
+use indicatif::ProgressBar;
 use rand::Rng;
-use tokio::sync::Semaphore;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::os::unix::process;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
-use anyhow::Result;
-use alloy::sol;
+use tokio::sync::Semaphore;
 
-use crate::pools::pool_structure::UniswapV3Pool;
-use crate::pools::PoolFetcher;
+use crate::pools::process_sync_data;
 use crate::pools::process_tick_data;
-use crate::PoolInfo;
+use crate::pools::PoolFetcher;
 use crate::util::create_progress_bar;
 use crate::Chain;
 use crate::Pool;
+use crate::PoolInfo;
 use crate::PoolType;
 
 /// The number of blocks to query in one call to get_logs
@@ -36,7 +35,9 @@ const INITIAL_BACKOFF: u64 = 1000; // 1 second
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
-    contract V3Events {
+    contract DataEvents {
+        event Sync(uint112 reserve0, uint112 reserve1);
+        event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick);
         event Burn(address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
         event Mint(address sender, address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
     }
@@ -57,9 +58,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-
         let block_difference = end_block.saturating_sub(start_block);
-
 
         if block_difference > 0 {
             let (total_steps, step_size) = if block_difference < STEP_SIZE {
@@ -139,7 +138,7 @@ impl Rpc {
             let all_addresses: Vec<Address> = results.into_iter().flatten().collect();
             Some(all_addresses)
         } else {
-            None
+            Some(vec![])
         }
     }
 
@@ -157,7 +156,7 @@ impl Rpc {
         let total_tasks = (pool_addrs.len() + 39) / 40; // Ceiling division by 40
         let info = format!("{} data sync", pool);
         let progress_bar = create_progress_bar(total_tasks as u64, info);
-        
+
         let rate_limiter = Arc::new(Semaphore::new(100 as usize));
 
         // Map all the addresses into chunks the contract can handle
@@ -210,79 +209,63 @@ impl Rpc {
         populated_pools
     }
 
-    pub async fn populate_tick_data<P, T, N>(
+    pub async fn populate_liquidity<P, T, N>(
         start_block: u64,
         end_block: u64,
         pools: &mut Vec<Pool>,
         provider: Arc<P>,
-        pool_type: PoolType
-    )  -> Result<()>
-    where 
+        pool_type: PoolType,
+    ) -> Result<()>
+    where
         P: Provider<T, N> + Sync + 'static,
         T: Transport + Sync + Clone,
         N: Network,
     {
-
-        // do not sync ticks for v2 pools
-        if pool_type == PoolType::UniswapV2 || pool_type == PoolType::SushiSwapV2 || pool_type == PoolType::PancakeSwapV2 {
+        if pools.len() == 0 {
             return Ok(());
         }
-        
         // get the block difference
+        println!("Syncing for block range {}-{}", start_block, end_block);
         let block_difference = end_block.saturating_sub(start_block);
-        let address_to_index: HashMap<Address, usize> = pools.iter().enumerate().map(|(i, pool)| (pool.address(), i)).collect();
+        let address_to_index: HashMap<Address, usize> = pools
+            .iter()
+            .enumerate()
+            .map(|(i, pool)| (pool.address(), i))
+            .collect();
 
         if block_difference > 0 {
-            // determine the number of steps and the step size
-            let (total_steps, step_size) = if block_difference < 5000 {
-                (1, block_difference)
-            } else {
-                (
-                    ((block_difference as f64) / (5000 as f64)).ceil() as u64,
-                    5000,
-                )
-            };
-
             // create the progress bar
-            let info = format!("{} tick sync", pool_type);
-            let progress_bar = create_progress_bar(total_steps as u64, info);
 
-            // create all of the block ranges
-            let block_ranges: Vec<_> = (start_block..=end_block)
-                .step_by(5000 as usize)
-                .map(|from_block| {
-                    let to_block = (from_block + step_size - 1).min(end_block);
-                    (from_block, to_block)
-                })
-                .collect();
-
-            // fetch all of the logs
-            let logs  = stream::iter(block_ranges.clone())
-                .map(|(from_block, to_block)| {
-                    let provider = provider.clone();
-                    let progress_bar = progress_bar.clone();
-                    async move {
-                        // get all of the burn and mint events
-                        let filter = Filter::new()
-                            .event_signature(vec![
-                                V3Events::Burn::SIGNATURE_HASH,
-                                V3Events::Mint::SIGNATURE_HASH,
-                            ])
-                            .from_block(from_block)
-                            .to_block(to_block);
-                        let logs = provider.get_logs(&filter).await.unwrap();
-                        progress_bar.inc(1);
-                        logs
-                    }
-                })
-                .buffer_unordered(100) // Allow some buffering for smoother operation
-                .collect::<Vec<Vec<Log>>>()
-                .await;
-            let logs: Vec<Log> = logs.into_iter().flatten().collect();
+            let mut new_logs: Vec<Log> = Vec::new();
+            if pool_type.is_v3() {
+                // fetch all mint/burn/swap logs
+                new_logs.extend(
+                    Rpc::fetch_tick_logs(start_block, end_block, provider.clone(), pool_type)
+                        .await
+                        .unwrap(),
+                );
+                if start_block != 10_000_000 {
+                    // make sure we dont fetch swap events after initial sync
+                    new_logs.extend(
+                        Rpc::fetch_swap_logs(start_block, end_block, provider.clone(), pool_type)
+                            .await
+                            .unwrap(),
+                    );
+                }
+            } else {
+                // fetch all sync logs
+                if start_block != 10_000_000 {
+                    new_logs.extend(
+                        Rpc::fetch_sync_logs(start_block, end_block, provider.clone(), pool_type)
+                            .await
+                            .unwrap(),
+                    );
+                }
+            }
 
             // order all of the logs by block number
-            let mut ordered_logs:BTreeMap<u64, Vec<Log>> = BTreeMap::new();
-            for log in logs {
+            let mut ordered_logs: BTreeMap<u64, Vec<Log>> = BTreeMap::new();
+            for log in new_logs {
                 if let Some(block_number) = log.block_number {
                     if let Some(log_group) = ordered_logs.get_mut(&block_number) {
                         log_group.push(log);
@@ -297,12 +280,12 @@ impl Rpc {
                 for log in log_group {
                     let address = log.address();
                     if let Some(&index) = address_to_index.get(&address) {
-                        if let Some(pool) = pools.get_mut(index) {  // Note: removed & before index
-                            match pool {
-                                Pool::UniswapV3(p) | Pool::SushiSwapV3(p) | Pool::PancakeSwapV3(p) => {
-                                    process_tick_data(p, log);
-                                }
-                                _ => {}
+                        if let Some(pool) = pools.get_mut(index) {
+                            // Note: removed & before index
+                            if pool_type.is_v3() {
+                                process_tick_data(pool.get_v3_mut().unwrap(), log);
+                            } else {
+                                process_sync_data(pool.get_v2_mut().unwrap(), log);
                             }
                         }
                     }
@@ -311,5 +294,136 @@ impl Rpc {
         }
 
         Ok(())
+    }
+
+    pub async fn fetch_tick_logs<P, T, N>(
+        start_block: u64,
+        end_block: u64,
+        provider: Arc<P>,
+        pool_type: PoolType,
+    ) -> Result<Vec<Log>>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        let mint_burn_range = Rpc::get_block_range(5000, start_block, end_block);
+        let info = format!("{} tick sync", pool_type);
+        let progress_bar = create_progress_bar(mint_burn_range.len() as u64, info);
+        let logs = stream::iter(mint_burn_range)
+            .map(|(from_block, to_block)| {
+                let provider = provider.clone();
+                let pb = progress_bar.clone();
+                async move {
+                    let filter = Filter::new()
+                        .event_signature(vec![
+                            DataEvents::Burn::SIGNATURE_HASH,
+                            DataEvents::Mint::SIGNATURE_HASH,
+                        ])
+                        .from_block(from_block)
+                        .to_block(to_block);
+                    let logs = provider.get_logs(&filter).await.unwrap();
+                    pb.inc(1);
+                    drop(provider);
+                    logs
+                }
+            })
+            .buffer_unordered(100) // Allow some buffering for smoother operation
+            .collect::<Vec<Vec<Log>>>()
+            .await;
+        let new_logs: Vec<Log> = logs.into_iter().flatten().collect();
+        Ok(new_logs)
+    }
+
+    pub async fn fetch_swap_logs<P, T, N>(
+        start_block: u64,
+        end_block: u64,
+        provider: Arc<P>,
+        pool_type: PoolType
+    ) -> Result<Vec<Log>>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        let swap_range = Rpc::get_block_range(2500, start_block, end_block);
+        let info = format!("{} swap sync", pool_type);
+        let progress_bar = create_progress_bar(swap_range.len() as u64, info);
+        let logs = stream::iter(swap_range)
+            .map(|(from_block, to_block)| {
+                let provider = provider.clone();
+                let pb = progress_bar.clone();
+                async move {
+                    let filter = Filter::new()
+                        .event_signature(vec![DataEvents::Swap::SIGNATURE_HASH])
+                        .from_block(from_block)
+                        .to_block(to_block);
+                    let logs = provider.get_logs(&filter).await.unwrap();
+                    pb.inc(1);
+                    drop(provider);
+                    logs
+                }
+            })
+            .buffer_unordered(100) // Allow some buffering for smoother operation
+            .collect::<Vec<Vec<Log>>>()
+            .await;
+        let new_logs: Vec<Log> = logs.into_iter().flatten().collect();
+        Ok(new_logs)
+    }
+
+    pub async fn fetch_sync_logs<P, T, N>(
+        start_block: u64,
+        end_block: u64,
+        provider: Arc<P>,
+        pool_type: PoolType
+    ) -> Result<Vec<Log>>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        let sync_range = Rpc::get_block_range(5000, start_block, end_block);
+        let info = format!("{} sync sync", pool_type);
+        let progress_bar = create_progress_bar(sync_range.len() as u64, info);
+        let logs = stream::iter(sync_range)
+            .map(|(from_block, to_block)| {
+                let provider = provider.clone();
+                let progress_bar = progress_bar.clone();
+                async move {
+                    let filter = Filter::new()
+                        .event_signature(vec![DataEvents::Sync::SIGNATURE_HASH])
+                        .from_block(from_block)
+                        .to_block(to_block);
+                    let logs = provider.get_logs(&filter).await.unwrap();
+                    drop(provider);
+                    progress_bar.inc(1);
+                    logs
+                }
+            })
+            .buffer_unordered(1000) // Allow some buffering for smoother operation
+            .collect::<Vec<Vec<Log>>>()
+            .await;
+        let new_logs: Vec<Log> = logs.into_iter().flatten().collect();
+        Ok(new_logs)
+    }
+
+    pub fn get_block_range(step_size: u64, start_block: u64, end_block: u64) -> Vec<(u64, u64)> {
+        let block_difference = end_block.saturating_sub(start_block);
+        let (total_steps, step_size) = if block_difference < step_size {
+            (1, block_difference)
+        } else {
+            (
+                ((block_difference as f64) / (step_size as f64)).ceil() as u64,
+                step_size,
+            )
+        };
+        let block_ranges: Vec<(u64, u64)> = (start_block..=end_block)
+            .step_by(step_size as usize)
+            .map(|from_block| {
+                let to_block = (from_block + step_size - 1).min(end_block);
+                (from_block, to_block)
+            })
+            .collect();
+        block_ranges
     }
 }

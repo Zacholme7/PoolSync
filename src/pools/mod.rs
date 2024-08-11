@@ -22,6 +22,7 @@ pub mod pool_structure;
 pub use v2_builder::build_pools as build_v2_pools;
 pub use v3_builder::build_pools as build_v3_pools;
 pub use v3_builder::process_tick_data;
+pub use v2_builder::process_sync_data;
 mod gen;
 mod v2_builder;
 mod v3_builder;
@@ -43,6 +44,16 @@ pub enum PoolType {
     PancakeSwapV3,
 
     Aerodome,
+}
+
+impl PoolType {
+    pub fn is_v2(&self) -> bool {
+        self == &PoolType::UniswapV2 || self == &PoolType::SushiSwapV2 || self == &PoolType::PancakeSwapV2
+    }
+
+    pub fn is_v3(&self) -> bool {
+        self == &PoolType::UniswapV3 || self == &PoolType::SushiSwapV3 || self == &PoolType::PancakeSwapV3
+    }
 }
 
 /// Represents a populated pool from any of the supported protocols
@@ -76,6 +87,58 @@ impl Pool {
             PoolType::SushiSwapV3 => Pool::SushiSwapV3(pool),
             PoolType::PancakeSwapV3 => Pool::PancakeSwapV3(pool),
             _ => panic!("Invalid pool type")
+        }
+    }
+
+    pub fn is_v2(&self) -> bool {
+        match self {
+            Pool::UniswapV2(_) => true,
+            Pool::SushiSwapV2(_) => true,
+            Pool::PancakeSwapV2(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn is_v3(&self) -> bool {
+        match self {
+            Pool::UniswapV3(_) => true,
+            Pool::SushiSwapV3(_) => true,
+            Pool::PancakeSwapV3(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn get_v3(&self) -> Option<&UniswapV3Pool> {
+        match self {
+            Pool::UniswapV3(pool) => Some(pool),
+            Pool::SushiSwapV3(pool) => Some(pool),
+            Pool::PancakeSwapV3(pool) => Some(pool),
+            _ => None
+        }
+    }
+
+    pub fn get_v2(&self) -> Option<&UniswapV2Pool> {
+        match self {
+            Pool::UniswapV2(pool) => Some(pool),
+            Pool::SushiSwapV2(pool) => Some(pool),
+            Pool::PancakeSwapV2(pool) => Some(pool),
+            _ => None
+        }
+    }
+
+    pub fn get_v3_mut(&mut self) -> Option<&mut UniswapV3Pool> {
+        match self {
+            Pool::UniswapV3(pool) => Some(pool),
+            Pool::SushiSwapV3(pool) => Some(pool),            
+            _ => None
+        }
+    }
+
+    pub fn get_v2_mut(&mut self) -> Option<&mut UniswapV2Pool> {
+        match self {
+            Pool::UniswapV2(pool) => Some(pool),
+            Pool::SushiSwapV2(pool) => Some(pool),
+            _ => None
         }
     }
 }

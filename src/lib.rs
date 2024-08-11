@@ -8,17 +8,17 @@
 // Public re-exports
 pub use chain::Chain;
 pub use pool_sync::PoolSync;
-pub use pools::{Pool, PoolInfo, PoolType};
 pub use pools::{build_v2_pools, build_v3_pools};
+pub use pools::{Pool, PoolInfo, PoolType};
+pub use rpc::Rpc;
 
 // Internal modules
 mod builder;
 mod cache;
 mod chain;
 mod errors;
-mod rpc;
 pub mod filter;
 mod pool_sync;
-mod pools;
+pub mod pools;
+mod rpc;
 mod util;
-

@@ -1,4 +1,4 @@
-use alloy::primitives::{Address, U128, U256};
+use alloy::{dyn_abi::DynSolValue, primitives::{Address, U128, U256}};
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +24,7 @@ pub struct UniswapV3Pool {
     pub token1_name: String,
     pub token0_decimals: u8,
     pub token1_decimals: u8,
-    pub liquidity: U128,
+    pub liquidity: u128,
     pub sqrt_price: U256,
     pub fee: u32,
     pub tick: i32,
@@ -53,5 +53,24 @@ impl UniswapV3Pool {
         self.address != Address::ZERO
             && self.token0 != Address::ZERO
             && self.token1 != Address::ZERO
+    }
+}
+
+// local reserve updates
+#[derive(Debug, Default, Clone)]
+pub struct UniswapV2PoolState {
+    pub address: Address,
+    pub reserve0: u128,
+    pub reserve1: u128,
+}
+
+
+impl From<&[DynSolValue]> for UniswapV2PoolState {
+    fn from(data: &[DynSolValue]) -> Self {
+        Self {
+            address: data[0].as_address().unwrap(),
+            reserve0: data[1].as_uint().unwrap().0.to::<u128>(),
+            reserve1: data[2].as_uint().unwrap().0.to::<u128>(),
+        }
     }
 }

@@ -1,18 +1,23 @@
-use alloy::{dyn_abi::{DynSolType, DynSolValue}, primitives::U128};
+use crate::pools::{Pool, PoolType};
+use alloy::network::Network;
+use alloy::primitives::Address;
+use alloy::providers::Provider;
+use alloy::sol;
+use alloy::transports::Transport;
+use alloy::{
+    dyn_abi::{DynSolType, DynSolValue},
+    primitives::U128,
+    rpc::types::Log,
+};
+use alloy_sol_types::SolEvent;
 use rand::Rng;
 use std::sync::Arc;
-use alloy::providers::Provider;
-use alloy::transports::Transport;
-use alloy::network::Network;
-use alloy::sol;
-use crate::pools::{Pool, PoolType};
-use alloy::primitives::Address;
 
 use std::time::Duration;
 
-
 use super::pool_structure::UniswapV2Pool;
 use crate::pools::gen::ERC20;
+use crate::rpc::DataEvents;
 
 sol!(
     #[derive(Debug)]
@@ -27,8 +32,8 @@ pub const MAX_RETRIES: u32 = 5;
 pub async fn build_pools<P, T, N>(
     provider: Arc<P>,
     addresses: Vec<Address>,
-    pool_type: PoolType
-) -> Vec<Pool> 
+    pool_type: PoolType,
+) -> Vec<Pool>
 where
     P: Provider<T, N> + Sync + 'static,
     T: Transport + Sync + Clone,
@@ -59,14 +64,13 @@ where
 async fn attempt_build_pools<P, T, N>(
     provider: Arc<P>,
     addresses: &Vec<Address>,
-    pool_type: PoolType
+    pool_type: PoolType,
 ) -> Result<Vec<Pool>, Box<dyn std::error::Error>>
 where
     P: Provider<T, N> + Sync + 'static,
     T: Transport + Sync + Clone,
     N: Network,
 {
-
     let v2_data: DynSolType = DynSolType::Array(Box::new(DynSolType::Tuple(vec![
         DynSolType::Address,
         DynSolType::Address,
@@ -106,9 +110,18 @@ where
         }
     }
 
-    let pools = pools.into_iter().map(|pool| Pool::new_v2(pool_type, pool)).collect();
+    let pools = pools
+        .into_iter()
+        .map(|pool| Pool::new_v2(pool_type, pool))
+        .collect();
 
     Ok(pools)
+}
+
+pub fn process_sync_data(pool: &mut UniswapV2Pool, log: Log) {
+    let sync_event = DataEvents::Sync::decode_log(log.as_ref(), true).unwrap();
+    pool.token0_reserves = U128::from(sync_event.reserve0);
+    pool.token1_reserves = U128::from(sync_event.reserve1);
 }
 
 impl From<&[DynSolValue]> for UniswapV2Pool {

@@ -2,43 +2,51 @@
 //!
 //! This module provides functionality for caching pool synchronization data,
 //! including structures and functions for reading from and writing to cache files.
-
+//! 
 use crate::chain::Chain;
 use crate::pools::{Pool, PoolType};
+use alloy::primitives::{Address, U256};
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::fs::{File, OpenOptions};
+use std::io::{BufReader, BufWriter};
 use std::path::Path;
+use anyhow::{Result, Context};
 
-/// Cache for a protocol, facilitates easier syncing
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PoolCache {
-    /// The last block number that was synced
     pub last_synced_block: u64,
-    /// The type of pool this cache is for
     pub pool_type: PoolType,
-    /// The list of pools that have been synced
     pub pools: Vec<Pool>,
 }
 
-/// Reads the cache file for the specified pool type and chain
-pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> PoolCache {
+pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> Result<PoolCache> {
     let pool_cache_file = format!("cache/{}_{}_cache.json", chain, pool_type);
     if Path::new(&pool_cache_file).exists() {
-        let file_content = fs::read_to_string(pool_cache_file).unwrap();
-        let pool_cache: PoolCache = serde_json::from_str(&file_content).unwrap();
-        pool_cache
+        let file = File::open(&pool_cache_file)
+            .with_context(|| format!("Failed to open cache file: {}", pool_cache_file))?;
+        let reader = BufReader::new(file);
+        let pool_cache: PoolCache = serde_json::from_reader(reader)
+            .with_context(|| format!("Failed to deserialize cache from file: {}", pool_cache_file))?;
+        Ok(pool_cache)
     } else {
-        PoolCache {
-            last_synced_block: 10000000,
+        Ok(PoolCache {
+            last_synced_block: 9_999_999,
             pool_type: *pool_type,
             pools: Vec::new(),
-        }
+        })
     }
 }
 
-/// Writes the provided PoolCache to a cache file
-pub fn write_cache_file(pool_cache: &PoolCache, chain: Chain) {
+pub fn write_cache_file(pool_cache: &PoolCache, chain: Chain) -> Result<()> {
     let pool_cache_file = format!("cache/{}_{}_cache.json", chain, pool_cache.pool_type);
-    let json = serde_json::to_string(&pool_cache).unwrap();
-    let _ = fs::write(pool_cache_file, json);
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&pool_cache_file)
+        .with_context(|| format!("Failed to create or open cache file: {}", pool_cache_file))?;
+    let writer = BufWriter::new(file);
+    serde_json::to_writer(writer, &pool_cache)
+        .with_context(|| format!("Failed to serialize cache to file: {}", pool_cache_file))?;
+    Ok(())
 }
