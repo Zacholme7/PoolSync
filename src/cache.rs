@@ -29,11 +29,19 @@ pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> Result<PoolCache> 
             .with_context(|| format!("Failed to deserialize cache from file: {}", pool_cache_file))?;
         Ok(pool_cache)
     } else {
-        Ok(PoolCache {
-            last_synced_block: 9_999_999,
-            pool_type: *pool_type,
-            pools: Vec::new(),
-        })
+        if Chain::Base == chain {
+            Ok(PoolCache {
+                last_synced_block: 0,
+                pool_type: *pool_type,
+                pools: Vec::new(),
+            })
+        } else {
+            Ok(PoolCache {
+                last_synced_block: 9_999_999,
+                pool_type: *pool_type,
+                pools: Vec::new(),
+            })
+        }
     }
 }
 

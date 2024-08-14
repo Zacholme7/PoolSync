@@ -3,10 +3,12 @@
 //! This module provides a builder pattern for constructing a PoolSync instance,
 //! allowing for flexible configuration of pool types and chains to be synced.
 
-use aerodome::AerodomeFetcher;
+use base_swap::{BaseSwapV2Fetcher, BaseSwapV3Fetcher};
+use aerodrome::{AerodromeFetcher, SlipstreamFetcher};
 use pancake_swap::{PancakeSwapV2Fetcher, PancakeSwapV3Fetcher};
 use sushiswap::{SushiSwapV2Fetcher, SushiSwapV3Fetcher};
 use uniswap::{UniswapV2Fetcher, UniswapV3Fetcher};
+use alien_base::AlienBaseFetcher;
 
 use crate::errors::*;
 use crate::pools::*;
@@ -54,9 +56,25 @@ impl PoolSyncBuilder {
                 self.fetchers
                     .insert(PoolType::PancakeSwapV3, Arc::new(PancakeSwapV3Fetcher));
             }
-            PoolType::Aerodome => {
+            PoolType::Aerodrome => {
                 self.fetchers
-                    .insert(PoolType::Aerodome, Arc::new(AerodomeFetcher));
+                    .insert(PoolType::Aerodrome, Arc::new(AerodromeFetcher));
+            }
+            PoolType::Slipstream => {
+                self.fetchers
+                    .insert(PoolType::Slipstream, Arc::new(SlipstreamFetcher));
+            }
+            PoolType::BaseSwapV2 => {
+                self.fetchers
+                    .insert(PoolType::BaseSwapV2, Arc::new(BaseSwapV2Fetcher));
+            }
+            PoolType::BaseSwapV3 => {
+                self.fetchers
+                    .insert(PoolType::BaseSwapV3, Arc::new(BaseSwapV3Fetcher));
+            }
+            PoolType::AlienBase => {
+                self.fetchers
+                    .insert(PoolType::AlienBase, Arc::new(AlienBaseFetcher));
             }
         }
         self

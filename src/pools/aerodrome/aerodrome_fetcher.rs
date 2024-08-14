@@ -1,17 +1,17 @@
 use alloy::primitives::{address, Address};
 use alloy_sol_types::SolEvent;
-use crate::pools::gen::AerodomeV2Factory;
+use crate::pools::gen::AerodromeV2Factory;
 use crate::pools::PoolFetcher;
 use alloy::primitives::Log;
 use crate::pools::PoolType;
 use crate::Chain;
 
-pub struct AerodomeFetcher;
+pub struct AerodromeFetcher;
 
 
-impl PoolFetcher for AerodomeFetcher {
+impl PoolFetcher for AerodromeFetcher {
     fn pool_type(&self) -> PoolType {
-        PoolType::Aerodome
+        PoolType::Aerodrome
     }
 
     fn factory_address(&self, chain: Chain) -> Address {
@@ -22,11 +22,11 @@ impl PoolFetcher for AerodomeFetcher {
     }
 
     fn pair_created_signature(&self) -> &str {
-        AerodomeV2Factory::PoolCreated::SIGNATURE
+        AerodromeV2Factory::PoolCreated::SIGNATURE
     }
 
     fn log_to_address(&self, log: &Log) -> Address {
-        let decoded_log = AerodomeV2Factory::PoolCreated::decode_log(log, false).unwrap();
+        let decoded_log = AerodromeV2Factory::PoolCreated::decode_log(log, false).unwrap();
         decoded_log.data.pool
     }
 }

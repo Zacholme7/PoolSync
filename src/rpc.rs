@@ -243,7 +243,7 @@ impl Rpc {
                         .await
                         .unwrap(),
                 );
-                if start_block != 10_000_000 {
+                if start_block > 10_000_000 {
                     // make sure we dont fetch swap events after initial sync
                     new_logs.extend(
                         Rpc::fetch_swap_logs(start_block, end_block, provider.clone(), pool_type)
@@ -253,7 +253,7 @@ impl Rpc {
                 }
             } else {
                 // fetch all sync logs
-                if start_block != 10_000_000 {
+                if start_block > 10_000_000 {
                     new_logs.extend(
                         Rpc::fetch_sync_logs(start_block, end_block, provider.clone(), pool_type)
                             .await
@@ -345,7 +345,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let swap_range = Rpc::get_block_range(1500, start_block, end_block);
+        let swap_range = Rpc::get_block_range(500, start_block, end_block);
         let info = format!("{} swap sync", pool_type);
         let progress_bar = create_progress_bar(swap_range.len() as u64, info);
         let logs = stream::iter(swap_range)
@@ -381,7 +381,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let sync_range = Rpc::get_block_range(500, start_block, end_block);
+        let sync_range = Rpc::get_block_range(200, start_block, end_block);
         let info = format!("{} sync sync", pool_type);
         let progress_bar = create_progress_bar(sync_range.len() as u64, info);
         let logs = stream::iter(sync_range)

@@ -13,6 +13,8 @@ pub struct UniswapV2Pool {
     pub token1_decimals: u8,
     pub token0_reserves: U128,
     pub token1_reserves: U128,
+    pub stable: Option<bool>,
+    pub fee: Option<U256>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

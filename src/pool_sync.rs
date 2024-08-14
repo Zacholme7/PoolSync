@@ -34,7 +34,7 @@ impl PoolSync {
     }
 
     /// Synchronizes all added pools for the specified chain
-    pub async fn sync_pools(&self) -> Result<Vec<Pool>, PoolSyncError> {
+    pub async fn sync_pools(&self) -> Result<(Vec<Pool>, u64), PoolSyncError> {
         // load in the dotenv
         dotenv::dotenv().ok();
 
@@ -63,6 +63,7 @@ impl PoolSync {
             .collect();
 
         let mut fully_synced = false;
+        let mut last_synced_block = 0;
 
         while !fully_synced {
             fully_synced = true;
@@ -88,7 +89,7 @@ impl PoolSync {
                     .await.unwrap();
 
                     // populate all of the pool data
-                    let mut new_pools = Rpc::populate_pools(
+                    let new_pools = Rpc::populate_pools(
                         pool_addrs,
                         full.clone(),
                         cache.pool_type,
@@ -127,6 +128,7 @@ impl PoolSync {
                     ).await.unwrap();
 
                     cache.last_synced_block = end_block;
+                    last_synced_block = end_block;
                 }
             }
         }
@@ -137,9 +139,9 @@ impl PoolSync {
             .for_each(|cache| write_cache_file(cache, self.chain).unwrap());
 
         // return all the pools
-        Ok(pool_caches
+        Ok((pool_caches
             .into_iter()
             .flat_map(|cache| cache.pools)
-            .collect())
+            .collect(), last_synced_block))
     }
 }

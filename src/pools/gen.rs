@@ -51,8 +51,15 @@ sol!(
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
-    AerodomeV2Factory,
-    "src/pools/abis/AerodomeV2Factory.json"
+    AerodromeV2Factory,
+    "src/pools/abis/AerodromeV2Factory.json"
+);
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    SlipstreamFactory,
+    "src/pools/abis/SlipstreamFactory.json"
 );
 
 // ERC20
@@ -61,4 +68,29 @@ sol!(
     #[sol(rpc)]
     ERC20,
     "src/pools/abis/ERC20.json"
+);
+
+
+// BASESWAP
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    BaseSwapV2Factory,
+    "src/pools/abis/BaseSwapV2Factory.json"
+);
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    BaseSwapV3Factory,
+    "src/pools/abis/BaseSwapV3Factory.json"
+);
+
+
+// ALIENBASE
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    AlienBaseFactory,
+    "src/pools/abis/AlienBaseFactory.json"
 );

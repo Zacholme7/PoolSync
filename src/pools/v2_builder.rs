@@ -1,6 +1,6 @@
 use crate::pools::{Pool, PoolType};
 use alloy::network::Network;
-use alloy::primitives::Address;
+use alloy::primitives::{Address, address};
 use alloy::providers::Provider;
 use alloy::sol;
 use alloy::transports::Transport;
@@ -16,6 +16,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use super::pool_structure::UniswapV2Pool;
+use crate::pools::gen::AerodromeV2Factory;
 use crate::pools::gen::ERC20;
 use crate::rpc::DataEvents;
 
@@ -24,6 +25,14 @@ sol!(
     #[sol(rpc)]
     V2DataSync,
     "src/abi/V2DataSync.json"
+);
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    contract AerodromePool {
+        function stable() external view returns (bool);
+    }
 );
 
 pub const INITIAL_BACKOFF: u64 = 1000; // 1 second
@@ -107,6 +116,22 @@ where
         let token1_contract = ERC20::new(pool.token1, provider.clone());
         if let Ok(ERC20::symbolReturn { _0: name }) = token1_contract.symbol().call().await {
             pool.token1_name = name;
+        }
+    }
+
+    // if aerodrome, we need to fetch if the pool is stable or not
+    if pool_type == PoolType::Aerodrome {
+        let factory_address = address!("420DD381b31aEf6683db6B902084cB0FFECe40Da");
+        let factory_contract = AerodromeV2Factory::new(factory_address, provider.clone());
+
+        for pool in &mut pools {
+            let token_contract = AerodromePool::new(pool.address, provider.clone());
+            // get the stable vaalue
+            let AerodromePool::stableReturn { _0: stable } = token_contract.stable().call().await.unwrap();
+            pool.stable = Some(stable);
+
+            let AerodromeV2Factory::getFeeReturn { _0: fee } = factory_contract.getFee(pool.address, stable).call().await.unwrap();
+            pool.fee = Some(fee);
         }
     }
 
