@@ -17,19 +17,19 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{fmt, sync::Arc};
 
-pub mod pool_structure;
 pub use v2_builder::build_pools as build_v2_pools;
 pub use v2_builder::process_sync_data;
 pub use v3_builder::build_pools as build_v3_pools;
 pub use v3_builder::process_tick_data;
+pub mod pool_structure;
 pub mod aerodrome;
-mod gen;
 pub mod base_swap;
 pub mod alien_base;
 pub mod pancake_swap;
 pub mod sushiswap;
 pub mod uniswap;
 mod v2_builder;
+mod gen;
 mod v3_builder;
 
 /// Enumerates the supported pool types
