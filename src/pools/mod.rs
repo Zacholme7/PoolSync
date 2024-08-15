@@ -50,6 +50,7 @@ pub enum PoolType {
     BaseSwapV3,
 
     AlienBase,
+
 }
 
 impl PoolType {
@@ -286,6 +287,7 @@ pub trait PoolInfo {
     fn token1_decimals(&self) -> u8;
     fn pool_type(&self) -> PoolType;
     fn fee(&self) -> u32;
+    fn stable(&self) -> bool;
 }
 
 pub trait V2PoolInfo {
@@ -372,6 +374,13 @@ macro_rules! impl_pool_info {
                 match self {
                     Pool::UniswapV3(pool) | Pool::SushiSwapV3(pool) | Pool::PancakeSwapV3(pool) | Pool::Slipstream(pool) => pool.fee,
                     _ => 0
+                }
+            }
+
+            fn stable(&self) -> bool {
+                match self {
+                    Pool::Aerodrome(pool) => pool.stable.unwrap(),
+                    _=> false
                 }
             }
         }

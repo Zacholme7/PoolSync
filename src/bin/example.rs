@@ -15,7 +15,8 @@ async fn main() -> Result<()> {
             //PoolType::UniswapV3,
             //PoolType::PancakeSwapV3,
             //PoolType::PancakeSwapV3
-            PoolType::Slipstream,
+            PoolType::Aerodrome
+            //PoolType::Slipstream,
             //PoolType::AlienBase,
         ])
         .chain(Chain::Base) // Specify the chain

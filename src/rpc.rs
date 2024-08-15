@@ -254,6 +254,7 @@ impl Rpc {
             } else {
                 // fetch all sync logs
                 if start_block > 10_000_000 {
+                    println!("syncing logs");
                     new_logs.extend(
                         Rpc::fetch_sync_logs(start_block, end_block, provider.clone(), pool_type)
                             .await
@@ -394,6 +395,7 @@ impl Rpc {
                         .from_block(from_block)
                         .to_block(to_block);
                     let logs = provider.get_logs(&filter).await.unwrap();
+                    println!("Got logs {:?}", logs.len());
                     drop(provider);
                     progress_bar.inc(1);
                     logs
