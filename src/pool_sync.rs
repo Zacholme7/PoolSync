@@ -71,7 +71,6 @@ impl PoolSync {
 
             for cache in &mut pool_caches {
                 let start_block = cache.last_synced_block + 1;
-                println!("Start Block: {:#?}, End Block: {:#?}, Pool Type: {:#?}", start_block, end_block, cache.pool_type);
                 if start_block <= end_block {
                     fully_synced = false;
 

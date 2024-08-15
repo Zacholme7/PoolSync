@@ -19,6 +19,7 @@ use super::pool_structure::UniswapV2Pool;
 use crate::pools::gen::AerodromeV2Factory;
 use crate::pools::gen::ERC20;
 use crate::rpc::DataEvents;
+use crate::rpc::AerodromeSync;
 
 sol!(
     #[derive(Debug)]
@@ -143,10 +144,17 @@ where
     Ok(pools)
 }
 
-pub fn process_sync_data(pool: &mut UniswapV2Pool, log: Log) {
-    let sync_event = DataEvents::Sync::decode_log(log.as_ref(), true).unwrap();
-    pool.token0_reserves = U128::from(sync_event.reserve0);
-    pool.token1_reserves = U128::from(sync_event.reserve1);
+pub fn process_sync_data(pool: &mut UniswapV2Pool, log: Log, pool_type: PoolType) {
+    if pool_type == PoolType::Aerodrome {
+        let sync_event = AerodromeSync::Sync::decode_log(log.as_ref(), true).unwrap();
+        pool.token0_reserves = U128::from(sync_event.reserve0);
+        pool.token1_reserves = U128::from(sync_event.reserve1);
+        return;
+    } else {
+        let sync_event = DataEvents::Sync::decode_log(log.as_ref(), true).unwrap();
+        pool.token0_reserves = U128::from(sync_event.reserve0);
+        pool.token1_reserves = U128::from(sync_event.reserve1);
+    }
 }
 
 impl From<&[DynSolValue]> for UniswapV2Pool {

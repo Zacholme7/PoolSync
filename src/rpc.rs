@@ -35,6 +35,15 @@ const INITIAL_BACKOFF: u64 = 1000; // 1 second
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
+    contract AerodromeSync {
+        event Sync(uint256 reserve0, uint256 reserve1);
+    }
+);
+
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
     contract DataEvents {
         event Sync(uint112 reserve0, uint112 reserve1);
         event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick);
@@ -254,7 +263,6 @@ impl Rpc {
             } else {
                 // fetch all sync logs
                 if start_block > 10_000_000 {
-                    println!("syncing logs");
                     new_logs.extend(
                         Rpc::fetch_sync_logs(start_block, end_block, provider.clone(), pool_type)
                             .await
@@ -285,7 +293,7 @@ impl Rpc {
                             if pool_type.is_v3() {
                                 process_tick_data(pool.get_v3_mut().unwrap(), log);
                             } else {
-                                process_sync_data(pool.get_v2_mut().unwrap(), log);
+                                process_sync_data(pool.get_v2_mut().unwrap(), log, pool_type);
                             }
                         }
                     }
@@ -391,11 +399,13 @@ impl Rpc {
                 let progress_bar = progress_bar.clone();
                 async move {
                     let filter = Filter::new()
-                        .event_signature(vec![DataEvents::Sync::SIGNATURE_HASH])
+                        .event_signature(vec![
+                            AerodromeSync::Sync::SIGNATURE_HASH,
+                            DataEvents::Sync::SIGNATURE_HASH
+                        ])
                         .from_block(from_block)
                         .to_block(to_block);
                     let logs = provider.get_logs(&filter).await.unwrap();
-                    println!("Got logs {:?}", logs.len());
                     drop(provider);
                     progress_bar.inc(1);
                     logs

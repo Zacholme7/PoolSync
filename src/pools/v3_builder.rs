@@ -32,6 +32,20 @@ sol!(
     "src/abi/V3DataSync.json"
 );
 
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    SlipStreamDataSync,
+    "src/abi/SlipStreamDataSync.json"
+);
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    PancakeDataSync,
+    "src/abi/PancakeDataSync.json"
+);
+
 pub const INITIAL_BACKOFF: u64 = 1000; // 1 second
 pub const MAX_RETRIES: u32 = 5;
 
@@ -96,13 +110,13 @@ where
         DynSolType::Int(128),
     ])));
 
-    let protocol = if pool_type == PoolType::UniswapV3 {
-        0_u8
+    let data = if pool_type == PoolType::Slipstream {
+        SlipStreamDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+    } else if pool_type == PoolType::PancakeSwapV3 {
+        PancakeDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
     } else {
-        1_u8
+        V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
     };
-    let data =
-        V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec(), protocol).await?;
     let decoded_data = v3_data.abi_decode_sequence(&data)?;
 
     let mut pools = Vec::new();
