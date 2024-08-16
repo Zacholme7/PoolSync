@@ -40,6 +40,24 @@ sol!(
     }
 );
 
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    contract PancakeSwap {
+        event Swap(
+            address indexed sender,
+            address indexed recipient,
+            int256 amount0,
+            int256 amount1,
+            uint160 sqrtPriceX96,
+            uint128 liquidity,
+            int24 tick,
+            uint128 protocolFeesToken0,
+            uint128 protocolFeesToken1
+        );
+    }
+);
+
 
 sol!(
     #[derive(Debug)]
@@ -291,7 +309,7 @@ impl Rpc {
                         if let Some(pool) = pools.get_mut(index) {
                             // Note: removed & before index
                             if pool_type.is_v3() {
-                                process_tick_data(pool.get_v3_mut().unwrap(), log);
+                                process_tick_data(pool.get_v3_mut().unwrap(), log, pool_type);
                             } else {
                                 process_sync_data(pool.get_v2_mut().unwrap(), log, pool_type);
                             }
@@ -363,7 +381,10 @@ impl Rpc {
                 let pb = progress_bar.clone();
                 async move {
                     let filter = Filter::new()
-                        .event_signature(vec![DataEvents::Swap::SIGNATURE_HASH])
+                        .event_signature(vec![
+                            PancakeSwap::Swap::SIGNATURE_HASH,
+                            DataEvents::Swap::SIGNATURE_HASH
+                        ])
                         .from_block(from_block)
                         .to_block(to_block);
                     let logs = provider.get_logs(&filter).await.unwrap();

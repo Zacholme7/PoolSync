@@ -1,5 +1,5 @@
 use crate::{
-    pools::{Pool, PoolType}, rpc::{DataEvents, Rpc}
+    pools::{Pool, PoolType}, rpc::{DataEvents, PancakeSwap, Rpc}
 }; //, snapshot::{v3_tick_snapshot, v3_tickbitmap_snapshot}};
 use alloy::network::Network;
 use alloy::primitives::Address;
@@ -152,15 +152,15 @@ where
     Ok(pools)
 }
 
-pub fn process_tick_data(pool: &mut UniswapV3Pool, log: Log) {
+pub fn process_tick_data(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType) {
     let event_sig = log.topic0().unwrap();
 
     if *event_sig == DataEvents::Burn::SIGNATURE_HASH {
         process_burn(pool, log);
     } else if *event_sig == DataEvents::Mint::SIGNATURE_HASH {
         process_mint(pool, log);
-    } else if *event_sig == DataEvents::Swap::SIGNATURE_HASH {
-        process_swap(pool, log);
+    } else if *event_sig == DataEvents::Swap::SIGNATURE_HASH || *event_sig == PancakeSwap::Swap::SIGNATURE_HASH {
+        process_swap(pool, log, pool_type);
     }
 }
 
@@ -184,11 +184,18 @@ fn process_mint(pool: &mut UniswapV3Pool, log: Log) {
     );
 }
 
-fn process_swap(pool: &mut UniswapV3Pool, log: Log) {
-    let swap_event = DataEvents::Swap::decode_log(log.as_ref(), true).unwrap();
-    pool.tick = swap_event.tick;
-    pool.sqrt_price = swap_event.sqrtPriceX96;
-    pool.liquidity = swap_event.liquidity;
+fn process_swap(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType) {
+    if pool_type == PoolType::PancakeSwapV3 {
+        let swap_event = PancakeSwap::Swap::decode_log(log.as_ref(), true).unwrap();
+        pool.tick = swap_event.tick;
+        pool.sqrt_price = swap_event.sqrtPriceX96;
+        pool.liquidity = swap_event.liquidity;
+    } else {
+        let swap_event = DataEvents::Swap::decode_log(log.as_ref(), true).unwrap();
+        pool.tick = swap_event.tick;
+        pool.sqrt_price = swap_event.sqrtPriceX96;
+        pool.liquidity = swap_event.liquidity;
+    }
 }
 
 /// Modifies a positions liquidity in the pool.
