@@ -9,7 +9,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pool-sync = "2.0.4"
+pool-sync = "2.0.0"
 ```
 
 Configure your .env with a full node and a archive node. Archive must be an archive node. The full node can be either. 
@@ -18,6 +18,19 @@ Configure your .env with a full node and a archive node. Archive must be an arch
 FULL = "full node endpoint"
 ARCHIVE = "archive node endpoint"
 ```
+
+## Supported Protocols
+### ETH
+- UniswapV2/V3
+- SushiswapV2/V2
+- PancakeswapV2/V3
+### Base
+- UniswapV2/V3
+- SushiswapV2/V3
+- PancakeswapV2/V3
+- BaseswapV2/V3
+- Aerodrome/Slipstream
+- AlienBase
 
 ## Example Usage
 ```rust
