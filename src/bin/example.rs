@@ -14,12 +14,13 @@ async fn main() -> Result<()> {
             //PoolType::UniswapV2,
             //PoolType::UniswapV3,
             //PoolType::PancakeSwapV3,
-            PoolType::PancakeSwapV3
+            //PoolType::PancakeSwapV3
+            PoolType::MaverickV1
             //PoolType::Aerodrome
             //PoolType::Slipstream,
             //PoolType::AlienBase,
         ])
-        .chain(Chain::Base) // Specify the chain
+        .chain(Chain::Ethereum) // Specify the chain
         .rate_limit(1000)
         .build()?;
 

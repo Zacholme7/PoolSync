@@ -94,3 +94,42 @@ sol!(
     AlienBaseFactory,
     "src/pools/abis/AlienBaseFactory.json"
 );
+
+
+
+// MAVERICK
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    MaverickV1Factory,
+    "src/pools/abis/MaverickV1Factory.json"
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

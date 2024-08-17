@@ -42,6 +42,18 @@ pub struct TickInfo {
     pub liquidity_gross: u128,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SimulatedPool {
+    pub address: Address,
+    pub token0: Address,
+    pub token1: Address,
+    pub token0_name: String,
+    pub token1_name: String,
+    pub token0_decimals: u8,
+    pub token1_decimals: u8,
+}
+
+
 impl UniswapV2Pool {
     pub fn is_valid(&self) -> bool {
         self.address != Address::ZERO
@@ -51,6 +63,14 @@ impl UniswapV2Pool {
 }
 
 impl UniswapV3Pool {
+    pub fn is_valid(&self) -> bool {
+        self.address != Address::ZERO
+            && self.token0 != Address::ZERO
+            && self.token1 != Address::ZERO
+    }
+}
+
+impl SimulatedPool {
     pub fn is_valid(&self) -> bool {
         self.address != Address::ZERO
             && self.token0 != Address::ZERO

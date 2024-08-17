@@ -9,6 +9,7 @@ use pancake_swap::{PancakeSwapV2Fetcher, PancakeSwapV3Fetcher};
 use sushiswap::{SushiSwapV2Fetcher, SushiSwapV3Fetcher};
 use uniswap::{UniswapV2Fetcher, UniswapV3Fetcher};
 use alien_base::AlienBaseFetcher;
+use maverick::MaverickV1Fetcher;
 
 use crate::errors::*;
 use crate::pools::*;
@@ -76,13 +77,18 @@ impl PoolSyncBuilder {
                 self.fetchers
                     .insert(PoolType::AlienBase, Arc::new(AlienBaseFetcher));
             }
+            PoolType::MaverickV1 => {
+                self.fetchers
+                    .insert(PoolType::MaverickV1, Arc::new(MaverickV1Fetcher));
+            }
+            
         }
         self
     }
 
     /// Add multiple pools to be synced
     pub fn add_pools(mut self, pools: &[PoolType]) -> Self {
-        for pool in pools.into_iter() {
+        for pool in pools.iter() {
             self = self.add_pool(*pool);
         }
         self

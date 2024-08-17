@@ -12,7 +12,7 @@ use alloy::primitives::U256;
 use alloy::primitives::{Address, Log};
 use alloy::providers::Provider;
 use alloy::transports::Transport;
-use pool_structure::{TickInfo, UniswapV2Pool, UniswapV3Pool};
+use pool_structure::{SimulatedPool, TickInfo, UniswapV2Pool, UniswapV3Pool};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{fmt, sync::Arc};
@@ -21,15 +21,18 @@ pub use v2_builder::build_pools as build_v2_pools;
 pub use v2_builder::process_sync_data;
 pub use v3_builder::build_pools as build_v3_pools;
 pub use v3_builder::process_tick_data;
-pub mod pool_structure;
+pub use simulated_builder::build_pools as build_simulated_pools;
 pub mod aerodrome;
-pub mod base_swap;
 pub mod alien_base;
+pub mod base_swap;
+mod gen;
+pub mod maverick;
 pub mod pancake_swap;
+pub mod pool_structure;
+mod simulated_builder;
 pub mod sushiswap;
 pub mod uniswap;
 mod v2_builder;
-mod gen;
 mod v3_builder;
 
 /// Enumerates the supported pool types
@@ -51,6 +54,7 @@ pub enum PoolType {
 
     AlienBase,
 
+    MaverickV1,
 }
 
 impl PoolType {
@@ -70,6 +74,10 @@ impl PoolType {
             || self == &PoolType::BaseSwapV3
             || self == &PoolType::AlienBase
     }
+
+    pub fn is_simulated(&self) -> bool {
+        self == &PoolType::MaverickV1
+    }
 }
 
 /// Represents a populated pool from any of the supported protocols
@@ -86,8 +94,9 @@ pub enum Pool {
     PancakeSwapV3(UniswapV3Pool),
     Slipstream(UniswapV3Pool),
     BaseSwapV3(UniswapV3Pool),
-    AlienBase(UniswapV3Pool)
+    AlienBase(UniswapV3Pool),
 
+    MaverickV1(SimulatedPool),
 }
 
 impl Pool {
@@ -110,6 +119,13 @@ impl Pool {
             PoolType::Slipstream => Pool::Slipstream(pool),
             PoolType::BaseSwapV3 => Pool::BaseSwapV3(pool),
             PoolType::AlienBase => Pool::AlienBase(pool),
+            _ => panic!("Invalid pool type"),
+        }
+    }
+
+    pub fn new_simulated(pool_type: PoolType, pool: SimulatedPool) -> Self {
+        match pool_type {
+            PoolType::MaverickV1 => Pool::MaverickV1(pool),
             _ => panic!("Invalid pool type"),
         }
     }
@@ -137,6 +153,24 @@ impl Pool {
         }
     }
 
+    pub fn is_simulated(&self) -> bool {
+        match self {
+            Pool::MaverickV1(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_v2(&self) -> Option<&UniswapV2Pool> {
+        match self {
+            Pool::UniswapV2(pool) => Some(pool),
+            Pool::SushiSwapV2(pool) => Some(pool),
+            Pool::PancakeSwapV2(pool) => Some(pool),
+            Pool::Aerodrome(pool) => Some(pool),
+            Pool::BaseSwapV2(pool) => Some(pool),
+            _ => None,
+        }
+    }
+
     pub fn get_v3(&self) -> Option<&UniswapV3Pool> {
         match self {
             Pool::UniswapV3(pool) => Some(pool),
@@ -149,7 +183,14 @@ impl Pool {
         }
     }
 
-    pub fn get_v2(&self) -> Option<&UniswapV2Pool> {
+    pub fn get_simulated(&self) -> Option<&SimulatedPool> {
+        match self {
+            Pool::MaverickV1(pool) => Some(pool),
+            _ => None,
+        }
+    }
+
+    pub fn get_v2_mut(&mut self) -> Option<&mut UniswapV2Pool> {
         match self {
             Pool::UniswapV2(pool) => Some(pool),
             Pool::SushiSwapV2(pool) => Some(pool),
@@ -172,13 +213,9 @@ impl Pool {
         }
     }
 
-    pub fn get_v2_mut(&mut self) -> Option<&mut UniswapV2Pool> {
+    pub fn get_simulated_mut(&mut self) -> Option<&mut SimulatedPool> {
         match self {
-            Pool::UniswapV2(pool) => Some(pool),
-            Pool::SushiSwapV2(pool) => Some(pool),
-            Pool::PancakeSwapV2(pool) => Some(pool),
-            Pool::Aerodrome(pool) => Some(pool),
-            Pool::BaseSwapV2(pool) => Some(pool),
+            Pool::MaverickV1(pool) => Some(pool),
             _ => None,
         }
     }
@@ -203,7 +240,8 @@ impl_pool_info!(
     Slipstream,
     BaseSwapV2,
     BaseSwapV3,
-    AlienBase
+    AlienBase,
+    MaverickV1
 );
 
 /*
@@ -271,6 +309,9 @@ impl PoolType {
             }
             PoolType::AlienBase => {
                 v3_builder::build_pools(provider, addresses, PoolType::AlienBase).await
+            }
+            PoolType::MaverickV1 => {
+                simulated_builder::build_pools(provider, addresses, PoolType::MaverickV1).await
             }
             _ => panic!("Invalid pool type"),
         }
