@@ -18,8 +18,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
 
-use crate::pools::process_sync_data;
-use crate::pools::process_tick_data;
+use crate::pools::pool_structures::v3_structure::process_tick_data;
+use crate::pools::pool_structures::v2_structure::process_sync_data;
+use crate::pools::pool_builder;
 use crate::pools::PoolFetcher;
 use crate::util::create_progress_bar;
 use crate::Chain;
@@ -173,6 +174,7 @@ impl Rpc {
         pool_addrs: Vec<Address>,
         provider: Arc<P>,
         pool: PoolType,
+        fetcher: Arc<dyn PoolFetcher>,
         requests_per_second: u64,
     ) -> Vec<Pool>
     where
@@ -196,16 +198,16 @@ impl Rpc {
                 let progress_bar = progress_bar.clone();
                 let pool = pool.clone();
                 let rate_limiter = rate_limiter.clone();
+                let fetcher = fetcher.clone();
 
                 async move {
                     let mut retry_count = 0;
                     let mut backoff = INITIAL_BACKOFF;
                     let _permit = rate_limiter.acquire().await.unwrap();
+                    let data = fetcher.get_pool_repr();
 
                     loop {
-                        match pool
-                            .build_pools_from_addrs(provider.clone(), chunk.clone())
-                            .await
+                        match pool_builder::build_pools(provider.clone(), chunk.clone(), pool, data.clone()).await
                         {
                             populated_pools if !populated_pools.is_empty() => {
                                 progress_bar.inc(1);

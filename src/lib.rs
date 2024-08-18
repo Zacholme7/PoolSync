@@ -8,7 +8,6 @@
 // Public re-exports
 pub use chain::Chain;
 pub use pool_sync::PoolSync;
-pub use pools::{build_v2_pools, build_v3_pools};
 pub use pools::{Pool, PoolInfo, PoolType};
 pub use rpc::Rpc;
 

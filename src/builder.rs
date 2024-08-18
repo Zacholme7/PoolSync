@@ -3,15 +3,17 @@
 //! This module provides a builder pattern for constructing a PoolSync instance,
 //! allowing for flexible configuration of pool types and chains to be synced.
 
-use base_swap::{BaseSwapV2Fetcher, BaseSwapV3Fetcher};
-use aerodrome::{AerodromeFetcher, SlipstreamFetcher};
-use pancake_swap::{PancakeSwapV2Fetcher, PancakeSwapV3Fetcher};
-use sushiswap::{SushiSwapV2Fetcher, SushiSwapV3Fetcher};
-use uniswap::{UniswapV2Fetcher, UniswapV3Fetcher};
-use alien_base::AlienBaseFetcher;
-use maverick::{MaverickV1Fetcher, MaverickV2Fetcher};
-use curve::{CurveTwoCryptoFetcher, CurveTriCryptoFetcher};
-use balancer::BalancerV2Fetcher;
+use crate::pools::pool_fetchers::{
+    BaseSwapV2Fetcher, BaseSwapV3Fetcher,
+    AerodromeFetcher, SlipstreamFetcher,
+    PancakeSwapV2Fetcher, PancakeSwapV3Fetcher,
+    SushiSwapV2Fetcher, SushiSwapV3Fetcher,
+    UniswapV2Fetcher, UniswapV3Fetcher,
+    AlienBaseFetcher,
+    MaverickV1Fetcher, MaverickV2Fetcher,
+    CurveTwoCryptoFetcher, CurveTriCryptoFetcher,
+    BalancerV2Fetcher,
+};
 
 use crate::errors::*;
 use crate::pools::*;

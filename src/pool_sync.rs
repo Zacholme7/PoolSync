@@ -91,6 +91,7 @@ impl PoolSync {
                         pool_addrs,
                         full.clone(),
                         cache.pool_type,
+                        fetcher.clone(),
                         self.rate_limit,
                     )
                     .await;

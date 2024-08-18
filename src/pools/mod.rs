@@ -13,32 +13,25 @@ use alloy::primitives::U256;
 use alloy::primitives::{Address, Log};
 use alloy::providers::Provider;
 use alloy::transports::Transport;
-use pool_structure::BalancerPool;
-use pool_structure::{SimulatedPool, TickInfo, UniswapV2Pool, UniswapV3Pool, CurvePool};
+use pool_structures::balancer_structure::BalancerPool;
+use pool_structures::curve_structure::CurvePool;
+use pool_structures::maverick_structure::MaverickPool;
+use pool_structures::v2_structure::UniswapV2Pool;
+use pool_structures::v3_structure::TickInfo;
+use pool_structures::v3_structure::UniswapV3Pool;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{fmt, sync::Arc};
 
-pub use v2_builder::build_pools as build_v2_pools;
-pub use v2_builder::process_sync_data;
-pub use v3_builder::build_pools as build_v3_pools;
-pub use v3_builder::process_tick_data;
-pub use simulated_builder::build_pools as build_simulated_pools;
-pub mod aerodrome;
-pub mod alien_base;
-pub mod base_swap;
-pub mod maverick;
-pub mod pancake_swap;
-pub mod balancer;
-pub mod pool_structure;
-pub mod curve;
-pub mod sushiswap;
-pub mod uniswap;
+//pub use v2_builder::build_pools as build_v2_pools;
+//pub use v2_builder::process_sync_data;
+//pub use v3_builder::build_pools as build_v3_pools;
+//pub use v3_builder::process_tick_data;
+pub use pool_builder::build_pools;
+pub mod pool_fetchers;
+pub mod pool_structures;
+pub mod pool_builder;
 mod gen;
-mod v2_builder;
-mod v3_builder;
-mod curve_builder;
-mod simulated_builder;
 
 /// Enumerates the supported pool types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -86,7 +79,7 @@ impl PoolType {
             || self == &PoolType::AlienBase
     }
 
-    pub fn is_simulated(&self) -> bool {
+    pub fn is_maverick(&self) -> bool {
         self == &PoolType::MaverickV1
             || self == &PoolType::MaverickV2
     }
@@ -117,8 +110,8 @@ pub enum Pool {
     BaseSwapV3(UniswapV3Pool),
     AlienBase(UniswapV3Pool),
 
-    MaverickV1(SimulatedPool),
-    MaverickV2(SimulatedPool),
+    MaverickV1(MaverickPool),
+    MaverickV2(MaverickPool),
 
     CurveTwoCrypto(CurvePool),
     CurveTriCrypto(CurvePool),
@@ -150,7 +143,7 @@ impl Pool {
         }
     }
 
-    pub fn new_simulated(pool_type: PoolType, pool: SimulatedPool) -> Self {
+    pub fn new_maverick(pool_type: PoolType, pool: MaverickPool) -> Self {
         match pool_type {
             PoolType::MaverickV1 => Pool::MaverickV1(pool),
             PoolType::MaverickV2 => Pool::MaverickV2(pool),
@@ -196,7 +189,7 @@ impl Pool {
         }
     }
 
-    pub fn is_simulated(&self) -> bool {
+    pub fn is_maverick(&self) -> bool {
         match self {
             Pool::MaverickV1(_) => true,
             Pool::MaverickV2(_) => true,
@@ -242,7 +235,7 @@ impl Pool {
         }
     }
 
-    pub fn get_simulated(&self) -> Option<&SimulatedPool> {
+    pub fn get_maverick(&self) -> Option<&MaverickPool> {
         match self {
             Pool::MaverickV1(pool) => Some(pool),
             Pool::MaverickV2(pool) => Some(pool),
@@ -288,7 +281,7 @@ impl Pool {
         }
     }
 
-    pub fn get_simulated_mut(&mut self) -> Option<&mut SimulatedPool> {
+    pub fn get_maverick_mut(&mut self) -> Option<&mut MaverickPool> {
         match self {
             Pool::MaverickV1(pool) => Some(pool),
             Pool::MaverickV2(pool) => Some(pool),
@@ -339,8 +332,6 @@ impl_pool_info!(
     BalancerV2
 );
 
-/*
-*/
 
 /// Defines common functionality for fetching and decoding pool creation events
 ///
@@ -365,69 +356,6 @@ pub trait PoolFetcher: Send + Sync {
 
 }
 
-impl PoolType {
-    pub async fn build_pools_from_addrs<P, T, N>(
-        &self,
-        provider: Arc<P>,
-        addresses: Vec<Address>,
-    ) -> Vec<Pool>
-    where
-        P: Provider<T, N> + Sync + 'static,
-        T: Transport + Sync + Clone,
-        N: Network,
-    {
-        match self {
-            PoolType::UniswapV2 => {
-                v2_builder::build_pools(provider, addresses, PoolType::UniswapV2).await
-            }
-            PoolType::SushiSwapV2 => {
-                v2_builder::build_pools(provider, addresses, PoolType::SushiSwapV2).await
-            }
-            PoolType::PancakeSwapV2 => {
-                v2_builder::build_pools(provider, addresses, PoolType::PancakeSwapV2).await
-            }
-            PoolType::Aerodrome => {
-                v2_builder::build_pools(provider, addresses, PoolType::Aerodrome).await
-            }
-            PoolType::BaseSwapV2 => {
-                v2_builder::build_pools(provider, addresses, PoolType::BaseSwapV2).await
-            }
-            PoolType::UniswapV3 => {
-                v3_builder::build_pools(provider, addresses, PoolType::UniswapV3).await
-            }
-            PoolType::SushiSwapV3 => {
-                v3_builder::build_pools(provider, addresses, PoolType::SushiSwapV3).await
-            }
-            PoolType::PancakeSwapV3 => {
-                v3_builder::build_pools(provider, addresses, PoolType::PancakeSwapV3).await
-            }
-            PoolType::Slipstream => {
-                v3_builder::build_pools(provider, addresses, PoolType::Slipstream).await
-            }
-            PoolType::BaseSwapV3 => {
-                v3_builder::build_pools(provider, addresses, PoolType::BaseSwapV3).await
-            }
-            PoolType::AlienBase => {
-                v3_builder::build_pools(provider, addresses, PoolType::AlienBase).await
-            }
-            PoolType::MaverickV1 => {
-                simulated_builder::build_pools(provider, addresses, PoolType::MaverickV1).await
-            }
-            PoolType::MaverickV2 => {
-                simulated_builder::build_pools(provider, addresses, PoolType::MaverickV2).await
-            }
-            PoolType::CurveTwoCrypto => {
-                //curve_builder::build_pools(provider, addresses, PoolType::CurveTwoCrypto).await
-                todo!()
-            }
-            PoolType::CurveTriCrypto => {
-                //curve_builder::build_pools(provider, addresses, PoolType::CurveTriCrypto).await
-                todo!()
-            }
-            _ => panic!("Invalid pool type"),
-        }
-    }
-}
 /// Defines common methods that are used to access information about the pools
 pub trait PoolInfo {
     fn address(&self) -> Address;

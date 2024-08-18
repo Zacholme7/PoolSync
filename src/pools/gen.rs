@@ -141,6 +141,26 @@ sol!(
 
 
 
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    V2DataSync,
+    "src/abi/V2DataSync.json"
+);
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    V3DataSync,
+    "src/abi/V3DataSync.json"
+);
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    SlipStreamDataSync,
+    "src/abi/SlipStreamDataSync.json"
+);
 
 
 
