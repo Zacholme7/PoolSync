@@ -3,7 +3,7 @@
 //! This module defines the supported blockchain networks (Chains) and manages
 //! the mapping of supported pool types for each chain.
 
-use crate::PoolType;
+use crate::{Pool, PoolType};
 use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -35,7 +35,8 @@ static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
             PoolType::SushiSwapV3,
             PoolType::PancakeSwapV2,
             PoolType::PancakeSwapV3,
-            PoolType::MaverickV1
+            PoolType::MaverickV1,
+            PoolType::MaverickV2
         ]
         .iter()
         .cloned()
@@ -57,7 +58,8 @@ static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
             PoolType::BaseSwapV2,
             PoolType::BaseSwapV3,
             PoolType::AlienBase,
-            PoolType::MaverickV1
+            PoolType::MaverickV1,
+            PoolType::MaverickV2
         ]
             .iter()
             .cloned()

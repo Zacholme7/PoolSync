@@ -55,6 +55,7 @@ pub enum PoolType {
     AlienBase,
 
     MaverickV1,
+    MaverickV2,
 }
 
 impl PoolType {
@@ -77,6 +78,7 @@ impl PoolType {
 
     pub fn is_simulated(&self) -> bool {
         self == &PoolType::MaverickV1
+            || self == &PoolType::MaverickV2
     }
 }
 
@@ -97,6 +99,7 @@ pub enum Pool {
     AlienBase(UniswapV3Pool),
 
     MaverickV1(SimulatedPool),
+    MaverickV2(SimulatedPool),
 }
 
 impl Pool {
@@ -126,6 +129,7 @@ impl Pool {
     pub fn new_simulated(pool_type: PoolType, pool: SimulatedPool) -> Self {
         match pool_type {
             PoolType::MaverickV1 => Pool::MaverickV1(pool),
+            PoolType::MaverickV2 => Pool::MaverickV2(pool),
             _ => panic!("Invalid pool type"),
         }
     }
@@ -156,6 +160,7 @@ impl Pool {
     pub fn is_simulated(&self) -> bool {
         match self {
             Pool::MaverickV1(_) => true,
+            Pool::MaverickV2(_) => true,
             _ => false,
         }
     }
@@ -186,6 +191,7 @@ impl Pool {
     pub fn get_simulated(&self) -> Option<&SimulatedPool> {
         match self {
             Pool::MaverickV1(pool) => Some(pool),
+            Pool::MaverickV2(pool) => Some(pool),
             _ => None,
         }
     }
@@ -216,6 +222,7 @@ impl Pool {
     pub fn get_simulated_mut(&mut self) -> Option<&mut SimulatedPool> {
         match self {
             Pool::MaverickV1(pool) => Some(pool),
+            Pool::MaverickV2(pool) => Some(pool),
             _ => None,
         }
     }
@@ -241,7 +248,8 @@ impl_pool_info!(
     BaseSwapV2,
     BaseSwapV3,
     AlienBase,
-    MaverickV1
+    MaverickV1,
+    MaverickV2
 );
 
 /*
@@ -312,6 +320,9 @@ impl PoolType {
             }
             PoolType::MaverickV1 => {
                 simulated_builder::build_pools(provider, addresses, PoolType::MaverickV1).await
+            }
+            PoolType::MaverickV2 => {
+                simulated_builder::build_pools(provider, addresses, PoolType::MaverickV2).await
             }
             _ => panic!("Invalid pool type"),
         }

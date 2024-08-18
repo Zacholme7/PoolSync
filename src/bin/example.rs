@@ -15,7 +15,8 @@ async fn main() -> Result<()> {
             //PoolType::UniswapV3,
             //PoolType::PancakeSwapV3,
             //PoolType::PancakeSwapV3
-            PoolType::MaverickV1
+            //PoolType::MaverickV1
+            PoolType::MaverickV2
             //PoolType::Aerodrome
             //PoolType::Slipstream,
             //PoolType::AlienBase,

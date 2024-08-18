@@ -9,7 +9,7 @@ use pancake_swap::{PancakeSwapV2Fetcher, PancakeSwapV3Fetcher};
 use sushiswap::{SushiSwapV2Fetcher, SushiSwapV3Fetcher};
 use uniswap::{UniswapV2Fetcher, UniswapV3Fetcher};
 use alien_base::AlienBaseFetcher;
-use maverick::MaverickV1Fetcher;
+use maverick::{MaverickV1Fetcher, MaverickV2Fetcher};
 
 use crate::errors::*;
 use crate::pools::*;
@@ -81,7 +81,10 @@ impl PoolSyncBuilder {
                 self.fetchers
                     .insert(PoolType::MaverickV1, Arc::new(MaverickV1Fetcher));
             }
-            
+            PoolType::MaverickV2 => {
+                self.fetchers
+                    .insert(PoolType::MaverickV2, Arc::new(MaverickV2Fetcher));
+            }
         }
         self
     }

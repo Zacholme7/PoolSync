@@ -10,41 +10,41 @@ use alloy::sol;
 sol!(
     #[derive(Debug)]
     event PoolCreated(
-        IMaverickV2Pool poolAddress,
+        address poolAddress,
         uint8 protocolFeeRatio,
         uint256 feeAIn,
         uint256 feeBIn,
         uint256 tickSpacing,
         uint256 lookback,
         int32 activeTick,
-        IERC20 tokenA,
-        IERC20 tokenB,
+        address tokenA,
+        address tokenB,
         uint8 kinds,
         address accessor
     );
 );
 
-pub struct MaverickV1Fetcher;
+pub struct MaverickV2Fetcher;
 
-impl PoolFetcher for MaverickV1Fetcher {
+impl PoolFetcher for MaverickV2Fetcher {
     fn pool_type(&self) -> PoolType {
-        PoolType::MaverickV1
+        PoolType::MaverickV2
     }
 
     fn factory_address(&self, chain: Chain) -> Address {
         match chain {
-            Chain::Ethereum => address!("Eb6625D65a0553c9dBc64449e56abFe519bd9c9B"),
-            Chain::Base => address!("B2855783a346735e4AAe0c1eb894DEf861Fa9b45"),
+            Chain::Ethereum => address!("0A7e848Aca42d879EF06507Fca0E7b33A0a63c1e"),
+            Chain::Base => address!("0A7e848Aca42d879EF06507Fca0E7b33A0a63c1e"),
         }
     }
 
     fn pair_created_signature(&self) -> &str {
-        MaverickV1Factory::PoolCreated::SIGNATURE
+        PoolCreated::SIGNATURE
         
     }
 
     fn log_to_address(&self, log: &Log) -> Address {
-        let decoded_log = MaverickV1Factory::PoolCreated::decode_log(log, false).unwrap();
+        let decoded_log = PoolCreated::decode_log(log, false).unwrap();
         decoded_log.data.poolAddress
     }
 }
