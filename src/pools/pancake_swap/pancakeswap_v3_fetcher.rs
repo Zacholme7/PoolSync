@@ -28,4 +28,5 @@ impl PoolFetcher for PancakeSwapV3Fetcher {
         let decoded_log = PancakeSwapV3Factory::PoolCreated::decode_log(log, false).unwrap();
         decoded_log.data.pool
     }
+
 }

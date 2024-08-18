@@ -29,4 +29,6 @@ impl PoolFetcher for BaseSwapV3Fetcher {
         let decoded_log = BaseSwapV3Factory::PoolCreated::decode_log(log, false).unwrap();
         decoded_log.data.pool
     }
+
+
 }

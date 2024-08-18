@@ -76,7 +76,6 @@ impl PoolSync {
 
                     let fetcher = self.fetchers[&cache.pool_type].clone();
 
-                    // fetch all of the pool addresses
                     let pool_addrs = Rpc::fetch_pool_addrs(
                         start_block,
                         end_block,
@@ -96,25 +95,6 @@ impl PoolSync {
                     )
                     .await;
 
-                    // sync old pools up to the current tip
-                    // v2: the populate pools will have already got all of the reserves up to end block for the current
-                    // set of pools, we do not want to fetch it again since we already have it, so we just process the new logs for 
-                    // the old pools since those logs are going to modify the state of them
-                    // v3: same for v3, the cache.pools have synced up to start block - 1, so all logs from start block to end block
-                    // are new logs that can modify the state of the v3 pools, so fetch the state for them
-                    /* 
-                    let _ = Rpc::populate_liquidity(
-                        start_block,
-                        end_block,
-                        &mut cache.pools,
-                        archive.clone(),
-                        cache.pool_type
-                    ).await;
-                */
-
-                    // populate the state for the new pools, if this is v2 we will already have the state and dont need it,
-                    // for the v3 start, we do  not nee dthe swap logs because we will already have an up to date state of 
-                    // the tick, sqrt price, and liquidyt from populate pools, but we do need to fill in the tick data
                     cache.pools.extend(new_pools);
 
                     // we need to do the initial tick sync

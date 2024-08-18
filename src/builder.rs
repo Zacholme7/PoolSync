@@ -10,6 +10,8 @@ use sushiswap::{SushiSwapV2Fetcher, SushiSwapV3Fetcher};
 use uniswap::{UniswapV2Fetcher, UniswapV3Fetcher};
 use alien_base::AlienBaseFetcher;
 use maverick::{MaverickV1Fetcher, MaverickV2Fetcher};
+use curve::{CurveTwoCryptoFetcher, CurveTriCryptoFetcher};
+use balancer::BalancerV2Fetcher;
 
 use crate::errors::*;
 use crate::pools::*;
@@ -84,6 +86,18 @@ impl PoolSyncBuilder {
             PoolType::MaverickV2 => {
                 self.fetchers
                     .insert(PoolType::MaverickV2, Arc::new(MaverickV2Fetcher));
+            }
+            PoolType::CurveTwoCrypto => {
+                self.fetchers
+                    .insert(PoolType::CurveTwoCrypto, Arc::new(CurveTwoCryptoFetcher));
+            }
+            PoolType::CurveTriCrypto => {
+                self.fetchers
+                    .insert(PoolType::CurveTriCrypto, Arc::new(CurveTriCryptoFetcher));
+            }   
+            PoolType::BalancerV2 => {
+                self.fetchers
+                    .insert(PoolType::BalancerV2, Arc::new(BalancerV2Fetcher));
             }
         }
         self

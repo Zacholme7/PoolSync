@@ -106,11 +106,29 @@ sol!(
 );
 
 
+// Curve
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    TwoCryptoFactory,
+    "src/pools/abis/TwoCryptoFactory.json"
+);
+
+sol!( 
+    #[derive(Debug)]
+    #[sol(rpc)]
+    TriCryptoFactory,
+    "src/pools/abis/TriCryptoFactory.json"
+);
 
 
 
-
-
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    BalancerV2Factory,
+    "src/pools/abis/BalancerV2Factory.json"
+);
 
 
 

@@ -30,4 +30,5 @@ impl PoolFetcher for AlienBaseFetcher {
         decoded_log.data.pool
         
     }
+
 }

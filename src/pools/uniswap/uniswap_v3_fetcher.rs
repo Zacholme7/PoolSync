@@ -29,4 +29,5 @@ impl PoolFetcher for UniswapV3Fetcher {
         decoded_log.data.pool
         
     }
+
 }

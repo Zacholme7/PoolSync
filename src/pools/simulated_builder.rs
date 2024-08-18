@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use std::time::Duration;
 
-use super::pool_structure::SimulatedPool;
+use super::pool_structure::{CurvePool, SimulatedPool};
 use crate::pools::gen::ERC20;
 
 sol!(

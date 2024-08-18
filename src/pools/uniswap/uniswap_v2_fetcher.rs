@@ -29,5 +29,6 @@ impl PoolFetcher for UniswapV2Fetcher {
         decoded_log.data.pair
     }
 
+
 }
 

@@ -27,4 +27,6 @@ impl PoolFetcher for SushiSwapV2Fetcher {
         let decoded_log = SushiSwapV2Factory::PairCreated::decode_log(log, false).unwrap();
         decoded_log.data.pair
     }
+
+
 }

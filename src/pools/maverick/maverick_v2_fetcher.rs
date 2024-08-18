@@ -47,5 +47,6 @@ impl PoolFetcher for MaverickV2Fetcher {
         let decoded_log = PoolCreated::decode_log(log, false).unwrap();
         decoded_log.data.poolAddress
     }
+
 }
 

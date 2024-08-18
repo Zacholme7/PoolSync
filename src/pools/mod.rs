@@ -6,13 +6,15 @@
 
 use crate::chain::Chain;
 use crate::impl_pool_info;
+use alloy::dyn_abi::DynSolType;
 use alloy::network::Network;
 use alloy::primitives::U128;
 use alloy::primitives::U256;
 use alloy::primitives::{Address, Log};
 use alloy::providers::Provider;
 use alloy::transports::Transport;
-use pool_structure::{SimulatedPool, TickInfo, UniswapV2Pool, UniswapV3Pool};
+use pool_structure::BalancerPool;
+use pool_structure::{SimulatedPool, TickInfo, UniswapV2Pool, UniswapV3Pool, CurvePool};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{fmt, sync::Arc};
@@ -25,15 +27,18 @@ pub use simulated_builder::build_pools as build_simulated_pools;
 pub mod aerodrome;
 pub mod alien_base;
 pub mod base_swap;
-mod gen;
 pub mod maverick;
 pub mod pancake_swap;
+pub mod balancer;
 pub mod pool_structure;
-mod simulated_builder;
+pub mod curve;
 pub mod sushiswap;
 pub mod uniswap;
+mod gen;
 mod v2_builder;
 mod v3_builder;
+mod curve_builder;
+mod simulated_builder;
 
 /// Enumerates the supported pool types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -56,6 +61,11 @@ pub enum PoolType {
 
     MaverickV1,
     MaverickV2,
+
+    CurveTwoCrypto,
+    CurveTriCrypto,
+
+    BalancerV2,
 }
 
 impl PoolType {
@@ -80,6 +90,15 @@ impl PoolType {
         self == &PoolType::MaverickV1
             || self == &PoolType::MaverickV2
     }
+
+    pub fn is_curve(&self) -> bool {
+        self == &PoolType::CurveTwoCrypto
+            || self == &PoolType::CurveTriCrypto
+    }
+
+    pub fn is_balancer(&self) -> bool {
+        self == &PoolType::BalancerV2
+    }
 }
 
 /// Represents a populated pool from any of the supported protocols
@@ -100,6 +119,11 @@ pub enum Pool {
 
     MaverickV1(SimulatedPool),
     MaverickV2(SimulatedPool),
+
+    CurveTwoCrypto(CurvePool),
+    CurveTriCrypto(CurvePool),
+
+    BalancerV2(BalancerPool),
 }
 
 impl Pool {
@@ -130,6 +154,21 @@ impl Pool {
         match pool_type {
             PoolType::MaverickV1 => Pool::MaverickV1(pool),
             PoolType::MaverickV2 => Pool::MaverickV2(pool),
+            _ => panic!("Invalid pool type"),
+        }
+    }
+
+    pub fn new_curve(pool_type: PoolType, pool: CurvePool) -> Self {
+        match pool_type {
+            PoolType::CurveTwoCrypto => Pool::CurveTwoCrypto(pool),
+            PoolType::CurveTriCrypto => Pool::CurveTriCrypto(pool),
+            _ => panic!("Invalid pool type"),
+        }
+    }
+
+    pub fn new_balancer(pool_type: PoolType, pool: BalancerPool) -> Self {
+        match pool_type {
+            PoolType::BalancerV2 => Pool::BalancerV2(pool),
             _ => panic!("Invalid pool type"),
         }
     }
@@ -165,6 +204,21 @@ impl Pool {
         }
     }
 
+    pub fn is_curve(&self) -> bool {
+        match self {
+            Pool::CurveTwoCrypto(_) => true,
+            Pool::CurveTriCrypto(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_balancer(&self) -> bool {
+        match self {
+            Pool::BalancerV2(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn get_v2(&self) -> Option<&UniswapV2Pool> {
         match self {
             Pool::UniswapV2(pool) => Some(pool),
@@ -192,6 +246,21 @@ impl Pool {
         match self {
             Pool::MaverickV1(pool) => Some(pool),
             Pool::MaverickV2(pool) => Some(pool),
+            _ => None,
+        }
+    }
+
+    pub fn get_curve(&self) -> Option<&CurvePool> {
+        match self {
+            Pool::CurveTwoCrypto(pool) => Some(pool),
+            Pool::CurveTriCrypto(pool) => Some(pool),
+            _ => None,
+        }
+    }
+
+    pub fn get_balancer(&self) -> Option<&BalancerPool> {
+        match self {
+            Pool::BalancerV2(pool) => Some(pool),
             _ => None,
         }
     }
@@ -226,6 +295,21 @@ impl Pool {
             _ => None,
         }
     }
+
+    pub fn get_curve_mut(&mut self) -> Option<&mut CurvePool> {
+        match self {
+            Pool::CurveTwoCrypto(pool) => Some(pool),
+            Pool::CurveTriCrypto(pool) => Some(pool),
+            _ => None,
+        }
+    }
+
+    pub fn get_balancer_mut(&mut self) -> Option<&mut BalancerPool> {
+        match self {
+            Pool::BalancerV2(pool) => Some(pool),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for PoolType {
@@ -249,7 +333,10 @@ impl_pool_info!(
     BaseSwapV3,
     AlienBase,
     MaverickV1,
-    MaverickV2
+    MaverickV2,
+    CurveTwoCrypto,
+    CurveTriCrypto,
+    BalancerV2
 );
 
 /*
@@ -271,6 +358,11 @@ pub trait PoolFetcher: Send + Sync {
 
     /// Attempts to create a `Pool` instance from a log entry
     fn log_to_address(&self, log: &Log) -> Address;
+
+    /// Get the DynSolType for the pool
+    fn get_pool_repr(&self) -> DynSolType;
+
+
 }
 
 impl PoolType {
@@ -323,6 +415,14 @@ impl PoolType {
             }
             PoolType::MaverickV2 => {
                 simulated_builder::build_pools(provider, addresses, PoolType::MaverickV2).await
+            }
+            PoolType::CurveTwoCrypto => {
+                //curve_builder::build_pools(provider, addresses, PoolType::CurveTwoCrypto).await
+                todo!()
+            }
+            PoolType::CurveTriCrypto => {
+                //curve_builder::build_pools(provider, addresses, PoolType::CurveTriCrypto).await
+                todo!()
             }
             _ => panic!("Invalid pool type"),
         }
