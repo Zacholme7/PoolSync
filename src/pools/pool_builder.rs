@@ -8,6 +8,7 @@ use alloy::transports::Transport;
 use alloy::dyn_abi::DynSolType;
 use rand::Rng;
 use std::sync::Arc;
+use crate::PoolInfo;
 
 use std::time::Duration;
 use uniswap_v3_math;
@@ -112,49 +113,20 @@ where
         }
     }
 
+    // update the token names on the pools
+    for pool in &mut pools {
+        let token0_contract = ERC20::new(pool.token0_address(), provider.clone());
+        if let Ok(ERC20::symbolReturn { _0: name }) = token0_contract.symbol().call().await {
+            Pool::update_token0_name(pool, name);
+        }
+
+        let token1_contract = ERC20::new(pool.token1_address(), provider.clone());
+        if let Ok(ERC20::symbolReturn { _0: name }) = token1_contract.symbol().call().await {
+            Pool::update_token1_name(pool, name);
+        }
+    }
+
+
+
     Ok(pools)
 }
-
-
-    /* 
-    // Fetch token names (you might want to batch this for efficiency)
-    for pool in &mut pools {
-        let token0_contract = ERC20::new(pool.token0, provider.clone());
-        if let Ok(ERC20::symbolReturn { _0: name }) = token0_contract.symbol().call().await {
-            pool.token0_name = name;
-        }
-
-        let token1_contract = ERC20::new(pool.token1, provider.clone());
-        if let Ok(ERC20::symbolReturn { _0: name }) = token1_contract.symbol().call().await {
-            pool.token1_name = name;
-        }
-    }
-     // Fetch token names (you might want to batch this for efficiency)
-    for pool in &mut pools {
-        let token0_contract = ERC20::new(pool.token0, provider.clone());
-        if let Ok(ERC20::symbolReturn { _0: name }) = token0_contract.symbol().call().await {
-            pool.token0_name = name;
-        }
-
-        let token1_contract = ERC20::new(pool.token1, provider.clone());
-        if let Ok(ERC20::symbolReturn { _0: name }) = token1_contract.symbol().call().await {
-            pool.token1_name = name;
-        }
-    }
-
-    // if aerodrome, we need to fetch if the pool is stable or not
-    if pool_type == PoolType::Aerodrome {
-        let factory_address = address!("420DD381b31aEf6683db6B902084cB0FFECe40Da");
-        let factory_contract = AerodromeV2Factory::new(factory_address, provider.clone());
-
-        for pool in &mut pools {
-            let token_contract = AerodromePool::new(pool.address, provider.clone());
-            // get the stable vaalue
-            let AerodromePool::stableReturn { _0: stable } = token_contract.stable().call().await.unwrap();
-            pool.stable = Some(stable);
-
-            let AerodromeV2Factory::getFeeReturn { _0: fee } = factory_contract.getFee(pool.address, stable).call().await.unwrap();
-            pool.fee = Some(fee);
-        }
-    }
-    */

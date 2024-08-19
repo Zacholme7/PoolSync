@@ -9,7 +9,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pool-sync = "2.0.0"
+pool-sync = "2.0.1"
 ```
 
 Configure your .env with a full node and a archive node. Archive must be an archive node. The full node can be either. 
@@ -24,11 +24,13 @@ ARCHIVE = "archive node endpoint"
 - UniswapV2/V3
 - SushiswapV2/V2
 - PancakeswapV2/V3
+- MaverickV1/V2
 ### Base
 - UniswapV2/V3
 - SushiswapV2/V3
 - PancakeswapV2/V3
 - BaseswapV2/V3
+- MaverickV1/V2
 - Aerodrome/Slipstream
 - AlienBase
 
@@ -42,11 +44,10 @@ async fn main() -> Result<()> {
     let pool_sync = PoolSync::builder()
         .add_pool(PoolType::UniswapV2)
         .chain(Chain::Ethereum)
-        .rate_limit(20)
         .build()?;
 
     // Synchronize pools
-    let pools = pool_sync.sync_pools().await?;
+    let (pools, last_synced_block) = pool_sync.sync_pools().await?;
 
     // Common Info
     for pool in &pools {

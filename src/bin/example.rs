@@ -4,27 +4,15 @@
 //! It demonstrates how to set up a provider, configure pool synchronization, and execute the sync process.
 use anyhow::Result;
 use pool_sync::{Chain, Pool, PoolSync, PoolType};
-use reqwest::header::LAST_MODIFIED;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         .add_pools(&[
-            //PoolType::UniswapV2,
-            //PoolType::UniswapV3,
-            //PoolType::SushiSwapV2,
-            //PoolType::SushiSwapV3,
-            //PoolType::PancakeSwapV2,
-            //PoolType::PancakeSwapV3
-            //PoolType::MaverickV1
-            //PoolType::MaverickV2
-            //PoolType::Aerodrome
-            //PoolType::Slipstream,
-            //PoolType::AlienBase,
+            PoolType::UniswapV2,
         ])
         .chain(Chain::Ethereum) // Specify the chain
-        .rate_limit(1000)
         .build()?;
 
     // Initiate the sync process

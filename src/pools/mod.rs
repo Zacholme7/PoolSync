@@ -17,12 +17,11 @@ use pool_structures::v3_structure::TickInfo;
 use pool_structures::v3_structure::UniswapV3Pool;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::{fmt, sync::Arc};
+use std::fmt;
 
 use crate::chain::Chain;
 use crate::impl_pool_info;
 
-pub use pool_builder::build_pools;
 pub mod pool_fetchers;
 pub mod pool_structures;
 pub mod pool_builder;
@@ -317,6 +316,44 @@ impl Pool {
         self.address() != Address::ZERO && 
         self.token0_address() != Address::ZERO && 
         self.token1_address() != Address::ZERO
+    }
+
+    fn update_token0_name(pool: &mut Pool, token0: String) {
+        if pool.is_v2() {
+            let pool = pool.get_v2_mut().unwrap();
+            pool.token0_name = token0;
+        } else if pool.is_v3() {
+            let pool = pool.get_v3_mut().unwrap();
+            pool.token0_name = token0;
+        } else if pool.is_curve() {
+            let pool = pool.get_curve_mut().unwrap();
+            pool.token0_name = token0;
+        } else if pool.is_balancer() {
+            let pool = pool.get_balancer_mut().unwrap();
+            pool.token0_name = token0;
+        } else if pool.is_maverick() {
+            let pool = pool.get_maverick_mut().unwrap();
+            pool.token0_name = token0;
+        }
+    }
+
+    pub fn update_token1_name(pool: &mut Pool, token1: String) {
+        if pool.is_v2() {
+            let pool = pool.get_v2_mut().unwrap();
+            pool.token1_name = token1;
+        } else if pool.is_v3() {
+            let pool = pool.get_v3_mut().unwrap();
+            pool.token1_name = token1;
+        } else if pool.is_curve() {
+            let pool = pool.get_curve_mut().unwrap();
+            pool.token1_name = token1;
+        } else if pool.is_balancer() {
+            let pool = pool.get_balancer_mut().unwrap();
+            pool.token1_name = token1;
+        } else if pool.is_maverick() {
+            let pool = pool.get_maverick_mut().unwrap();
+            pool.token1_name = token1;
+        }
     }
 }
 
