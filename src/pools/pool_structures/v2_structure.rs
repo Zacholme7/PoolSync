@@ -1,3 +1,4 @@
+use alloy::dyn_abi::DynSolValue;
 use alloy::primitives::{Address, U128, U256};
 use alloy_sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
@@ -30,5 +31,20 @@ pub fn process_sync_data(pool: &mut UniswapV2Pool, log: Log, pool_type: PoolType
         let sync_event = DataEvents::Sync::decode_log(log.as_ref(), true).unwrap();
         pool.token0_reserves = U128::from(sync_event.reserve0);
         pool.token1_reserves = U128::from(sync_event.reserve1);
+    }
+}
+
+impl From<&[DynSolValue]> for UniswapV2Pool {
+    fn from(data: &[DynSolValue]) -> Self {
+        Self {
+            address: data[0].as_address().unwrap(),
+            token0: data[1].as_address().unwrap(),
+            token1: data[2].as_address().unwrap(),
+            token0_decimals: data[3].as_uint().unwrap().0.to::<u8>(),
+            token1_decimals: data[4].as_uint().unwrap().0.to::<u8>(),
+            token0_reserves: data[5].as_uint().unwrap().0.to::<U128>(),
+            token1_reserves: data[6].as_uint().unwrap().0.to::<U128>(),
+            ..Default::default()
+        }
     }
 }

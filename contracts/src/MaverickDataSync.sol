@@ -14,7 +14,7 @@ interface IERC20 {
  * @dev This contract is not meant to be deployed. Instead, use a static call with the
  *       deployment bytecode as payload.
  */
-contract SimulatedDataSync {
+contract MaverickDataSync {
     struct PoolData {
         address poolAddr;
         address tokenA;

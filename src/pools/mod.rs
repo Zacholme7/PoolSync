@@ -4,15 +4,11 @@
 //! It includes enumerations for supported pool types, a unified `Pool` enum, and a trait for
 //! fetching and decoding pool creation events.
 
-use crate::chain::Chain;
-use crate::impl_pool_info;
 use alloy::dyn_abi::DynSolType;
-use alloy::network::Network;
+use alloy::dyn_abi::DynSolValue;
 use alloy::primitives::U128;
 use alloy::primitives::U256;
 use alloy::primitives::{Address, Log};
-use alloy::providers::Provider;
-use alloy::transports::Transport;
 use pool_structures::balancer_structure::BalancerPool;
 use pool_structures::curve_structure::CurvePool;
 use pool_structures::maverick_structure::MaverickPool;
@@ -23,10 +19,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{fmt, sync::Arc};
 
-//pub use v2_builder::build_pools as build_v2_pools;
-//pub use v2_builder::process_sync_data;
-//pub use v3_builder::build_pools as build_v3_pools;
-//pub use v3_builder::process_tick_data;
+use crate::chain::Chain;
+use crate::impl_pool_info;
+
 pub use pool_builder::build_pools;
 pub mod pool_fetchers;
 pub mod pool_structures;
@@ -92,6 +87,20 @@ impl PoolType {
     pub fn is_balancer(&self) -> bool {
         self == &PoolType::BalancerV2
     }
+
+    pub fn build_pool(&self, pool_data: &[DynSolValue]) -> Pool {
+        if self.is_v2() {
+            let pool = UniswapV2Pool::from(pool_data);
+            Pool::new_v2(self.clone(), pool)
+        } else if self.is_v3() {
+            let pool = UniswapV3Pool::from(pool_data);
+            Pool::new_v3(self.clone(), pool)
+        } else {
+            let pool = MaverickPool::from(pool_data);
+            Pool::new_maverick(self.clone(), pool)
+        }
+    }
+
 }
 
 /// Represents a populated pool from any of the supported protocols
@@ -302,6 +311,12 @@ impl Pool {
             Pool::BalancerV2(pool) => Some(pool),
             _ => None,
         }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.address() != Address::ZERO && 
+        self.token0_address() != Address::ZERO && 
+        self.token1_address() != Address::ZERO
     }
 }
 

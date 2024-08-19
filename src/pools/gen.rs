@@ -162,6 +162,21 @@ sol!(
     "src/abi/SlipStreamDataSync.json"
 );
 
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    MaverickDataSync,
+    "src/abi/MaverickDataSync.json"
+);
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    PancakeSwapDataSync,
+    "src/abi/PancakeDataSync.json"
+);
+
+
 
 
 

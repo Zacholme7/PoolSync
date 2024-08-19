@@ -10,14 +10,15 @@ pub use chain::Chain;
 pub use pool_sync::PoolSync;
 pub use pools::{Pool, PoolInfo, PoolType};
 pub use rpc::Rpc;
+pub use filter::fetch_top_volume_tokens;
 
 // Internal modules
 mod builder;
 mod cache;
 mod chain;
 mod errors;
-pub mod filter;
+mod filter;
 mod pool_sync;
-pub mod pools;
+mod pools;
 mod rpc;
 mod util;

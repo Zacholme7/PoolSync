@@ -1,27 +1,28 @@
-use crate::{
-    pools::{Pool, PoolType}, rpc::{DataEvents, PancakeSwap, Rpc}
-}; //, snapshot::{v3_tick_snapshot, v3_tickbitmap_snapshot}};
+//use crate::{
+//    pools::{Pool, PoolType}, rpc::{DataEvents, PancakeSwap, Rpc}
+//}; //, snapshot::{v3_tick_snapshot, v3_tickbitmap_snapshot}};
 use alloy::network::Network;
 use alloy::primitives::Address;
-use alloy::primitives::U256;
 use alloy::providers::Provider;
-use alloy::sol;
 use alloy::transports::Transport;
-use alloy::{
-    dyn_abi::{DynSolType, DynSolValue},
-    primitives::U128,
-    rpc::types::Log,
-};
-use alloy_sol_types::SolEvent;
+use alloy::dyn_abi::DynSolType;
 use rand::Rng;
 use std::sync::Arc;
 
 use std::time::Duration;
 use uniswap_v3_math;
 
-use super::gen::{V2DataSync, V3DataSync};
+use super::gen::{
+    V2DataSync, 
+    V3DataSync, 
+    PancakeSwapDataSync, 
+    MaverickDataSync,
+    SlipStreamDataSync
+};
 
 use crate::pools::gen::ERC20;
+use crate::pools::{Pool, PoolType};
+use crate::rpc::PancakeSwap;
 
 pub const INITIAL_BACKOFF: u64 = 1000; // 1 second
 pub const MAX_RETRIES: u32 = 5;
@@ -75,12 +76,26 @@ where
     T: Transport + Sync + Clone,
     N: Network,
 {
-    let pool_data = if pool_type.is_v2() {
-        V2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
-    } else if pool_type.is_v3() {
-        V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
-    } else {
-        todo!()
+    let pool_data = match pool_type {
+        PoolType::UniswapV2 | PoolType::SushiSwapV2 | 
+        PoolType::PancakeSwapV2 | PoolType::BaseSwapV2 |
+        PoolType::Aerodrome => {
+            V2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
+        PoolType::MaverickV1 | PoolType::MaverickV2 => {
+            MaverickDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        } 
+        PoolType::PancakeSwapV3 => {
+            PancakeSwapDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
+        PoolType::UniswapV3 | PoolType::SushiSwapV3 | 
+        PoolType::BaseSwapV3 | PoolType::AlienBase => {
+            V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
+        PoolType::Slipstream => {
+            SlipStreamDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
+        _=> panic!("Invalid pool type")
     };
 
     let decoded_data = data.abi_decode_sequence(&pool_data)?;
@@ -89,10 +104,10 @@ where
     if let Some(pool_data_arr) = decoded_data.as_array() {
         for pool_data_tuple in pool_data_arr {
             if let Some(pool_data) = pool_data_tuple.as_tuple() {
-                let pool = construct_pool_from_data(pool_data, pool_type);
-                //if pool.is_valid() {
-                //    pools.push(pool);
-                //}
+                let pool = pool_type.build_pool(pool_data);
+                if pool.is_valid() {
+                    pools.push(pool);
+                }
             }
         }
     }
@@ -100,9 +115,6 @@ where
     Ok(pools)
 }
 
-fn construct_pool_from_data(pool_data: &[DynSolValue], pool_type: PoolType) -> Pool {
-    todo!()
-}
 
     /* 
     // Fetch token names (you might want to batch this for efficiency)
@@ -115,6 +127,34 @@ fn construct_pool_from_data(pool_data: &[DynSolValue], pool_type: PoolType) -> P
         let token1_contract = ERC20::new(pool.token1, provider.clone());
         if let Ok(ERC20::symbolReturn { _0: name }) = token1_contract.symbol().call().await {
             pool.token1_name = name;
+        }
+    }
+     // Fetch token names (you might want to batch this for efficiency)
+    for pool in &mut pools {
+        let token0_contract = ERC20::new(pool.token0, provider.clone());
+        if let Ok(ERC20::symbolReturn { _0: name }) = token0_contract.symbol().call().await {
+            pool.token0_name = name;
+        }
+
+        let token1_contract = ERC20::new(pool.token1, provider.clone());
+        if let Ok(ERC20::symbolReturn { _0: name }) = token1_contract.symbol().call().await {
+            pool.token1_name = name;
+        }
+    }
+
+    // if aerodrome, we need to fetch if the pool is stable or not
+    if pool_type == PoolType::Aerodrome {
+        let factory_address = address!("420DD381b31aEf6683db6B902084cB0FFECe40Da");
+        let factory_contract = AerodromeV2Factory::new(factory_address, provider.clone());
+
+        for pool in &mut pools {
+            let token_contract = AerodromePool::new(pool.address, provider.clone());
+            // get the stable vaalue
+            let AerodromePool::stableReturn { _0: stable } = token_contract.stable().call().await.unwrap();
+            pool.stable = Some(stable);
+
+            let AerodromeV2Factory::getFeeReturn { _0: fee } = factory_contract.getFee(pool.address, stable).call().await.unwrap();
+            pool.fee = Some(fee);
         }
     }
     */

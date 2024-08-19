@@ -1,5 +1,4 @@
 use crate::Chain;
-use crate::PoolType;
 use crate::{Pool, PoolInfo};
 use alloy::dyn_abi::DynSolType;
 use alloy::network::Network;
@@ -12,7 +11,6 @@ use futures::stream;
 use futures::stream::StreamExt;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::Arc;
 use thiserror::Error;
@@ -41,7 +39,6 @@ pub enum FilterError {
     #[error("Invalid header value: {0}")]
     InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
 }
-pub const U256_10_POW_18: U256 = U256::from_limbs([1000000000000000000, 0, 0, 0]);
 
 sol!(
     #[derive(Debug)]

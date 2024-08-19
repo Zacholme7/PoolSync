@@ -13,10 +13,12 @@ async fn main() -> Result<()> {
         .add_pools(&[
             //PoolType::UniswapV2,
             //PoolType::UniswapV3,
-            //PoolType::PancakeSwapV3,
+            //PoolType::SushiSwapV2,
+            //PoolType::SushiSwapV3,
+            //PoolType::PancakeSwapV2,
             //PoolType::PancakeSwapV3
             //PoolType::MaverickV1
-            PoolType::MaverickV2
+            //PoolType::MaverickV2
             //PoolType::Aerodrome
             //PoolType::Slipstream,
             //PoolType::AlienBase,

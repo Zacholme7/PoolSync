@@ -5,7 +5,6 @@
 //! 
 use crate::chain::Chain;
 use crate::pools::{Pool, PoolType};
-use alloy::primitives::{Address, U256};
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter};

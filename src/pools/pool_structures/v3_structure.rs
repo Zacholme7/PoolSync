@@ -4,9 +4,8 @@ use alloy_sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use alloy::rpc::types::Log;
+
 use crate::pools::PoolType;
-
-
 use crate::rpc::{DataEvents, PancakeSwap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

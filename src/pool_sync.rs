@@ -6,7 +6,6 @@
 //!
 use alloy::providers::Provider;
 use alloy::providers::ProviderBuilder;
-use alloy::rpc::types::serde_helpers::quantity::vec;
 use std::collections::HashMap;
 use std::sync::Arc;
 
