@@ -20,6 +20,7 @@ use tokio::sync::Semaphore;
 
 use crate::pools::pool_structures::v3_structure::process_tick_data;
 use crate::pools::pool_structures::v2_structure::process_sync_data;
+use crate::pools::pool_structures::balancer_v2_structure::process_balance_data;
 use crate::pools::pool_builder;
 use crate::pools::PoolFetcher;
 use crate::util::create_progress_bar;
@@ -27,6 +28,7 @@ use crate::Chain;
 use crate::Pool;
 use crate::PoolInfo;
 use crate::PoolType;
+
 
 /// The number of blocks to query in one call to get_logs
 const STEP_SIZE: u64 = 10_000;
@@ -38,6 +40,19 @@ sol!(
     #[sol(rpc)]
     contract AerodromeSync {
         event Sync(uint256 reserve0, uint256 reserve1);
+    }
+);
+
+sol! (
+    #[derive(Debug)]
+    contract BalancerV2Event {
+        event PoolBalanceChanged(
+            bytes32 indexed poolId,
+            address indexed liquidityProvider,
+            address[] tokens,
+            int256[] deltas,
+            uint256[] protocolFeeAmounts
+        );
     }
 );
 
@@ -182,7 +197,8 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let total_tasks = (pool_addrs.len() + 39) / 40; // Ceiling division by 40
+        let BATCH_SIZE = if pool.is_balancer() { 10 } else { 40 };
+        let total_tasks = (pool_addrs.len() + 39) / BATCH_SIZE; // Ceiling division by 40
         let info = format!("{} data sync", pool);
         let progress_bar = create_progress_bar(total_tasks as u64, info);
 
@@ -190,7 +206,7 @@ impl Rpc {
 
         // Map all the addresses into chunks the contract can handle
         let addr_chunks: Vec<Vec<Address>> =
-            pool_addrs.chunks(10).map(|chunk| chunk.to_vec()).collect();
+            pool_addrs.chunks(BATCH_SIZE).map(|chunk| chunk.to_vec()).collect();
 
         let results = stream::iter(addr_chunks)
             .map(|chunk| {
@@ -280,6 +296,14 @@ impl Rpc {
                             .unwrap(),
                     );
                 }
+            } else if pool_type.is_balancer() {
+                if start_block > 10_000_000 {
+                    new_logs.extend(
+                        Rpc::fetch_balance_logs(start_block, end_block, provider.clone(), pool_type)
+                            .await
+                            .unwrap(),
+                    );
+                }
             } else {
                 // fetch all sync logs
                 if start_block > 10_000_000 {
@@ -312,6 +336,8 @@ impl Rpc {
                             // Note: removed & before index
                             if pool_type.is_v3() {
                                 process_tick_data(pool.get_v3_mut().unwrap(), log, pool_type);
+                            } else if pool_type.is_balancer() {
+                                process_balance_data(pool.get_balancer_mut().unwrap(), log);
                             } else {
                                 process_sync_data(pool.get_v2_mut().unwrap(), log, pool_type);
                             }
@@ -322,6 +348,45 @@ impl Rpc {
         }
 
         Ok(())
+    }
+
+
+    pub async fn fetch_balance_logs<P, T, N>(
+        start_block: u64,
+        end_block: u64,
+        provider: Arc<P>,
+        pool_type: PoolType,
+    ) -> Result<Vec<Log>>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        let mint_burn_range = Rpc::get_block_range(5000, start_block, end_block);
+        let info = format!("{} balance sync", pool_type);
+        let progress_bar = create_progress_bar(mint_burn_range.len() as u64, info);
+        let logs = stream::iter(mint_burn_range)
+            .map(|(from_block, to_block)| {
+                let provider = provider.clone();
+                let pb = progress_bar.clone();
+                async move {
+                    let filter = Filter::new()
+                        .event_signature(vec![
+                            BalancerV2Event::PoolBalanceChanged::SIGNATURE_HASH
+                        ])
+                        .from_block(from_block)
+                        .to_block(to_block);
+                    let logs = provider.get_logs(&filter).await.unwrap();
+                    pb.inc(1);
+                    drop(provider);
+                    logs
+                }
+            })
+            .buffer_unordered(100) // Allow some buffering for smoother operation
+            .collect::<Vec<Vec<Log>>>()
+            .await;
+        let new_logs: Vec<Log> = logs.into_iter().flatten().collect();
+        Ok(new_logs)
     }
 
     pub async fn fetch_tick_logs<P, T, N>(
