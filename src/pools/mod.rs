@@ -9,7 +9,7 @@ use alloy::dyn_abi::DynSolValue;
 use alloy::primitives::U128;
 use alloy::primitives::U256;
 use alloy::primitives::{Address, Log};
-use pool_structures::balancer_structure::BalancerPool;
+use pool_structures::balancer_v2_structure::BalancerV2Pool;
 use pool_structures::curve_structure::CurvePool;
 use pool_structures::maverick_structure::MaverickPool;
 use pool_structures::v2_structure::UniswapV2Pool;
@@ -94,9 +94,14 @@ impl PoolType {
         } else if self.is_v3() {
             let pool = UniswapV3Pool::from(pool_data);
             Pool::new_v3(self.clone(), pool)
-        } else {
+        } else if self.is_maverick() {
             let pool = MaverickPool::from(pool_data);
             Pool::new_maverick(self.clone(), pool)
+        } else if self.is_balancer() {
+            let pool = BalancerV2Pool::from(pool_data);
+            Pool::new_balancer(self.clone(), pool)
+        } else {
+            panic!("Invalid pool type");
         }
     }
 
@@ -124,7 +129,7 @@ pub enum Pool {
     CurveTwoCrypto(CurvePool),
     CurveTriCrypto(CurvePool),
 
-    BalancerV2(BalancerPool),
+    BalancerV2(BalancerV2Pool),
 }
 
 impl Pool {
@@ -167,7 +172,7 @@ impl Pool {
         }
     }
 
-    pub fn new_balancer(pool_type: PoolType, pool: BalancerPool) -> Self {
+    pub fn new_balancer(pool_type: PoolType, pool: BalancerV2Pool) -> Self {
         match pool_type {
             PoolType::BalancerV2 => Pool::BalancerV2(pool),
             _ => panic!("Invalid pool type"),
@@ -259,7 +264,7 @@ impl Pool {
         }
     }
 
-    pub fn get_balancer(&self) -> Option<&BalancerPool> {
+    pub fn get_balancer(&self) -> Option<&BalancerV2Pool> {
         match self {
             Pool::BalancerV2(pool) => Some(pool),
             _ => None,
@@ -305,7 +310,7 @@ impl Pool {
         }
     }
 
-    pub fn get_balancer_mut(&mut self) -> Option<&mut BalancerPool> {
+    pub fn get_balancer_mut(&mut self) -> Option<&mut BalancerV2Pool> {
         match self {
             Pool::BalancerV2(pool) => Some(pool),
             _ => None,

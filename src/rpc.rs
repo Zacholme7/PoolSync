@@ -190,7 +190,7 @@ impl Rpc {
 
         // Map all the addresses into chunks the contract can handle
         let addr_chunks: Vec<Vec<Address>> =
-            pool_addrs.chunks(40).map(|chunk| chunk.to_vec()).collect();
+            pool_addrs.chunks(10).map(|chunk| chunk.to_vec()).collect();
 
         let results = stream::iter(addr_chunks)
             .map(|chunk| {

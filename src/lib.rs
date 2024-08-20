@@ -11,6 +11,13 @@ pub use pool_sync::PoolSync;
 pub use pools::{Pool, PoolInfo, PoolType};
 pub use rpc::Rpc;
 pub use filter::fetch_top_volume_tokens;
+pub use pools::pool_structures::{
+    balancer_v2_structure::BalancerV2Pool,
+    curve_structure::CurvePool,
+    maverick_structure::MaverickPool,
+    v2_structure::UniswapV2Pool,
+    v3_structure::{UniswapV3Pool, TickInfo},
+};
 
 // Internal modules
 mod builder;

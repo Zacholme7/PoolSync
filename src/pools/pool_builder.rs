@@ -18,7 +18,8 @@ use super::gen::{
     V3DataSync, 
     PancakeSwapDataSync, 
     MaverickDataSync,
-    SlipStreamDataSync
+    SlipStreamDataSync,
+    BalancerV2DataSync
 };
 
 use crate::pools::gen::ERC20;
@@ -96,9 +97,13 @@ where
         PoolType::Slipstream => {
             SlipStreamDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
+        PoolType::BalancerV2 => {
+            BalancerV2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
         _=> panic!("Invalid pool type")
     };
 
+    //println!("Raw pool data: {:?}", hex::encode(&pool_data));
     let decoded_data = data.abi_decode_sequence(&pool_data)?;
     let mut pools = Vec::new();
 
@@ -125,8 +130,6 @@ where
             Pool::update_token1_name(pool, name);
         }
     }
-
-
 
     Ok(pools)
 }

@@ -10,7 +10,8 @@ async fn main() -> Result<()> {
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         .add_pools(&[
-            PoolType::UniswapV2,
+            //PoolType::UniswapV2,
+            PoolType::BalancerV2
         ])
         .chain(Chain::Ethereum) // Specify the chain
         .build()?;

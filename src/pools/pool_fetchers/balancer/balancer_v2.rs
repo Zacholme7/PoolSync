@@ -31,7 +31,19 @@ impl PoolFetcher for BalancerV2Fetcher {
     }
 
     fn get_pool_repr(&self) -> DynSolType {
-        todo!()
+        DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+            DynSolType::Address,                                  // address
+            DynSolType::FixedBytes(32),                           // pool_id
+            DynSolType::Address,
+            DynSolType::Address,
+            DynSolType::Uint(8),
+            DynSolType::Uint(8),
+            DynSolType::Array(Box::new(DynSolType::Address)),     // tokens (including token0, token1, and additional_tokens)
+            DynSolType::Array(Box::new(DynSolType::Uint(8))),     // decimals (including token0_decimals, token1_decimals, and additional_token_decimals)
+            DynSolType::Array(Box::new(DynSolType::Uint(256))),   // balances
+            DynSolType::Array(Box::new(DynSolType::Uint(256))),   // weights
+            DynSolType::Uint(256),                                // swap_fee
+        ])))
     }
 
 }

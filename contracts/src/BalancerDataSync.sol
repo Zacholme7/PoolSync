@@ -16,7 +16,7 @@ interface IERC20 {
  * @dev This contract is not meant to be deployed. Instead, use a static call with the
  *       deployment bytecode as payload.
  */
-contract GetBalancerV2PoolDataBatchRequest {
+contract BalancerDataSync {
     struct PoolData {
         address[] tokens;
         uint8[] decimals;
