@@ -129,6 +129,16 @@ where
         if let Ok(ERC20::symbolReturn { _0: name }) = token1_contract.symbol().call().await {
             Pool::update_token1_name(pool, name);
         }
+
+        if pool_type == PoolType::BalancerV2 {
+            let mut pool = pool.get_balancer_mut().unwrap();
+            for token in &pool.additional_tokens {
+                let token_contract = ERC20::new(*token, provider.clone());
+                if let Ok(ERC20::symbolReturn { _0: name }) = token_contract.symbol().call().await {
+                    pool.additional_token_names.push(name);
+                }
+            }
+        }
     }
 
     Ok(pools)

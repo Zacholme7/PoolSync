@@ -17,7 +17,7 @@ pub struct BalancerV2Pool {
     pub additional_token_names: Vec<String>,
     pub additional_token_decimals: Vec<u8>,
     pub balances: Vec<U256>,
-    pub weights: Option<Vec<U256>>,
+    pub weights: Vec<U256>,
     pub swap_fee: U256,
 }
 
@@ -32,7 +32,7 @@ impl From<&[DynSolValue]> for BalancerV2Pool {
         let additional_tokens: Vec<Address> = data[6].as_array().unwrap().iter().map(|v| v.as_address().unwrap()).collect();
         let additional_token_decimals: Vec<u8> = data[7].as_array().unwrap().iter().map(|v| v.as_uint().unwrap().0.to::<u8>()).collect();
         let balances: Vec<U256> = data[8].as_array().unwrap().iter().map(|v| v.as_uint().unwrap().0).collect();
-        let weights: Option<Vec<U256>> = Some(data[9].as_array().unwrap().iter().map(|v| v.as_uint().unwrap().0).collect());
+        let weights: Vec<U256> = data[9].as_array().unwrap().iter().map(|v| v.as_uint().unwrap().0).collect();
         let swap_fee = data[10].as_uint().unwrap().0;
 
         Self {
