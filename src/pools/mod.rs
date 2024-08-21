@@ -15,6 +15,7 @@ use pool_structures::maverick_structure::MaverickPool;
 use pool_structures::v2_structure::UniswapV2Pool;
 use pool_structures::v3_structure::TickInfo;
 use pool_structures::v3_structure::UniswapV3Pool;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -53,6 +54,12 @@ pub enum PoolType {
     CurveTriCrypto,
 
     BalancerV2,
+
+    SwapBasedV2,
+    SwapBasedV3,
+
+    DackieSwapV2,
+    DackieSwapV3
 }
 
 impl PoolType {
@@ -62,6 +69,8 @@ impl PoolType {
             || self == &PoolType::PancakeSwapV2
             || self == &PoolType::Aerodrome
             || self == &PoolType::BaseSwapV2
+            || self == &PoolType::SwapBasedV2
+            || self == &PoolType::DackieSwapV2
     }
 
     pub fn is_v3(&self) -> bool {
@@ -71,6 +80,8 @@ impl PoolType {
             || self == &PoolType::Slipstream
             || self == &PoolType::BaseSwapV3
             || self == &PoolType::AlienBase
+            || self == &PoolType::SwapBasedV3
+            || self == &PoolType::DackieSwapV3
     }
 
     pub fn is_maverick(&self) -> bool {
@@ -130,6 +141,12 @@ pub enum Pool {
     CurveTriCrypto(CurvePool),
 
     BalancerV2(BalancerV2Pool),
+
+    SwapBasedV2(UniswapV2Pool),
+    SwapBasedV3(UniswapV3Pool),
+
+    DackieSwapV2(UniswapV2Pool),
+    DackieSwapV3(UniswapV3Pool)
 }
 
 impl Pool {
@@ -140,6 +157,8 @@ impl Pool {
             PoolType::PancakeSwapV2 => Pool::PancakeSwapV2(pool),
             PoolType::Aerodrome => Pool::Aerodrome(pool),
             PoolType::BaseSwapV2 => Pool::BaseSwapV2(pool),
+            PoolType::SwapBasedV2 => Pool::SwapBasedV2(pool),
+            PoolType::DackieSwapV2 => Pool::DackieSwapV2(pool),
             _ => panic!("Invalid pool type"),
         }
     }
@@ -152,6 +171,8 @@ impl Pool {
             PoolType::Slipstream => Pool::Slipstream(pool),
             PoolType::BaseSwapV3 => Pool::BaseSwapV3(pool),
             PoolType::AlienBase => Pool::AlienBase(pool),
+            PoolType::SwapBasedV3 => Pool::SwapBasedV3(pool),
+            PoolType::DackieSwapV3 => Pool::DackieSwapV3(pool),
             _ => panic!("Invalid pool type"),
         }
     }
@@ -186,6 +207,8 @@ impl Pool {
             Pool::PancakeSwapV2(_) => true,
             Pool::Aerodrome(_) => true,
             Pool::BaseSwapV2(_) => true,
+            Pool::SwapBasedV2(_) => true,
+            Pool::DackieSwapV2(_) => true,
             _ => false,
         }
     }
@@ -198,6 +221,8 @@ impl Pool {
             Pool::Slipstream(_) => true,
             Pool::BaseSwapV3(_) => true,
             Pool::AlienBase(_) => true,
+            Pool::SwapBasedV3(_) => true,
+            Pool::DackieSwapV3(_) => true,
             _ => false,
         }
     }
@@ -232,6 +257,8 @@ impl Pool {
             Pool::PancakeSwapV2(pool) => Some(pool),
             Pool::Aerodrome(pool) => Some(pool),
             Pool::BaseSwapV2(pool) => Some(pool),
+            Pool::SwapBasedV2(pool) => Some(pool),
+            Pool::DackieSwapV2(pool) => Some(pool),
             _ => None,
         }
     }
@@ -244,6 +271,8 @@ impl Pool {
             Pool::Slipstream(pool) => Some(pool),
             Pool::BaseSwapV3(pool) => Some(pool),
             Pool::AlienBase(pool) => Some(pool),
+            Pool::SwapBasedV3(pool) => Some(pool),
+            Pool::DackieSwapV3(pool) => Some(pool),
             _ => None,
         }
     }
@@ -278,6 +307,8 @@ impl Pool {
             Pool::PancakeSwapV2(pool) => Some(pool),
             Pool::Aerodrome(pool) => Some(pool),
             Pool::BaseSwapV2(pool) => Some(pool),
+            Pool::SwapBasedV2(pool) => Some(pool),
+            Pool::DackieSwapV2(pool) => Some(pool),
             _ => None,
         }
     }
@@ -290,6 +321,8 @@ impl Pool {
             Pool::Slipstream(pool) => Some(pool),
             Pool::BaseSwapV3(pool) => Some(pool),
             Pool::AlienBase(pool) => Some(pool),
+            Pool::SwapBasedV3(pool) => Some(pool),
+            Pool::DackieSwapV3(pool) => Some(pool),
             _ => None,
         }
     }
@@ -386,7 +419,11 @@ impl_pool_info!(
     MaverickV2,
     CurveTwoCrypto,
     CurveTriCrypto,
-    BalancerV2
+    BalancerV2,
+    SwapBasedV2,
+    SwapBasedV3,
+    DackieSwapV2,
+    DackieSwapV3
 );
 
 

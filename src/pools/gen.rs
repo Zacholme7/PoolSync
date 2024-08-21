@@ -134,6 +134,35 @@ sol!(
 
 
 
+/// SwapBased
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    SwapBasedV2Factory,
+    "src/pools/abis/SwapBasedV2Factory.json"
+);
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    SwapBasedV3Factory,
+    "src/pools/abis/SwapBasedV3Factory.json"
+);
+
+// dackieswap
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    DackieSwapV2Factory,
+    "src/pools/abis/DackieSwapV2Factory.json"
+);
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    DackieSwapV3Factory,
+    "src/pools/abis/DackieSwapV3Factory.json"
+);
 
 
 

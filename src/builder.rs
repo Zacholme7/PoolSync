@@ -13,6 +13,10 @@ use crate::pools::pool_fetchers::{
     MaverickV1Fetcher, MaverickV2Fetcher,
     CurveTwoCryptoFetcher, CurveTriCryptoFetcher,
     BalancerV2Fetcher,
+    SwapBasedV2Fetcher,
+    SwapBasedV3Fetcher,
+    DackieSwapV2Fetcher,
+    DackieSwapV3Fetcher
 };
 
 use crate::errors::*;
@@ -100,6 +104,22 @@ impl PoolSyncBuilder {
             PoolType::BalancerV2 => {
                 self.fetchers
                     .insert(PoolType::BalancerV2, Arc::new(BalancerV2Fetcher));
+            }
+            PoolType::SwapBasedV2 => {
+                self.fetchers
+                    .insert(PoolType::SwapBasedV2, Arc::new(SwapBasedV2Fetcher));
+            }
+            PoolType::SwapBasedV3 => {
+                self.fetchers
+                    .insert(PoolType::SwapBasedV3, Arc::new(SwapBasedV3Fetcher));
+            }
+            PoolType::DackieSwapV2 => {
+                self.fetchers
+                    .insert(PoolType::DackieSwapV2, Arc::new(DackieSwapV2Fetcher));
+            }
+            PoolType::DackieSwapV3 => {
+                self.fetchers
+                    .insert(PoolType::DackieSwapV3, Arc::new(DackieSwapV3Fetcher));
             }
         }
         self

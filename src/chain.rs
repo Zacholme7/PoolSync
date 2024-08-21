@@ -65,7 +65,11 @@ static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
             PoolType::MaverickV2,
             PoolType::CurveTwoCrypto,
             PoolType::CurveTriCrypto,
-            PoolType::BalancerV2
+            PoolType::BalancerV2,
+            PoolType::SwapBasedV2,
+            PoolType::SwapBasedV3,
+            PoolType::DackieSwapV2,
+            PoolType::DackieSwapV3
         ]
             .iter()
             .cloned()

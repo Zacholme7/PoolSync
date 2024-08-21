@@ -14,9 +14,16 @@ pub use sushiswap::SushiSwapV2Fetcher;
 pub use sushiswap::SushiSwapV3Fetcher;
 pub use uniswap::UniswapV2Fetcher;
 pub use uniswap::UniswapV3Fetcher;
+pub use swap_based::SwapBasedV2Fetcher;
+pub use swap_based::SwapBasedV3Fetcher;
+pub use dackie_swap::DackieSwapV2Fetcher;
+pub use dackie_swap::DackieSwapV3Fetcher;
+
 
 mod aerodrome;
 mod alien_base;
+mod dackie_swap;
+mod swap_based;
 mod balancer;
 mod base_swap;
 mod curve;
