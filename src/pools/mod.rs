@@ -11,6 +11,7 @@ use alloy::primitives::U256;
 use alloy::primitives::{Address, Log};
 use pool_structures::balancer_v2_structure::BalancerV2Pool;
 use pool_structures::two_crypto_curve_structure::CurveTwoCryptoPool;
+use pool_structures::tri_crypto_curve_structure::CurveTriCryptoPool;
 use pool_structures::maverick_structure::MaverickPool;
 use pool_structures::v2_structure::UniswapV2Pool;
 use pool_structures::v3_structure::TickInfo;
@@ -89,9 +90,12 @@ impl PoolType {
             || self == &PoolType::MaverickV2
     }
 
-    pub fn is_curve(&self) -> bool {
+    pub fn is_curve_two(&self) -> bool {
         self == &PoolType::CurveTwoCrypto
-            || self == &PoolType::CurveTriCrypto
+    }
+
+    pub fn is_curve_tri(&self) -> bool {
+        self == &PoolType::CurveTriCrypto
     }
 
     pub fn is_balancer(&self) -> bool {
@@ -111,10 +115,13 @@ impl PoolType {
         } else if self.is_balancer() {
             let pool = BalancerV2Pool::from(pool_data);
             Pool::new_balancer(self.clone(), pool)
-        } else if self.is_curve() {
+        } else if self.is_curve_two() {
             let pool = CurveTwoCryptoPool::from(pool_data);
-            Pool::new_curve(self.clone(), pool)
-        }else {
+            Pool::new_curve_two(self.clone(), pool)
+        }else if self.is_curve_tri() {
+            let pool = CurveTriCryptoPool::from(pool_data);
+            Pool::new_curve_tri(self.clone(), pool)
+        } else {
             panic!("Invalid pool type");
         }
     }
@@ -141,7 +148,7 @@ pub enum Pool {
     MaverickV2(MaverickPool),
 
     CurveTwoCrypto(CurveTwoCryptoPool),
-    CurveTriCrypto(CurveTwoCryptoPool),
+    CurveTriCrypto(CurveTriCryptoPool),
 
     BalancerV2(BalancerV2Pool),
 
@@ -188,9 +195,15 @@ impl Pool {
         }
     }
 
-    pub fn new_curve(pool_type: PoolType, pool: CurveTwoCryptoPool) -> Self {
+    pub fn new_curve_two(pool_type: PoolType, pool: CurveTwoCryptoPool) -> Self {
         match pool_type {
             PoolType::CurveTwoCrypto => Pool::CurveTwoCrypto(pool),
+            _ => panic!("Invalid pool type"),
+        }
+    }
+
+    pub fn new_curve_tri(pool_type: PoolType, pool: CurveTriCryptoPool) -> Self {
+        match pool_type {
             PoolType::CurveTriCrypto => Pool::CurveTriCrypto(pool),
             _ => panic!("Invalid pool type"),
         }
@@ -238,9 +251,15 @@ impl Pool {
         }
     }
 
-    pub fn is_curve(&self) -> bool {
+    pub fn is_curve_two(&self) -> bool {
         match self {
             Pool::CurveTwoCrypto(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_curve_tri(&self) -> bool {
+        match self {
             Pool::CurveTriCrypto(_) => true,
             _ => false,
         }
@@ -288,9 +307,15 @@ impl Pool {
         }
     }
 
-    pub fn get_curve(&self) -> Option<&CurveTwoCryptoPool> {
+    pub fn get_curve_two(&self) -> Option<&CurveTwoCryptoPool> {
         match self {
             Pool::CurveTwoCrypto(pool) => Some(pool),
+            _ => None,
+        }
+    }
+
+    pub fn get_curve_tri(&self) -> Option<&CurveTriCryptoPool> {
+        match self {
             Pool::CurveTriCrypto(pool) => Some(pool),
             _ => None,
         }
@@ -338,9 +363,15 @@ impl Pool {
         }
     }
 
-    pub fn get_curve_mut(&mut self) -> Option<&mut CurveTwoCryptoPool> {
+    pub fn get_curve_two_mut(&mut self) -> Option<&mut CurveTwoCryptoPool> {
         match self {
             Pool::CurveTwoCrypto(pool) => Some(pool),
+            _ => None,
+        }
+    }
+
+    pub fn get_curve_tri_mut(&mut self) -> Option<&mut CurveTriCryptoPool> {
+        match self {
             Pool::CurveTriCrypto(pool) => Some(pool),
             _ => None,
         }
@@ -366,8 +397,11 @@ impl Pool {
         } else if pool.is_v3() {
             let pool = pool.get_v3_mut().unwrap();
             pool.token0_name = token0;
-        } else if pool.is_curve() {
-            let pool = pool.get_curve_mut().unwrap();
+        } else if pool.is_curve_two() {
+            let pool = pool.get_curve_two_mut().unwrap();
+            pool.token0_name = token0;
+        } else if pool.is_curve_tri() {
+            let pool = pool.get_curve_tri_mut().unwrap();
             pool.token0_name = token0;
         } else if pool.is_balancer() {
             let pool = pool.get_balancer_mut().unwrap();
@@ -385,10 +419,13 @@ impl Pool {
         } else if pool.is_v3() {
             let pool = pool.get_v3_mut().unwrap();
             pool.token1_name = token1;
-        } else if pool.is_curve() {
-            let pool = pool.get_curve_mut().unwrap();
+        } else if pool.is_curve_two() {
+            let pool = pool.get_curve_two_mut().unwrap();
             pool.token1_name = token1;
-        } else if pool.is_balancer() {
+        } else if pool.is_curve_tri() {
+            let pool = pool.get_curve_tri_mut().unwrap();
+            pool.token1_name = token1;
+        }else if pool.is_balancer() {
             let pool = pool.get_balancer_mut().unwrap();
             pool.token1_name = token1;
         } else if pool.is_maverick() {

@@ -1,14 +1,11 @@
-use core::panic;
-
 use alloy::primitives::{address, Address};
-use crate::pools::gen::TwoCryptoFactory;
 use alloy_sol_types::SolEvent;
-use crate::pools::PoolFetcher;
 use alloy::primitives::Log;
-use crate::pools::PoolType;
 use alloy::dyn_abi::DynSolType;
-use crate::Pool;
 use crate::Chain;
+use crate::pools::gen::TwoCryptoFactory;
+use crate::pools::PoolFetcher;
+use crate::pools::PoolType;
 
 pub struct CurveTwoCryptoFetcher;
 

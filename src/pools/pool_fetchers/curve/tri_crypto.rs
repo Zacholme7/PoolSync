@@ -1,9 +1,10 @@
 use alloy::primitives::{address, Address};
-use crate::pools::gen::TriCryptoFactory;
-use alloy_sol_types::SolEvent;
-use crate::pools::PoolFetcher;
+use alloy::sol_types::SolEvent;
 use alloy::primitives::Log;
 use alloy::dyn_abi::DynSolType;
+
+use crate::pools::gen::TriCryptoFactory;
+use crate::pools::PoolFetcher;
 use crate::pools::PoolType;
 use crate::Chain;
 
@@ -21,7 +22,6 @@ impl PoolFetcher for CurveTriCryptoFetcher {
         }
     }
 
-
     fn pair_created_signature(&self) -> &str {
         TriCryptoFactory::TricryptoPoolDeployed::SIGNATURE
     }
@@ -32,7 +32,15 @@ impl PoolFetcher for CurveTriCryptoFetcher {
     }
 
     fn get_pool_repr(&self) -> DynSolType {
-        todo!()
+        DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+            DynSolType::Address,                                  
+            DynSolType::Address,
+            DynSolType::Address,
+            DynSolType::Address,
+            DynSolType::Uint(8),
+            DynSolType::Uint(8),
+            DynSolType::Uint(8),
+        ])))
     }
 
 }

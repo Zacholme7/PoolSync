@@ -20,7 +20,8 @@ use super::gen::{
     MaverickDataSync,
     SlipStreamDataSync,
     BalancerV2DataSync,
-    TwoCurveDataSync
+    TwoCurveDataSync,
+    TriCurveDataSync
 };
 
 use crate::pools::gen::ERC20;
@@ -104,6 +105,9 @@ where
         PoolType::CurveTwoCrypto => {
             TwoCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
+        PoolType::CurveTriCrypto => {
+            TriCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
         _=> panic!("Invalid pool type")
     };
 
@@ -142,6 +146,15 @@ where
                     pool.additional_token_names.push(name);
                 }
             }
+        }
+
+        if pool_type == PoolType::CurveTriCrypto {
+            let pool = pool.get_curve_tri_mut().unwrap();
+            let token_contract = ERC20::new(pool.token2, provider.clone());
+            if let Ok(ERC20::symbolReturn { _0: name }) = token_contract.symbol().call().await {
+                pool.token2_name = name;
+            }
+
         }
     }
 

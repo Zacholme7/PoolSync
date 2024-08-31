@@ -220,6 +220,13 @@ sol!(
     "src/abi/TwoCurveDataSync.json"
 );
 
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    TriCurveDataSync,
+    "src/abi/TriCurveDataSync.json"
+);
+
 
 
 

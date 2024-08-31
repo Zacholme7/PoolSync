@@ -1,9 +1,10 @@
 use alloy::primitives::{address, Address};
-use alloy_sol_types::SolEvent;
-use crate::pools::gen::BalancerV2Factory;
-use crate::pools::PoolFetcher;
+use alloy::sol_types::SolEvent;
 use alloy::primitives::Log;
 use alloy::dyn_abi::DynSolType;
+
+use crate::pools::gen::BalancerV2Factory;
+use crate::pools::PoolFetcher;
 use crate::pools::PoolType;
 use crate::Chain;
 
@@ -32,8 +33,8 @@ impl PoolFetcher for BalancerV2Fetcher {
 
     fn get_pool_repr(&self) -> DynSolType {
         DynSolType::Array(Box::new(DynSolType::Tuple(vec![
-            DynSolType::Address,                                  // address
-            DynSolType::FixedBytes(32),                           // pool_id
+            DynSolType::Address,                                  
+            DynSolType::FixedBytes(32),                           
             DynSolType::Address,
             DynSolType::Address,
             DynSolType::Uint(8),
