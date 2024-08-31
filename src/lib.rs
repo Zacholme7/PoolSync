@@ -13,7 +13,7 @@ pub use rpc::Rpc;
 pub use filter::fetch_top_volume_tokens;
 pub use pools::pool_structures::{
     balancer_v2_structure::BalancerV2Pool,
-    curve_structure::CurvePool,
+    two_crypto_curve_structure::CurveTwoCryptoPool,
     maverick_structure::MaverickPool,
     v2_structure::UniswapV2Pool,
     v3_structure::{UniswapV3Pool, TickInfo},

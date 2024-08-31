@@ -1,12 +1,10 @@
 use alloy::primitives::{address, Address};
-use alloy::pubsub;
 use crate::pools::gen::TriCryptoFactory;
 use alloy_sol_types::SolEvent;
 use crate::pools::PoolFetcher;
 use alloy::primitives::Log;
 use alloy::dyn_abi::DynSolType;
 use crate::pools::PoolType;
-use crate::Pool;
 use crate::Chain;
 
 pub struct CurveTriCryptoFetcher;

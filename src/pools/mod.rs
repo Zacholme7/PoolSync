@@ -10,7 +10,7 @@ use alloy::primitives::U128;
 use alloy::primitives::U256;
 use alloy::primitives::{Address, Log};
 use pool_structures::balancer_v2_structure::BalancerV2Pool;
-use pool_structures::curve_structure::CurvePool;
+use pool_structures::two_crypto_curve_structure::CurveTwoCryptoPool;
 use pool_structures::maverick_structure::MaverickPool;
 use pool_structures::v2_structure::UniswapV2Pool;
 use pool_structures::v3_structure::TickInfo;
@@ -111,7 +111,10 @@ impl PoolType {
         } else if self.is_balancer() {
             let pool = BalancerV2Pool::from(pool_data);
             Pool::new_balancer(self.clone(), pool)
-        } else {
+        } else if self.is_curve() {
+            let pool = CurveTwoCryptoPool::from(pool_data);
+            Pool::new_curve(self.clone(), pool)
+        }else {
             panic!("Invalid pool type");
         }
     }
@@ -137,8 +140,8 @@ pub enum Pool {
     MaverickV1(MaverickPool),
     MaverickV2(MaverickPool),
 
-    CurveTwoCrypto(CurvePool),
-    CurveTriCrypto(CurvePool),
+    CurveTwoCrypto(CurveTwoCryptoPool),
+    CurveTriCrypto(CurveTwoCryptoPool),
 
     BalancerV2(BalancerV2Pool),
 
@@ -185,7 +188,7 @@ impl Pool {
         }
     }
 
-    pub fn new_curve(pool_type: PoolType, pool: CurvePool) -> Self {
+    pub fn new_curve(pool_type: PoolType, pool: CurveTwoCryptoPool) -> Self {
         match pool_type {
             PoolType::CurveTwoCrypto => Pool::CurveTwoCrypto(pool),
             PoolType::CurveTriCrypto => Pool::CurveTriCrypto(pool),
@@ -285,7 +288,7 @@ impl Pool {
         }
     }
 
-    pub fn get_curve(&self) -> Option<&CurvePool> {
+    pub fn get_curve(&self) -> Option<&CurveTwoCryptoPool> {
         match self {
             Pool::CurveTwoCrypto(pool) => Some(pool),
             Pool::CurveTriCrypto(pool) => Some(pool),
@@ -335,7 +338,7 @@ impl Pool {
         }
     }
 
-    pub fn get_curve_mut(&mut self) -> Option<&mut CurvePool> {
+    pub fn get_curve_mut(&mut self) -> Option<&mut CurveTwoCryptoPool> {
         match self {
             Pool::CurveTwoCrypto(pool) => Some(pool),
             Pool::CurveTriCrypto(pool) => Some(pool),

@@ -10,8 +10,7 @@ async fn main() -> Result<()> {
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         .add_pools(&[
-            //PoolType::UniswapV2,
-            PoolType::BalancerV2
+            PoolType::CurveTwoCrypto
         ])
         .chain(Chain::Ethereum) // Specify the chain
         .build()?;
@@ -19,9 +18,6 @@ async fn main() -> Result<()> {
     // Initiate the sync process
     let (pools , last_synced_block)= pool_sync.sync_pools().await?;
     println!("Number of synchronized pools: {:#?}", pools.len());
-    for pool in pools {
-        println!("Pool: {:#?}", pool);
-    }
 
     Ok(())
 }

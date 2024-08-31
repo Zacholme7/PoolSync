@@ -213,6 +213,13 @@ sol!(
     "src/abi/BalancerV2DataSync.json"
 );
 
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    TwoCurveDataSync,
+    "src/abi/TwoCurveDataSync.json"
+);
+
 
 
 

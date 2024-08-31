@@ -19,7 +19,8 @@ use super::gen::{
     PancakeSwapDataSync, 
     MaverickDataSync,
     SlipStreamDataSync,
-    BalancerV2DataSync
+    BalancerV2DataSync,
+    TwoCurveDataSync
 };
 
 use crate::pools::gen::ERC20;
@@ -99,6 +100,9 @@ where
         }
         PoolType::BalancerV2 => {
             BalancerV2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
+        PoolType::CurveTwoCrypto => {
+            TwoCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
         _=> panic!("Invalid pool type")
     };

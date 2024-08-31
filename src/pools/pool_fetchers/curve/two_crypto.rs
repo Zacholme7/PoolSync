@@ -34,7 +34,12 @@ impl PoolFetcher for CurveTwoCryptoFetcher {
     }
 
     fn get_pool_repr(&self) -> DynSolType {
-        todo!()
+        DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+            DynSolType::Address,
+            DynSolType::Address,
+            DynSolType::Address,
+            DynSolType::Uint(8),
+            DynSolType::Uint(8),
+        ])))
     }
-
 }
