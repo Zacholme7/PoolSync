@@ -9,7 +9,7 @@ use crate::pools::pool_fetchers::{
     PancakeSwapV2Fetcher, PancakeSwapV3Fetcher,
     SushiSwapV2Fetcher, SushiSwapV3Fetcher,
     UniswapV2Fetcher, UniswapV3Fetcher,
-    AlienBaseFetcher,
+    AlienBaseV2Fetcher, AlienBaseV3Fetcher,
     MaverickV1Fetcher, MaverickV2Fetcher,
     CurveTwoCryptoFetcher, CurveTriCryptoFetcher,
     BalancerV2Fetcher,
@@ -81,9 +81,13 @@ impl PoolSyncBuilder {
                 self.fetchers
                     .insert(PoolType::BaseSwapV3, Arc::new(BaseSwapV3Fetcher));
             }
-            PoolType::AlienBase => {
+            PoolType::AlienBaseV2 => {
                 self.fetchers
-                    .insert(PoolType::AlienBase, Arc::new(AlienBaseFetcher));
+                    .insert(PoolType::AlienBaseV2, Arc::new(AlienBaseV2Fetcher));
+            }
+            PoolType::AlienBaseV3 => {
+                self.fetchers
+                    .insert(PoolType::AlienBaseV3, Arc::new(AlienBaseV3Fetcher));
             }
             PoolType::MaverickV1 => {
                 self.fetchers

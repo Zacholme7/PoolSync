@@ -91,9 +91,17 @@ sol!(
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
-    AlienBaseFactory,
-    "src/pools/abis/AlienBaseFactory.json"
+    AlienBaseV2Factory,
+    "src/pools/abis/AlienBaseV2Factory.json"
 );
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    AlienBaseV3Factory,
+    "src/pools/abis/AlienBaseV3Factory.json"
+);
+
 
 
 

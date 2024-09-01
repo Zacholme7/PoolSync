@@ -1,6 +1,7 @@
 pub use aerodrome::AerodromeFetcher;
 pub use aerodrome::SlipstreamFetcher;
-pub use alien_base::AlienBaseFetcher;
+pub use alien_base::AlienBaseV2Fetcher;
+pub use alien_base::AlienBaseV3Fetcher;
 pub use balancer::BalancerV2Fetcher;
 pub use base_swap::BaseSwapV2Fetcher;
 pub use base_swap::BaseSwapV3Fetcher;

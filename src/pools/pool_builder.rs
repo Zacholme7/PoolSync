@@ -83,7 +83,7 @@ where
     let pool_data = match pool_type {
         PoolType::UniswapV2 | PoolType::SushiSwapV2 | 
         PoolType::PancakeSwapV2 | PoolType::BaseSwapV2 |
-        PoolType::Aerodrome => {
+        PoolType::Aerodrome | PoolType::AlienBaseV2 => {
             V2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
         PoolType::MaverickV1 | PoolType::MaverickV2 => {
@@ -93,7 +93,7 @@ where
             PancakeSwapDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
         PoolType::UniswapV3 | PoolType::SushiSwapV3 | 
-        PoolType::BaseSwapV3 | PoolType::AlienBase => {
+        PoolType::BaseSwapV3 | PoolType::AlienBaseV3 => {
             V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
         PoolType::Slipstream => {

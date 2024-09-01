@@ -46,7 +46,8 @@ pub enum PoolType {
     BaseSwapV2,
     BaseSwapV3,
 
-    AlienBase,
+    AlienBaseV2,
+    AlienBaseV3,
 
     MaverickV1,
     MaverickV2,
@@ -72,6 +73,8 @@ impl PoolType {
             || self == &PoolType::BaseSwapV2
             || self == &PoolType::SwapBasedV2
             || self == &PoolType::DackieSwapV2
+            || self == &PoolType::AlienBaseV2
+
     }
 
     pub fn is_v3(&self) -> bool {
@@ -80,7 +83,7 @@ impl PoolType {
             || self == &PoolType::PancakeSwapV3
             || self == &PoolType::Slipstream
             || self == &PoolType::BaseSwapV3
-            || self == &PoolType::AlienBase
+            || self == &PoolType::AlienBaseV3
             || self == &PoolType::SwapBasedV3
             || self == &PoolType::DackieSwapV3
     }
@@ -136,13 +139,14 @@ pub enum Pool {
     PancakeSwapV2(UniswapV2Pool),
     Aerodrome(UniswapV2Pool),
     BaseSwapV2(UniswapV2Pool),
+    AlienBaseV2(UniswapV2Pool),
 
     UniswapV3(UniswapV3Pool),
     SushiSwapV3(UniswapV3Pool),
     PancakeSwapV3(UniswapV3Pool),
     Slipstream(UniswapV3Pool),
     BaseSwapV3(UniswapV3Pool),
-    AlienBase(UniswapV3Pool),
+    AlienBaseV3(UniswapV3Pool),
 
     MaverickV1(MaverickPool),
     MaverickV2(MaverickPool),
@@ -169,6 +173,7 @@ impl Pool {
             PoolType::BaseSwapV2 => Pool::BaseSwapV2(pool),
             PoolType::SwapBasedV2 => Pool::SwapBasedV2(pool),
             PoolType::DackieSwapV2 => Pool::DackieSwapV2(pool),
+            PoolType::AlienBaseV2 => Pool::AlienBaseV2(pool),
             _ => panic!("Invalid pool type"),
         }
     }
@@ -180,9 +185,9 @@ impl Pool {
             PoolType::PancakeSwapV3 => Pool::PancakeSwapV3(pool),
             PoolType::Slipstream => Pool::Slipstream(pool),
             PoolType::BaseSwapV3 => Pool::BaseSwapV3(pool),
-            PoolType::AlienBase => Pool::AlienBase(pool),
             PoolType::SwapBasedV3 => Pool::SwapBasedV3(pool),
             PoolType::DackieSwapV3 => Pool::DackieSwapV3(pool),
+            PoolType::AlienBaseV3 => Pool::AlienBaseV3(pool),
             _ => panic!("Invalid pool type"),
         }
     }
@@ -223,6 +228,7 @@ impl Pool {
             Pool::PancakeSwapV2(_) => true,
             Pool::Aerodrome(_) => true,
             Pool::BaseSwapV2(_) => true,
+            Pool::AlienBaseV2(_) => true,
             Pool::SwapBasedV2(_) => true,
             Pool::DackieSwapV2(_) => true,
             _ => false,
@@ -236,7 +242,7 @@ impl Pool {
             Pool::PancakeSwapV3(_) => true,
             Pool::Slipstream(_) => true,
             Pool::BaseSwapV3(_) => true,
-            Pool::AlienBase(_) => true,
+            Pool::AlienBaseV3(_) => true,
             Pool::SwapBasedV3(_) => true,
             Pool::DackieSwapV3(_) => true,
             _ => false,
@@ -281,6 +287,7 @@ impl Pool {
             Pool::BaseSwapV2(pool) => Some(pool),
             Pool::SwapBasedV2(pool) => Some(pool),
             Pool::DackieSwapV2(pool) => Some(pool),
+            Pool::AlienBaseV2(pool) => Some(pool),
             _ => None,
         }
     }
@@ -292,7 +299,7 @@ impl Pool {
             Pool::PancakeSwapV3(pool) => Some(pool),
             Pool::Slipstream(pool) => Some(pool),
             Pool::BaseSwapV3(pool) => Some(pool),
-            Pool::AlienBase(pool) => Some(pool),
+            Pool::AlienBaseV3(pool) => Some(pool),
             Pool::SwapBasedV3(pool) => Some(pool),
             Pool::DackieSwapV3(pool) => Some(pool),
             _ => None,
@@ -335,6 +342,7 @@ impl Pool {
             Pool::PancakeSwapV2(pool) => Some(pool),
             Pool::Aerodrome(pool) => Some(pool),
             Pool::BaseSwapV2(pool) => Some(pool),
+            Pool::AlienBaseV2(pool) => Some(pool),
             Pool::SwapBasedV2(pool) => Some(pool),
             Pool::DackieSwapV2(pool) => Some(pool),
             _ => None,
@@ -348,7 +356,7 @@ impl Pool {
             Pool::PancakeSwapV3(pool) => Some(pool),
             Pool::Slipstream(pool) => Some(pool),
             Pool::BaseSwapV3(pool) => Some(pool),
-            Pool::AlienBase(pool) => Some(pool),
+            Pool::AlienBaseV3(pool) => Some(pool),
             Pool::SwapBasedV3(pool) => Some(pool),
             Pool::DackieSwapV3(pool) => Some(pool),
             _ => None,
@@ -454,7 +462,8 @@ impl_pool_info!(
     Slipstream,
     BaseSwapV2,
     BaseSwapV3,
-    AlienBase,
+    AlienBaseV2,
+    AlienBaseV3,
     MaverickV1,
     MaverickV2,
     CurveTwoCrypto,
