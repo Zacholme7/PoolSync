@@ -14,6 +14,7 @@ pub use filter::fetch_top_volume_tokens;
 pub use pools::pool_structures::{
     balancer_v2_structure::BalancerV2Pool,
     two_crypto_curve_structure::CurveTwoCryptoPool,
+    tri_crypto_curve_structure::CurveTriCryptoPool,
     maverick_structure::MaverickPool,
     v2_structure::UniswapV2Pool,
     v3_structure::{UniswapV3Pool, TickInfo},
