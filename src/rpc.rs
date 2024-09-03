@@ -39,15 +39,16 @@ sol!(
     }
 );
 
-sol! (
+sol!(
     #[derive(Debug)]
+    #[sol(rpc)]
     contract BalancerV2Event {
-        event PoolBalanceChanged(
+        event Swap(
             bytes32 indexed poolId,
-            address indexed liquidityProvider,
-            address[] tokens,
-            int256[] deltas,
-            uint256[] protocolFeeAmounts
+            address indexed tokenIn,
+            address indexed tokenOut,
+            uint256 amountIn,
+            uint256 amountOut
         );
     }
 );
@@ -368,7 +369,7 @@ impl Rpc {
                 async move {
                     let filter = Filter::new()
                         .event_signature(vec![
-                            BalancerV2Event::PoolBalanceChanged::SIGNATURE_HASH
+                            BalancerV2Event::Swap::SIGNATURE_HASH
                         ])
                         .from_block(from_block)
                         .to_block(to_block);

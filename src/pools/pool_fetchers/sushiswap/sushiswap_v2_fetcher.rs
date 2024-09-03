@@ -1,11 +1,11 @@
-use crate::pools::gen::SushiSwapV2Factory;
 use alloy::primitives::{address, Address};
-use alloy_sol_types::SolEvent;
-use crate::pools::PoolFetcher;
+use alloy::sol_types::SolEvent;
 use alloy::primitives::Log;
-use crate::pools::PoolType;
-use crate::Chain;
 use alloy::dyn_abi::DynSolType;
+use crate::Chain;
+use crate::pools::PoolType;
+use crate::pools::PoolFetcher;
+use crate::pools::gen::SushiSwapV2Factory;
 pub struct SushiSwapV2Fetcher;
 
 impl PoolFetcher for SushiSwapV2Fetcher {

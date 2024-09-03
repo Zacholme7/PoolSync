@@ -1,6 +1,6 @@
 use alloy::dyn_abi::DynSolValue;
 use alloy::primitives::{Address, U128, U256};
-use alloy_sol_types::SolEvent;
+use alloy::sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
 use alloy::rpc::types::Log;
 use crate::pools::PoolType;

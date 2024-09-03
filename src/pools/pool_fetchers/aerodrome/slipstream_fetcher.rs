@@ -1,9 +1,9 @@
 use alloy::primitives::{address, Address};
-use alloy_sol_types::SolEvent;
-use crate::pools::gen::SlipstreamFactory;
-use crate::pools::PoolFetcher;
+use alloy::sol_types::SolEvent;
 use alloy::dyn_abi::DynSolType;
 use alloy::primitives::Log;
+use crate::pools::gen::SlipstreamFactory;
+use crate::pools::PoolFetcher;
 use crate::pools::PoolType;
 use crate::Chain;
 

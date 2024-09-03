@@ -1,11 +1,11 @@
 use alloy::primitives::{address, Address};
-use crate::pools::gen::UniswapV2Factory;
-use alloy_sol_types::SolEvent;
-use crate::pools::PoolFetcher;
+use alloy::sol_types::SolEvent;
 use alloy::primitives::Log;
-use crate::pools::PoolType;
-use crate::Chain;
 use alloy::dyn_abi::DynSolType;
+use crate::pools::PoolType;
+use crate::pools::PoolFetcher;
+use crate::pools::gen::UniswapV2Factory;
+use crate::Chain;
 
 pub struct UniswapV2Fetcher;
 

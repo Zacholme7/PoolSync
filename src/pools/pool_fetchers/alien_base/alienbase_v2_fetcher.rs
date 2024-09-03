@@ -1,7 +1,7 @@
 
 use alloy::primitives::{address, Address};
 use alloy::dyn_abi::DynSolType;
-use alloy_sol_types::SolEvent;
+use alloy::sol_types::SolEvent;
 use alloy::primitives::Log;
 
 use crate::pools::gen::AlienBaseV2Factory;

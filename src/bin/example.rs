@@ -10,7 +10,7 @@ async fn main() -> Result<()> {
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         .add_pools(&[
-            PoolType::CurveTriCrypto
+            PoolType::BalancerV2
         ])
         .chain(Chain::Ethereum) // Specify the chain
         .build()?;

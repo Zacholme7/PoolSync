@@ -1,11 +1,11 @@
-use crate::pools::gen::AlienBaseV3Factory;
 use alloy::primitives::{address, Address};
-use alloy_sol_types::SolEvent;
-use crate::pools::PoolFetcher;
+use alloy::sol_types::SolEvent;
 use alloy::primitives::Log;
-use crate::pools::PoolType;
-use crate::Chain;
 use alloy::dyn_abi::DynSolType;
+use crate::pools::PoolType;
+use crate::pools::gen::AlienBaseV3Factory;
+use crate::pools::PoolFetcher;
+use crate::Chain;
 
 pub struct AlienBaseV3Fetcher;
 

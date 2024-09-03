@@ -1,12 +1,12 @@
 use alloy::{dyn_abi::DynSolValue, primitives::Address};
-use alloy_sol_types::SolEvent;
+use alloy::sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
 use alloy::primitives::U256;
 use alloy::primitives::FixedBytes;
 use alloy::rpc::types::Log;
 
 use crate::rpc::BalancerV2Event;
-
+use crate::pools::gen::Vault;
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BalancerV2Pool {
     pub address: Address,
@@ -54,22 +54,13 @@ impl BalancerV2Pool {
 }
 
 pub fn process_balance_data(pool: &mut BalancerV2Pool, log: Log) {
-    let event = BalancerV2Event::PoolBalanceChanged::decode_log(log.as_ref(), true).unwrap();
-    
-    // Ensure the pool ID matches
-    assert_eq!(event.poolId, pool.pool_id, "Pool ID mismatch");
+    let event = Vault::Swap::decode_log(log.as_ref(), true).unwrap();
 
-    for (token, delta) in event.tokens.iter().zip(event.deltas.iter()) {
-        if let Some(index) = pool.get_token_index(token) {
-            // Update the balance for the token
-            let delta_abs = delta.abs().try_into().unwrap_or(U256::MAX);
-            if delta.is_negative() {
-                pool.balances[index] = pool.balances[index].saturating_sub(delta_abs);
-            } else {
-                pool.balances[index] = pool.balances[index].saturating_add(delta_abs);
-            }
-        }
-    }
+    let log_token_in_idx = pool.get_token_index(&event.tokenIn).unwrap();
+    let log_token_out_idx = pool.get_token_index(&event.tokenOut).unwrap();
+
+    pool.balances[log_token_in_idx] = pool.balances[log_token_in_idx].saturating_add(event.amountIn);
+    pool.balances[log_token_out_idx] = pool.balances[log_token_out_idx].saturating_sub(event.amountOut);
 }
 
 impl From<&[DynSolValue]> for BalancerV2Pool {

@@ -1,6 +1,6 @@
 use alloy::dyn_abi::DynSolValue;
 use alloy::primitives::{Address, U256};
-use alloy_sol_types::SolEvent;
+use alloy::sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use alloy::rpc::types::Log;
@@ -50,8 +50,8 @@ fn process_burn(pool: &mut UniswapV3Pool, log: Log) {
     let burn_event = DataEvents::Burn::decode_log(log.as_ref(), true).unwrap();
     modify_position(
         pool,
-        burn_event.tickLower,
-        burn_event.tickUpper,
+        burn_event.tickLower.as_i32(),
+        burn_event.tickUpper.as_i32(),
         -(burn_event.amount as i128)
     );
 }
@@ -60,8 +60,8 @@ fn process_mint(pool: &mut UniswapV3Pool, log: Log) {
     let mint_event = DataEvents::Mint::decode_log(log.as_ref(), true).unwrap();
     modify_position(
         pool,
-        mint_event.tickLower,
-        mint_event.tickUpper,
+        mint_event.tickLower.as_i32(),
+        mint_event.tickUpper.as_i32(),
         mint_event.amount as i128
     );
 }
@@ -69,13 +69,13 @@ fn process_mint(pool: &mut UniswapV3Pool, log: Log) {
 fn process_swap(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType) {
     if pool_type == PoolType::PancakeSwapV3 {
         let swap_event = PancakeSwap::Swap::decode_log(log.as_ref(), true).unwrap();
-        pool.tick = swap_event.tick;
-        pool.sqrt_price = swap_event.sqrtPriceX96;
+        pool.tick = swap_event.tick.as_i32();
+        pool.sqrt_price = U256::from(swap_event.sqrtPriceX96);
         pool.liquidity = swap_event.liquidity;
     } else {
         let swap_event = DataEvents::Swap::decode_log(log.as_ref(), true).unwrap();
-        pool.tick = swap_event.tick;
-        pool.sqrt_price = swap_event.sqrtPriceX96;
+        pool.tick = swap_event.tick.as_i32();
+        pool.sqrt_price = U256::from(swap_event.sqrtPriceX96);
         pool.liquidity = swap_event.liquidity;
     }
 }

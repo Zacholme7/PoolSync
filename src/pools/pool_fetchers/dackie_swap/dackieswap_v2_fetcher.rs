@@ -1,9 +1,9 @@
 use alloy::primitives::{address, Address};
-use alloy_sol_types::SolEvent;
-use crate::pools::gen::DackieSwapV2Factory;
-use crate::pools::PoolFetcher;
+use alloy::sol_types::SolEvent;
 use alloy::primitives::Log;
 use alloy::dyn_abi::DynSolType;
+use crate::pools::gen::DackieSwapV2Factory;
+use crate::pools::PoolFetcher;
 use crate::pools::PoolType;
 use crate::Chain;
 

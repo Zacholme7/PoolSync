@@ -173,11 +173,6 @@ sol!(
 );
 
 
-
-
-
-
-
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
@@ -235,8 +230,12 @@ sol!(
     "src/abi/TriCurveDataSync.json"
 );
 
-
-
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    Vault,
+    "src/pools/abis/Vault.json"
+);
 
 
 
