@@ -20,7 +20,7 @@ contract TwoCurveDataSync {
 
     constructor(address[] memory pools) {
         PoolData[] memory allPoolData = new PoolData[](pools.length);
-        TwoCryptoFactory factory = TwoCryptoFactory(0x98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F);
+        TwoCryptoFactory factory = TwoCryptoFactory(0xc9Fe0C63Af9A39402e8a5514f9c43Af0322b665F);
 
         for (uint256 i = 0; i < pools.length; ++i) {
             address poolAddress = pools[i];

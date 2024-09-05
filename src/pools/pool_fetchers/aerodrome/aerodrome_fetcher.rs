@@ -40,6 +40,8 @@ impl PoolFetcher for AerodromeFetcher {
             DynSolType::Address,
             DynSolType::Uint(8),
             DynSolType::Uint(8),
+            DynSolType::Uint(112),
+            DynSolType::Uint(112),
         ])))
     }
 

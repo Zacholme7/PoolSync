@@ -21,7 +21,7 @@ contract TriCurveDataSync {
 
     constructor(address[] memory pools) {
         PoolData[] memory allPoolData = new PoolData[](pools.length);
-        TriCryptoFactory factory = TriCryptoFactory(0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963);
+        TriCryptoFactory factory = TriCryptoFactory(0xA5961898870943c68037F6848d2D866Ed2016bcB);
 
         for (uint256 i = 0; i < pools.length; ++i) {
             address poolAddress = pools[i];

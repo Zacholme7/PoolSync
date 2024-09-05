@@ -2,7 +2,7 @@
 //    pools::{Pool, PoolType}, rpc::{DataEvents, PancakeSwap, Rpc}
 //}; //, snapshot::{v3_tick_snapshot, v3_tickbitmap_snapshot}};
 use alloy::network::Network;
-use alloy::primitives::Address;
+use alloy::primitives::{Address, address};
 use alloy::providers::Provider;
 use alloy::transports::Transport;
 use alloy::dyn_abi::DynSolType;
@@ -25,6 +25,7 @@ use super::gen::{
 };
 
 use crate::pools::gen::ERC20;
+use crate::pools::gen::{AerodromeV2Factory, AerodromePool};
 use crate::pools::{Pool, PoolType};
 use crate::rpc::PancakeSwap;
 
@@ -83,13 +84,14 @@ where
     let pool_data = match pool_type {
         PoolType::UniswapV2 | PoolType::SushiSwapV2 | 
         PoolType::PancakeSwapV2 | PoolType::BaseSwapV2 |
-        PoolType::Aerodrome | PoolType::AlienBaseV2 => {
+        PoolType::Aerodrome | PoolType::AlienBaseV2 | 
+        PoolType::SwapBasedV2 | PoolType::DackieSwapV2 => {
             V2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
         PoolType::MaverickV1 | PoolType::MaverickV2 => {
             MaverickDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         } 
-        PoolType::PancakeSwapV3 => {
+        PoolType::PancakeSwapV3  | PoolType::SwapBasedV3 | PoolType::DackieSwapV3 => {
             PancakeSwapDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
         PoolType::UniswapV3 | PoolType::SushiSwapV3 | 
@@ -126,7 +128,7 @@ where
         }
     }
 
-    // update the token names on the pools
+    // fill in missing info for the pool, this is more impl specific details. fetched by the full node, okay to not batch
     for pool in &mut pools {
         let token0_contract = ERC20::new(pool.token0_address(), provider.clone());
         if let Ok(ERC20::symbolReturn { _0: name }) = token0_contract.symbol().call().await {
@@ -138,6 +140,7 @@ where
             Pool::update_token1_name(pool, name);
         }
 
+        // If the pool is balancer, update names for the other tokens
         if pool_type == PoolType::BalancerV2 {
             let mut pool = pool.get_balancer_mut().unwrap();
             for token in &pool.additional_tokens {
@@ -148,13 +151,27 @@ where
             }
         }
 
+        // if the pool is curve, update name for the third token
         if pool_type == PoolType::CurveTriCrypto {
             let pool = pool.get_curve_tri_mut().unwrap();
             let token_contract = ERC20::new(pool.token2, provider.clone());
             if let Ok(ERC20::symbolReturn { _0: name }) = token_contract.symbol().call().await {
                 pool.token2_name = name;
             }
+        }
 
+        // if the pool is aerodrome, update the fee and if it is stable or not
+        if pool_type == PoolType::Aerodrome {
+            let factory = address!("420DD381b31aEf6683db6B902084cB0FFECe40Da");
+            let pool = pool.get_v2_mut().unwrap();
+            // get if it is stable or not
+            let pool_contract = AerodromePool::new(pool.address, provider.clone());
+            let AerodromePool::stableReturn {_0: stable } = pool_contract.stable().call().await.unwrap();
+            pool.stable = Some(stable);
+
+            let factory_contract = AerodromeV2Factory::new(factory, provider.clone());
+            let AerodromeV2Factory::getFeeReturn {_0: fee} = factory_contract.getFee(pool.address, stable).call().await.unwrap();
+            pool.fee = Some(fee);
         }
     }
 

@@ -27,7 +27,7 @@ use crate::PoolType;
 
 
 /// The number of blocks to query in one call to get_logs
-const STEP_SIZE: u64 = 10_000;
+const STEP_SIZE: u64 = 8000;
 const MAX_RETRIES: u32 = 5;
 const INITIAL_BACKOFF: u64 = 1000; // 1 second
 
@@ -113,6 +113,8 @@ impl Rpc {
             let info = format!("{} address sync", fetcher.pool_type());
             let progress_bar = create_progress_bar(total_steps, info);
 
+            let rate_limiter = Arc::new(Semaphore::new(50));
+
             let block_ranges: Vec<_> = (start_block..=end_block)
                 .step_by(step_size as usize)
                 .map(|from_block| {
@@ -126,10 +128,12 @@ impl Rpc {
                     let provider = provider.clone();
                     let fetcher = fetcher.clone();
                     let progress_bar = progress_bar.clone();
+                    let rate_limiter = rate_limiter.clone();
 
                     async move {
                         let mut retry_count = 0;
                         let mut backoff = INITIAL_BACKOFF;
+                        let _permit = rate_limiter.acquire().await.unwrap();
 
                         loop {
                             let filter = Filter::new()
@@ -170,7 +174,7 @@ impl Rpc {
                         }
                     }
                 })
-                .buffer_unordered(requests_per_second as usize)
+                .buffer_unordered(10 as usize)
                 .collect::<Vec<Vec<Address>>>()
                 .await;
 
@@ -199,7 +203,6 @@ impl Rpc {
         let info = format!("{} data sync", pool);
         let progress_bar = create_progress_bar(total_tasks as u64, info);
 
-        let rate_limiter = Arc::new(Semaphore::new(100 as usize));
 
         // Map all the addresses into chunks the contract can handle
         let addr_chunks: Vec<Vec<Address>> =
@@ -210,13 +213,11 @@ impl Rpc {
                 let provider = provider.clone();
                 let progress_bar = progress_bar.clone();
                 let pool = pool.clone();
-                let rate_limiter = rate_limiter.clone();
                 let fetcher = fetcher.clone();
 
                 async move {
                     let mut retry_count = 0;
                     let mut backoff = INITIAL_BACKOFF;
-                    let _permit = rate_limiter.acquire().await.unwrap();
                     let data = fetcher.get_pool_repr();
 
                     loop {
@@ -243,7 +244,7 @@ impl Rpc {
                     }
                 }
             })
-            .buffer_unordered(requests_per_second as usize * 2) // Allow some buffering for smoother operation
+            .buffer_unordered(1000 as usize) // Allow some buffering for smoother operation
             .collect::<Vec<Vec<Pool>>>()
             .await;
 
@@ -374,6 +375,7 @@ impl Rpc {
                         .from_block(from_block)
                         .to_block(to_block);
                     let logs = provider.get_logs(&filter).await.unwrap();
+                    println!("Got {} logs", logs.len());
                     pb.inc(1);
                     drop(provider);
                     logs
@@ -397,7 +399,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let mint_burn_range = Rpc::get_block_range(5000, start_block, end_block);
+        let mint_burn_range = Rpc::get_block_range(2000, start_block, end_block);
         let info = format!("{} tick sync", pool_type);
         let progress_bar = create_progress_bar(mint_burn_range.len() as u64, info);
         let logs = stream::iter(mint_burn_range)
@@ -436,7 +438,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let swap_range = Rpc::get_block_range(500, start_block, end_block);
+        let swap_range = Rpc::get_block_range(250, start_block, end_block);
         let info = format!("{} swap sync", pool_type);
         let progress_bar = create_progress_bar(swap_range.len() as u64, info);
         let logs = stream::iter(swap_range)
@@ -475,7 +477,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let sync_range = Rpc::get_block_range(200, start_block, end_block);
+        let sync_range = Rpc::get_block_range(100, start_block, end_block);
         let info = format!("{} sync sync", pool_type);
         let progress_bar = create_progress_bar(sync_range.len() as u64, info);
         let logs = stream::iter(sync_range)
@@ -496,7 +498,7 @@ impl Rpc {
                     logs
                 }
             })
-            .buffer_unordered(1000) // Allow some buffering for smoother operation
+            .buffer_unordered(100) // Allow some buffering for smoother operation
             .collect::<Vec<Vec<Log>>>()
             .await;
         let new_logs: Vec<Log> = logs.into_iter().flatten().collect();

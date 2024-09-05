@@ -240,6 +240,12 @@ sol!(
 
 
 
-
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    contract AerodromePool {
+        function stable() external view returns (bool);
+    }
+);
 
 
