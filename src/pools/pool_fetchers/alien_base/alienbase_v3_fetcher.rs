@@ -16,8 +16,8 @@ impl PoolFetcher for AlienBaseV3Fetcher {
 
     fn factory_address(&self, chain: Chain) -> Address {
         match chain {
-            Chain::Base => address!("B27f110571c96B8271d91ad42D33A391A75E6030"),
-            _ => panic!("SushiSwapV3 not supported on this chain")
+            Chain::Base => address!("0Fd83557b2be93617c9C1C1B6fd549401C74558C"),
+            _ => panic!("Alienbase not supported on this chain")
         }
     }
     

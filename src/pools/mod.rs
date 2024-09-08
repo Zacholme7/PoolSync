@@ -137,16 +137,21 @@ pub enum Pool {
     UniswapV2(UniswapV2Pool),
     SushiSwapV2(UniswapV2Pool),
     PancakeSwapV2(UniswapV2Pool),
-    Aerodrome(UniswapV2Pool),
     BaseSwapV2(UniswapV2Pool),
     AlienBaseV2(UniswapV2Pool),
+    SwapBasedV2(UniswapV2Pool),
+    DackieSwapV2(UniswapV2Pool),
+
+    Aerodrome(UniswapV2Pool),
+    Slipstream(UniswapV3Pool),
 
     UniswapV3(UniswapV3Pool),
     SushiSwapV3(UniswapV3Pool),
     PancakeSwapV3(UniswapV3Pool),
-    Slipstream(UniswapV3Pool),
     BaseSwapV3(UniswapV3Pool),
     AlienBaseV3(UniswapV3Pool),
+    SwapBasedV3(UniswapV3Pool),
+    DackieSwapV3(UniswapV3Pool),
 
     MaverickV1(MaverickPool),
     MaverickV2(MaverickPool),
@@ -155,12 +160,6 @@ pub enum Pool {
     CurveTriCrypto(CurveTriCryptoPool),
 
     BalancerV2(BalancerV2Pool),
-
-    SwapBasedV2(UniswapV2Pool),
-    SwapBasedV3(UniswapV3Pool),
-
-    DackieSwapV2(UniswapV2Pool),
-    DackieSwapV3(UniswapV3Pool)
 }
 
 impl Pool {

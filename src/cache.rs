@@ -30,7 +30,7 @@ pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> Result<PoolCache> 
     } else {
         if Chain::Base == chain {
             Ok(PoolCache {
-                last_synced_block: 17_000_000,
+                last_synced_block: 0,
                 pool_type: *pool_type,
                 pools: Vec::new(),
             })

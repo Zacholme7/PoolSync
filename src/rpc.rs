@@ -27,7 +27,7 @@ use crate::PoolType;
 
 
 /// The number of blocks to query in one call to get_logs
-const STEP_SIZE: u64 = 8000;
+const STEP_SIZE: u64 = 10000;
 const MAX_RETRIES: u32 = 5;
 const INITIAL_BACKOFF: u64 = 1000; // 1 second
 
@@ -374,11 +374,21 @@ impl Rpc {
                         ])
                         .from_block(from_block)
                         .to_block(to_block);
+                    match provider.get_logs(&filter).await {
+                        Ok(log) => {
+                            pb.inc(1);
+                            drop(provider);
+                            log
+                        }
+                        _ => vec![]
+                    }
+                    /* 
                     let logs = provider.get_logs(&filter).await.unwrap();
                     println!("Got {} logs", logs.len());
                     pb.inc(1);
                     drop(provider);
                     logs
+                    */
                 }
             })
             .buffer_unordered(100) // Allow some buffering for smoother operation
@@ -399,7 +409,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let mint_burn_range = Rpc::get_block_range(2000, start_block, end_block);
+        let mint_burn_range = Rpc::get_block_range(1500, start_block, end_block);
         let info = format!("{} tick sync", pool_type);
         let progress_bar = create_progress_bar(mint_burn_range.len() as u64, info);
         let logs = stream::iter(mint_burn_range)
@@ -414,10 +424,16 @@ impl Rpc {
                         ])
                         .from_block(from_block)
                         .to_block(to_block);
-                    let logs = provider.get_logs(&filter).await.unwrap();
-                    pb.inc(1);
-                    drop(provider);
-                    logs
+                    match provider.get_logs(&filter).await {
+                        Ok(log) => {
+                            pb.inc(1);
+                            drop(provider);
+                            log
+                        }
+                        Err(e) => {
+                            vec![]
+                        }
+                    }
                 }
             })
             .buffer_unordered(100) // Allow some buffering for smoother operation
@@ -453,10 +469,21 @@ impl Rpc {
                         ])
                         .from_block(from_block)
                         .to_block(to_block);
+
+                    match provider.get_logs(&filter).await {
+                        Ok(log) => {
+                            pb.inc(1);
+                            drop(provider);
+                            log
+                        }
+                        _ => vec![]
+                    }
+                    /* 
                     let logs = provider.get_logs(&filter).await.unwrap();
                     pb.inc(1);
                     drop(provider);
                     logs
+                    */
                 }
             })
             .buffer_unordered(100) // Allow some buffering for smoother operation
@@ -483,7 +510,7 @@ impl Rpc {
         let logs = stream::iter(sync_range)
             .map(|(from_block, to_block)| {
                 let provider = provider.clone();
-                let progress_bar = progress_bar.clone();
+                let pb = progress_bar.clone();
                 async move {
                     let filter = Filter::new()
                         .event_signature(vec![
@@ -492,10 +519,14 @@ impl Rpc {
                         ])
                         .from_block(from_block)
                         .to_block(to_block);
-                    let logs = provider.get_logs(&filter).await.unwrap();
-                    drop(provider);
-                    progress_bar.inc(1);
-                    logs
+                    match provider.get_logs(&filter).await {
+                        Ok(log) => {
+                            pb.inc(1);
+                            drop(provider);
+                            log
+                        }
+                        _ => vec![]
+                    }
                 }
             })
             .buffer_unordered(100) // Allow some buffering for smoother operation
