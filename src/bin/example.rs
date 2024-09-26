@@ -2,22 +2,25 @@
 //!
 //! This program synchronizes pools from a specified blockchain using the PoolSync library.
 //! It demonstrates how to set up a provider, configure pool synchronization, and execute the sync process.
+use pool_sync::{PoolSync, PoolType, Chain, PoolInfo};
 use anyhow::Result;
-use pool_sync::{Chain, Pool, PoolSync, PoolType};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
-        .add_pools(&[
-            PoolType::UniswapV2,
-        ])
-        .chain(Chain::Base) // Specify the chain
+        .add_pool(PoolType::UniswapV2)
+        .chain(Chain::Ethereum)
         .build()?;
 
-    // Initiate the sync process
-    let (pools , last_synced_block)= pool_sync.sync_pools().await?;
-    println!("Number of synchronized pools: {:#?}", pools.len());
+    // Synchronize pools
+    let (pools, last_synced_block) = pool_sync.sync_pools().await?;
 
+    // Common Info
+    for pool in &pools {
+        println!("Pool Address {:?}, Token 0: {:?}, Token 1: {:?}", pool.address(), pool.token0_name(), pool.token1_name());
+    }
+
+    println!("Synced {} pools!", pools.len());
     Ok(())
 }

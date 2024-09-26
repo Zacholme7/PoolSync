@@ -3,7 +3,7 @@
 //! This module defines the supported blockchain networks (Chains) and manages
 //! the mapping of supported pool types for each chain.
 
-use crate::{Pool, PoolType};
+use crate::PoolType;
 use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 use std::fmt;

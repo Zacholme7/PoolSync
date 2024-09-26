@@ -5,7 +5,7 @@ use alloy::primitives::U256;
 use alloy::primitives::FixedBytes;
 use alloy::rpc::types::Log;
 
-use crate::rpc::BalancerV2Event;
+use crate::events::BalancerV2Event;
 use crate::pools::gen::Vault;
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BalancerV2Pool {

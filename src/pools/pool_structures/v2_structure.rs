@@ -4,7 +4,7 @@ use alloy::sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
 use alloy::rpc::types::Log;
 use crate::pools::PoolType;
-use crate::rpc::{DataEvents, AerodromeSync};
+use crate::events::{DataEvents, AerodromeSync};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UniswapV2Pool {

@@ -30,7 +30,6 @@ sol!(
     "src/pools/abis/SushiSwapV3Factory.json"
 );
 
-
 // PANCAKESWAP
 sol!(
     #[derive(Debug)]
@@ -45,7 +44,6 @@ sol!(
     PancakeSwapV3Factory,
     "src/pools/abis/PancakeSwapV3Factory.json"
 );
-
 
 // AERODOME
 sol!(
@@ -70,7 +68,6 @@ sol!(
     "src/pools/abis/ERC20.json"
 );
 
-
 // BASESWAP
 sol!(
     #[derive(Debug)]
@@ -85,7 +82,6 @@ sol!(
     BaseSwapV3Factory,
     "src/pools/abis/BaseSwapV3Factory.json"
 );
-
 
 // ALIENBASE
 sol!(
@@ -102,9 +98,6 @@ sol!(
     "src/pools/abis/AlienBaseV3Factory.json"
 );
 
-
-
-
 // MAVERICK
 sol!(
     #[derive(Debug)]
@@ -112,7 +105,6 @@ sol!(
     MaverickV1Factory,
     "src/pools/abis/MaverickV1Factory.json"
 );
-
 
 // Curve
 sol!(
@@ -122,14 +114,12 @@ sol!(
     "src/pools/abis/TwoCryptoFactory.json"
 );
 
-sol!( 
+sol!(
     #[derive(Debug)]
     #[sol(rpc)]
     TriCryptoFactory,
     "src/pools/abis/TriCryptoFactory.json"
 );
-
-
 
 sol!(
     #[derive(Debug)]
@@ -137,10 +127,6 @@ sol!(
     BalancerV2Factory,
     "src/pools/abis/BalancerV2Factory.json"
 );
-
-
-
-
 
 /// SwapBased
 sol!(
@@ -171,7 +157,6 @@ sol!(
     DackieSwapV3Factory,
     "src/pools/abis/DackieSwapV3Factory.json"
 );
-
 
 sol!(
     #[derive(Debug)]
@@ -208,7 +193,6 @@ sol!(
     "src/abi/PancakeDataSync.json"
 );
 
-
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
@@ -237,9 +221,6 @@ sol!(
     "src/pools/abis/Vault.json"
 );
 
-
-
-
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
@@ -247,5 +228,3 @@ sol!(
         function stable() external view returns (bool);
     }
 );
-
-

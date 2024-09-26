@@ -75,6 +75,7 @@ impl PoolSync {
 
                     let fetcher = self.fetchers[&cache.pool_type].clone();
 
+                    // fetch all of the pool addresses
                     let pool_addrs = Rpc::fetch_pool_addrs(
                         start_block,
                         end_block,

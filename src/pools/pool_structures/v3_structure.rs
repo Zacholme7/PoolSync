@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use alloy::rpc::types::Log;
 
 use crate::pools::PoolType;
-use crate::rpc::{DataEvents, PancakeSwap};
+use crate::events::{DataEvents, PancakeSwapEvents};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UniswapV3Pool {
@@ -41,7 +41,7 @@ pub fn process_tick_data(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType
         process_burn(pool, log);
     } else if *event_sig == DataEvents::Mint::SIGNATURE_HASH {
         process_mint(pool, log);
-    } else if *event_sig == DataEvents::Swap::SIGNATURE_HASH || *event_sig == PancakeSwap::Swap::SIGNATURE_HASH {
+    } else if *event_sig == DataEvents::Swap::SIGNATURE_HASH || *event_sig == PancakeSwapEvents::Swap::SIGNATURE_HASH {
         process_swap(pool, log, pool_type);
     }
 }
@@ -68,7 +68,7 @@ fn process_mint(pool: &mut UniswapV3Pool, log: Log) {
 
 fn process_swap(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType) {
     if pool_type == PoolType::PancakeSwapV3 {
-        let swap_event = PancakeSwap::Swap::decode_log(log.as_ref(), true).unwrap();
+        let swap_event = PancakeSwapEvents::Swap::decode_log(log.as_ref(), true).unwrap();
         pool.tick = swap_event.tick.as_i32();
         pool.sqrt_price = U256::from(swap_event.sqrtPriceX96);
         pool.liquidity = swap_event.liquidity;

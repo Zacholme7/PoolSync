@@ -10,7 +10,6 @@ pub use chain::Chain;
 pub use pool_sync::PoolSync;
 pub use pools::{Pool, PoolInfo, PoolType};
 pub use rpc::Rpc;
-pub use filter::fetch_top_volume_tokens;
 pub use pools::pool_structures::{
     balancer_v2_structure::BalancerV2Pool,
     two_crypto_curve_structure::CurveTwoCryptoPool,
@@ -25,8 +24,8 @@ mod builder;
 mod cache;
 mod chain;
 mod errors;
-mod filter;
 mod pool_sync;
 mod pools;
 mod rpc;
 mod util;
+mod events;

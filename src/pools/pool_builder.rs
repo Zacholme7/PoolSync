@@ -27,7 +27,6 @@ use super::gen::{
 use crate::pools::gen::ERC20;
 use crate::pools::gen::{AerodromeV2Factory, AerodromePool};
 use crate::pools::{Pool, PoolType};
-use crate::rpc::PancakeSwap;
 
 pub const INITIAL_BACKOFF: u64 = 1000; // 1 second
 pub const MAX_RETRIES: u32 = 5;
