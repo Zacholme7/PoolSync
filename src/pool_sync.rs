@@ -67,6 +67,7 @@ impl PoolSync {
         while !fully_synced {
             fully_synced = true;
             let end_block = full.get_block_number().await.unwrap();
+            println!("{}", end_block);
 
             for cache in &mut pool_caches {
                 let start_block = cache.last_synced_block + 1;

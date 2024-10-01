@@ -16,11 +16,13 @@ async fn main() -> Result<()> {
     // Synchronize pools
     let (pools, last_synced_block) = pool_sync.sync_pools().await?;
 
+    /*
     // Common Info
     for pool in &pools {
         println!("Pool Address {:?}, Token 0: {:?}, Token 1: {:?}", pool.address(), pool.token0_name(), pool.token1_name());
     }
 
     println!("Synced {} pools!", pools.len());
+    */
     Ok(())
 }

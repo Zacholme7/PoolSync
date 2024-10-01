@@ -5,12 +5,15 @@ use alloy::rpc::types::{Filter, Log};
 use alloy::sol_types::SolEvent;
 use alloy::transports::Transport;
 use anyhow::Result;
+use futures::future::join_all;
+use futures::stream;
+use futures::stream::StreamExt;
 use log::warn;
 use rand::Rng;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::Semaphore;
+use tokio::sync::{Mutex, Semaphore};
+use tokio::time::{interval, Duration};
 
 use crate::events::*;
 use crate::pools::pool_builder;
@@ -47,7 +50,13 @@ impl Rpc {
         // if there is a range to fetch
         if end_block.saturating_sub(start_block) > 0 {
             // construct set of block ranges to retrieve events over
-            let block_ranges = Rpc::get_block_range(start_block, end_block, STEP_SIZE);
+            let block_ranges = Rpc::get_block_range(
+                STEP_SIZE, 
+                start_block, 
+                end_block
+            );
+
+            println!("got here block");
 
             // construct the progress bar
             let info = format!("{} address sync", fetcher.pool_type());
@@ -55,7 +64,7 @@ impl Rpc {
 
             // semaphore to rate limit requests
             let rate_limiter = Arc::new(Semaphore::new(requests_per_second.try_into().unwrap()));
-            
+
             // fetch all retsuls
             let results = stream::iter(block_ranges)
                 .map(|(from_block, to_block)| {
@@ -205,9 +214,10 @@ impl Rpc {
         T: Transport + Sync + Clone,
         N: Network,
     {
-        if pools.len() == 0 {
-            return Ok(());
+        if pools.is_empty() {
+            return Ok(())
         }
+
         // get the block difference
         let block_difference = end_block.saturating_sub(start_block);
         let address_to_index: HashMap<Address, usize> = pools
@@ -223,38 +233,75 @@ impl Rpc {
             if pool_type.is_v3() {
                 // fetch all mint/burn/swap logs
                 new_logs.extend(
-                    Rpc::fetch_tick_logs(start_block, end_block, provider.clone(), pool_type)
-                        .await
-                        .unwrap(),
+                    Rpc::fetch_event_logs(
+                        start_block,
+                        end_block,
+                        1500,
+                        vec![
+                            DataEvents::Burn::SIGNATURE_HASH,
+                            DataEvents::Mint::SIGNATURE_HASH,
+                        ],
+                        provider.clone(),
+                        String::from("Tick sync"),
+                        10, // have to adjust this
+                    )
+                    .await
+                    .unwrap(),
                 );
                 if start_block > 10_000_000 {
                     // make sure we dont fetch swap events after initial sync
                     new_logs.extend(
-                        Rpc::fetch_swap_logs(start_block, end_block, provider.clone(), pool_type)
-                            .await
-                            .unwrap(),
+                        Rpc::fetch_event_logs(
+                            start_block,
+                            end_block,
+                            250,
+                            vec![
+                                PancakeSwapEvents::Swap::SIGNATURE_HASH,
+                                DataEvents::Swap::SIGNATURE_HASH,
+                            ],
+                            provider.clone(),
+                            String::from("Swap sync"),
+                            10, // have to adjust this
+                        )
+                        .await
+                        .unwrap(),
                     );
                 }
             } else if pool_type.is_balancer() {
                 if start_block > 10_000_000 {
                     new_logs.extend(
-                        Rpc::fetch_balance_logs(
+                        Rpc::fetch_event_logs(
                             start_block,
                             end_block,
+                            5000,
+                            vec![BalancerV2Event::Swap::SIGNATURE_HASH],
                             provider.clone(),
-                            pool_type,
+                            String::from("hello world"),
+                            10, // have to ajdust some rate limit
                         )
                         .await
                         .unwrap(),
                     );
                 }
             } else {
-                // fetch all sync logs
+                // v2 sync events. Initially populated from the contract so this is just used when
+                // updating state from missed blocks since the last sync
                 if start_block > 10_000_000 {
                     new_logs.extend(
-                        Rpc::fetch_sync_logs(start_block, end_block, provider.clone(), pool_type)
-                            .await
-                            .unwrap(),
+                        Rpc::fetch_event_logs(
+                            start_block,
+                            end_block,
+                            100,
+                            vec![
+                                AerodromeSync::Sync::SIGNATURE_HASH,
+                                DataEvents::Sync::SIGNATURE_HASH,
+                            ],
+                            provider.clone(),
+                            String::from("hello world"),
+                            10, // have to ajdust some rate limit
+                        )
+                        .await
+                        .unwrap(),
                     );
                 }
             }
@@ -294,68 +341,81 @@ impl Rpc {
         Ok(())
     }
 
-
     // fetch all the logs for a specific event set
-    pub async fn fetch_logs<T, N, P>(
-        start_block: u64, 
-        end_block: u64, 
+    pub async fn fetch_event_logs<T, N, P>(
+        start_block: u64,
+        end_block: u64,
         step_size: u64,
-        events: Vec<FixedBytes<32>>, 
+        events: Vec<FixedBytes<32>>,
         provider: Arc<P>,
         pb_info: String,
-        rate_limit: u64
-    )  -> Result<Vec<Log>>
+        rate_limit: u64,
+    ) -> Result<Vec<Log>>
     where
         T: Transport + Clone,
         N: Network,
-        P: Provider<T, N>
+        P: Provider<T, N> + 'static,
     {
         // generate the block range for the sync and setup progress bar
         let block_range = Rpc::get_block_range(step_size, start_block, end_block);
         let progress_bar = create_progress_bar(block_range.len() as u64, pb_info);
 
-        // setup tokio stream and determine throttle duration
-        let steps = tokio::stream::iter(block_range);
-        let duration = Duration::from_millis(1000 / rate_limit);
+        // semaphore and interval for rate limiting
+        let semaphore = Arc::new(Semaphore::new(rate_limit as usize));
+        let interval = Arc::new(Mutex::new(interval(Duration::from_secs_f64(
+            1.0 / rate_limit as f64,
+        ))));
 
-        let logs = tokio::time::throttle(steps, duration)
-            .map(|(from_block, to_block)| {
-                // shadow outer
-                let provider = provider.clone();
-                let pb = progress_bar.clone();
-                let events = events.clone();
-                async move {
-                    // construct our filter for events in the block range
-                    let filter = Filter::new()
-                        .event_signature(events)
-                        .from_block(from_block).to_block(to_block);
+        // generate all the tasks
+        let tasks = block_range.into_iter().map(|(from_block, to_block)| {
+            let provider = provider.clone();
+            let events = events.clone();
+            let sem = semaphore.clone();
+            let pb = progress_bar.clone();
+            let interval = interval.clone();
 
-                    // fetch all the logs
-                    let logs = match provider.get_logs(&filter).await {
-                        Ok(logs) => logs,
-                        Err(_) => {
-                            warn!("Failed to get logs for the block range {}..{}", from_block, to_block);
-                            vec![]
-                        }
-                    };
-                    pb.inc(1);
-                    drop(provider);
-                    logs
+            tokio::spawn(async move {
+                let _permit = sem.acquire().await.unwrap();
+                interval.lock().await.tick().await;
+
+                let filter = Filter::new()
+                    .event_signature(events)
+                    .from_block(from_block)
+                    .to_block(to_block);
+
+                let result = provider.get_logs(&filter).await;
+                pb.inc(1);
+
+                match result {
+                    Ok(logs) => logs,
+                    Err(_) => {
+                        warn!(
+                            "Failed to get logs for the block range {}..{}",
+                            from_block, to_block
+                        );
+                        vec![]
+                    }
                 }
             })
-            .buffer_unordered(rate_limit) 
-            .collect::<Vec<Vec<Log>>>()
-            .await;
+        });
 
-        // collect and return all the new relevant logs
-        let new_logs: Vec<Log> = logs.into_iter().flatten().collect();
+        // fetch all the logs
+        let results = join_all(tasks).await;
+        let new_logs: Vec<Log> = results
+            .into_iter()
+            .filter_map(|r| r.ok())
+            .flatten()
+            .collect();
+
         Ok(new_logs)
     }
 
-
     // Generate a range of blocks of step size distance
     pub fn get_block_range(step_size: u64, start_block: u64, end_block: u64) -> Vec<(u64, u64)> {
+        println!("this is running here");
+        println!("{end_block}, {start_block}");
         let block_difference = end_block.saturating_sub(start_block);
+        println!("{}asdf", block_difference);
         let (_, step_size) = if block_difference < step_size {
             (1, block_difference)
         } else {
@@ -374,3 +434,4 @@ impl Rpc {
         block_ranges
     }
 }
+
