@@ -22,10 +22,7 @@ use crate::pools::pool_structures::v2_structure::process_sync_data;
 use crate::pools::pool_structures::v3_structure::process_tick_data;
 use crate::pools::PoolFetcher;
 use crate::util::create_progress_bar;
-use crate::Chain;
-use crate::Pool;
-use crate::PoolInfo;
-use crate::PoolType;
+use crate::{Chain, Pool, PoolInfo, PoolType};
 
 /// The number of blocks to query in one call to get_logs
 const STEP_SIZE: u64 = 10000;
@@ -34,13 +31,14 @@ const INITIAL_BACKOFF: u64 = 1000; // 1 second
 
 pub struct Rpc;
 impl Rpc {
+    // Fetch all pool addresses for the protocol
     pub async fn fetch_pool_addrs<P, T, N>(
         start_block: u64,
         end_block: u64,
         provider: Arc<P>,
         fetcher: Arc<dyn PoolFetcher>,
         chain: Chain,
-        requests_per_second: u64,
+        rate_limit: u64,
     ) -> Option<Vec<Address>>
     where
         P: Provider<T, N> + 'static,
@@ -50,156 +48,154 @@ impl Rpc {
         // if there is a range to fetch
         if end_block.saturating_sub(start_block) > 0 {
             // construct set of block ranges to retrieve events over
-            let block_ranges = Rpc::get_block_range(
-                STEP_SIZE, 
-                start_block, 
-                end_block
-            );
+            let block_range = Rpc::get_block_range(STEP_SIZE, start_block, end_block);
+            let pb_info = String::from("hello world");
+            let progress_bar = create_progress_bar(block_range.len() as u64, pb_info);
 
-            println!("got here block");
+            // semaphore and interval for rate limiting
+            let semaphore = Arc::new(Semaphore::new(rate_limit as usize));
+            let interval = Arc::new(Mutex::new(interval(Duration::from_secs_f64(
+                1.0 / rate_limit as f64,
+            ))));
 
-            // construct the progress bar
-            let info = format!("{} address sync", fetcher.pool_type());
-            let progress_bar = create_progress_bar(block_ranges.len().try_into().unwrap(), info);
+            // create all of the tasks
+            let tasks = block_range.into_iter().map(|(from_block, to_block)| {
+                // clone all of the state we need
+                let provider = provider.clone();
+                let sem = semaphore.clone();
+                let pb = progress_bar.clone();
+                let interval = interval.clone();
+                let fetcher = fetcher.clone();
 
-            // semaphore to rate limit requests
-            let rate_limiter = Arc::new(Semaphore::new(requests_per_second.try_into().unwrap()));
+                // spawn the future
+                tokio::spawn(async move {
+                    let _permit = sem.acquire().await.unwrap();
+                    interval.lock().await.tick().await;
+                    // setup filter for pool addresses in block range
+                    let filter = Filter::new()
+                        .address(fetcher.factory_address(chain))
+                        .event(fetcher.pair_created_signature())
+                        .from_block(from_block)
+                        .to_block(to_block);
 
-            // fetch all retsuls
-            let results = stream::iter(block_ranges)
-                .map(|(from_block, to_block)| {
-                    let provider = provider.clone();
-                    let fetcher = fetcher.clone();
-                    let progress_bar = progress_bar.clone();
-                    let rate_limiter = rate_limiter.clone();
-
-                    async move {
-                        let mut retry_count = 0;
-                        let mut backoff = INITIAL_BACKOFF;
-                        let _permit = rate_limiter.acquire().await.unwrap();
-
-                        loop {
-                            let filter = Filter::new()
-                                .address(fetcher.factory_address(chain))
-                                .event(fetcher.pair_created_signature())
-                                .from_block(from_block)
-                                .to_block(to_block);
-
-                            match provider.get_logs(&filter).await {
-                                Ok(logs) => {
-                                    let addresses: Vec<Address> = logs
-                                        .iter()
-                                        .map(|log| fetcher.log_to_address(&log.inner))
-                                        .collect();
-
-                                    progress_bar.inc(1);
-                                    drop(provider);
-                                    return addresses;
+                    // fetch the logs with retry for failure
+                    let mut retry_count = 0;
+                    let mut backoff = 1000; // Initial backoff of 1 second
+                    loop {
+                        match provider.get_logs(&filter).await {
+                            Ok(logs) => {
+                                // extract all of the addresses
+                                let addresses: Vec<Address> = logs
+                                    .iter()
+                                    .map(|log| fetcher.log_to_address(&log.inner))
+                                    .collect();
+                                pb.inc(1);
+                                return Ok(addresses); // Return the addresses on success
+                            }
+                            Err(e) => {
+                                if retry_count >= MAX_RETRIES {
+                                    pb.inc(1);
+                                    return Err(e); // Return the error if max retries exceeded
                                 }
-                                Err(e) => {
-                                    if retry_count >= MAX_RETRIES {
-                                        eprintln!(
-                                            "Max retries reached for blocks {}-{}: {:?}",
-                                            from_block, to_block, e
-                                        );
-                                        drop(provider);
-                                        return Vec::new();
-                                    }
-
-                                    let jitter = rand::thread_rng().gen_range(0..=100);
-                                    let sleep_duration = Duration::from_millis(backoff + jitter);
-                                    tokio::time::sleep(sleep_duration).await;
-
-                                    retry_count += 1;
-                                    backoff *= 2; // Exponential backoff
-                                }
+                                let jitter = rand::thread_rng().gen_range(0..=100);
+                                let sleep_duration = Duration::from_millis(backoff + jitter);
+                                tokio::time::sleep(sleep_duration).await;
+                                retry_count += 1;
+                                backoff *= 2; // Exponential backoff
                             }
                         }
                     }
                 })
-                .buffer_unordered(10 as usize)
-                .collect::<Vec<Vec<Address>>>()
-                .await;
+            });
 
-            drop(provider);
-            let all_addresses: Vec<Address> = results.into_iter().flatten().collect();
-            Some(all_addresses)
-        } else {
-            Some(vec![])
+            // Wait for all tasks to complete and collect the results
+            let results = join_all(tasks).await;
+
+            // Collect all addresses, filtering out errors
+            let all_addresses: Vec<Address> = results
+                .into_iter()
+                .filter_map(|result| result.ok()) // Filter out any JoinError
+                .filter_map(|inner_result| inner_result.ok()) // Filter out any Err from our task
+                .flatten() // Flatten the Vec<Vec<Address>> into Vec<Address>
+                .collect();
+            return Some(all_addresses);
         }
+        None
     }
+
 
     pub async fn populate_pools<P, T, N>(
         pool_addrs: Vec<Address>,
         provider: Arc<P>,
         pool: PoolType,
         fetcher: Arc<dyn PoolFetcher>,
-        requests_per_second: u64,
-    ) -> Vec<Pool>
+        rate_limit: u64,
+    ) -> Result<Vec<Pool>>
     where
         P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
         N: Network,
     {
         let BATCH_SIZE = if pool.is_balancer() { 10 } else { 40 };
-        let total_tasks = (pool_addrs.len() + 39) / BATCH_SIZE; // Ceiling division by 40
-        let info = format!("{} data sync", pool);
-        let progress_bar = create_progress_bar(total_tasks as u64, info);
+        let total_tasks = (pool_addrs.len() + BATCH_SIZE - 1) / BATCH_SIZE; // Ceiling division
+        let progress_bar = create_progress_bar(total_tasks as u64, format!("{} data sync", pool));
+        let semaphore = Arc::new(Semaphore::new(rate_limit as usize));
+        let interval = Arc::new(tokio::sync::Mutex::new(interval(Duration::from_secs_f64(
+            1.0 / rate_limit as f64,
+        ))));
 
-        // Map all the addresses into chunks the contract can handle
         let addr_chunks: Vec<Vec<Address>> = pool_addrs
             .chunks(BATCH_SIZE)
             .map(|chunk| chunk.to_vec())
             .collect();
 
-        let results = stream::iter(addr_chunks)
-            .map(|chunk| {
-                let provider = provider.clone();
-                let progress_bar = progress_bar.clone();
-                let pool = pool.clone();
-                let fetcher = fetcher.clone();
+        let tasks = addr_chunks.into_iter().map(|chunk| {
+            let provider = provider.clone();
+            let sem = semaphore.clone();
+            let pb = progress_bar.clone();
+            let pool = pool.clone();
+            let fetcher = fetcher.clone();
+            let interval = interval.clone();
 
-                async move {
-                    let mut retry_count = 0;
-                    let mut backoff = INITIAL_BACKOFF;
-                    let data = fetcher.get_pool_repr();
+            tokio::spawn(async move {
+                let _permit = sem.acquire().await.unwrap();
+                interval.lock().await.tick().await;
+                let data = fetcher.get_pool_repr();
+                let mut retry_count = 0;
+                let mut backoff = 1000; // Initial backoff of 1 second
 
-                    loop {
-                        match pool_builder::build_pools(
-                            provider.clone(),
-                            chunk.clone(),
-                            pool,
-                            data.clone(),
-                        )
-                        .await
-                        {
-                            populated_pools if !populated_pools.is_empty() => {
-                                progress_bar.inc(1);
-                                return populated_pools;
-                            }
-                            _ => {
-                                if retry_count >= MAX_RETRIES {
-                                    eprintln!("Max retries reached for chunk");
-                                    return Vec::new();
-                                }
-
-                                let jitter = rand::thread_rng().gen_range(0..=100);
-                                let sleep_duration = Duration::from_millis(backoff + jitter);
-                                tokio::time::sleep(sleep_duration).await;
-
-                                retry_count += 1;
-                                backoff *= 2; // Exponential backoff
-                            }
+                loop {
+                    match pool_builder::build_pools(provider.clone(), chunk.clone(), pool, data.clone()).await {
+                        Ok(populated_pools) if !populated_pools.is_empty() => {
+                            pb.inc(1);
+                            return anyhow::Ok::<Vec<Pool>>(populated_pools);
                         }
+                        Err(e) => {
+                            if retry_count >= MAX_RETRIES {
+                                return Ok(Vec::new());
+                            }
+                            let jitter = rand::thread_rng().gen_range(0..=100);
+                            let sleep_duration = Duration::from_millis(backoff + jitter);
+                            tokio::time::sleep(sleep_duration).await;
+                            retry_count += 1;
+                            backoff *= 2; // Exponential backoff
+                        }
+                        _ => continue,
                     }
                 }
             })
-            .buffer_unordered(1000 as usize) // Allow some buffering for smoother operation
-            .collect::<Vec<Vec<Pool>>>()
-            .await;
+        });
 
-        let populated_pools: Vec<Pool> = results.into_iter().flatten().collect();
-        populated_pools
+        let results = join_all(tasks).await;
+
+
+        let populated_pools: Vec<Pool> = results
+            .into_iter()
+            .filter_map(|result| result.ok()) // Filter out any JoinError
+            .filter_map(|inner_result| inner_result.ok()) // Filter out any Err from our task
+            .flatten() // Flatten the Vec<Vec<Address>> into Vec<Address>
+            .collect();
+        Ok(populated_pools)
     }
 
     pub async fn populate_liquidity<P, T, N>(
@@ -215,7 +211,7 @@ impl Rpc {
         N: Network,
     {
         if pools.is_empty() {
-            return Ok(())
+            return Ok(());
         }
 
         // get the block difference
@@ -434,4 +430,3 @@ impl Rpc {
         block_ranges
     }
 }
-

@@ -3,6 +3,7 @@
 //}; //, snapshot::{v3_tick_snapshot, v3_tickbitmap_snapshot}};
 use alloy::network::Network;
 use alloy::primitives::{Address, address};
+use anyhow::Result;
 use alloy::providers::Provider;
 use alloy::transports::Transport;
 use alloy::dyn_abi::DynSolType;
@@ -36,7 +37,7 @@ pub async fn build_pools<P, T, N>(
     addresses: Vec<Address>,
     pool_type: PoolType,
     data: DynSolType
-) -> Vec<Pool>
+) -> Result<Vec<Pool>>
 where
     P: Provider<T, N> + Sync + 'static,
     T: Transport + Sync + Clone,
@@ -49,13 +50,13 @@ where
         match populate_pool_data(provider.clone(), addresses.clone(), pool_type, data.clone()).await {
             Ok(pools) => {
                 drop(provider);
-                return pools;
+                return Ok(pools);
             }
             Err(e) => {
                 if retry_count >= MAX_RETRIES {
                     eprintln!("Max retries reached. Error: {:?}", e);
                     drop(provider);
-                    return Vec::new();
+                    return Ok(Vec::new());
                 }
 
                 let jitter = rand::thread_rng().gen_range(0..=100);
@@ -74,7 +75,7 @@ async fn populate_pool_data<P, T, N>(
     pool_addresses: Vec<Address>,
     pool_type: PoolType,
     data: DynSolType,
-) -> Result<Vec<Pool>, Box<dyn std::error::Error>>
+) -> Result<Vec<Pool>>
 where
     P: Provider<T, N> + Sync + 'static,
     T: Transport + Sync + Clone,

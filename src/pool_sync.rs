@@ -95,7 +95,7 @@ impl PoolSync {
                         fetcher.clone(),
                         self.rate_limit,
                     )
-                    .await;
+                    .await.unwrap();
 
                     cache.pools.extend(new_pools);
 

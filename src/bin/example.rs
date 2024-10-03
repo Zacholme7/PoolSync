@@ -11,18 +11,13 @@ async fn main() -> Result<()> {
     let pool_sync = PoolSync::builder()
         .add_pool(PoolType::UniswapV2)
         .chain(Chain::Ethereum)
+        .rate_limit(25)
         .build()?;
 
     // Synchronize pools
     let (pools, last_synced_block) = pool_sync.sync_pools().await?;
 
-    /*
-    // Common Info
-    for pool in &pools {
-        println!("Pool Address {:?}, Token 0: {:?}, Token 1: {:?}", pool.address(), pool.token0_name(), pool.token1_name());
-    }
-
     println!("Synced {} pools!", pools.len());
-    */
+
     Ok(())
 }
