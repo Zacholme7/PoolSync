@@ -2,14 +2,14 @@
 //!
 //! This module provides functionality for caching pool synchronization data,
 //! including structures and functions for reading from and writing to cache files.
-//! 
+//!
 use crate::chain::Chain;
 use crate::pools::{Pool, PoolType};
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
-use anyhow::{Result, Context};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PoolCache {
@@ -24,8 +24,9 @@ pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> Result<PoolCache> 
         let file = File::open(&pool_cache_file)
             .with_context(|| format!("Failed to open cache file: {}", pool_cache_file))?;
         let reader = BufReader::new(file);
-        let pool_cache: PoolCache = serde_json::from_reader(reader)
-            .with_context(|| format!("Failed to deserialize cache from file: {}", pool_cache_file))?;
+        let pool_cache: PoolCache = serde_json::from_reader(reader).with_context(|| {
+            format!("Failed to deserialize cache from file: {}", pool_cache_file)
+        })?;
         Ok(pool_cache)
     } else {
         if Chain::Base == chain {
@@ -57,3 +58,4 @@ pub fn write_cache_file(pool_cache: &PoolCache, chain: Chain) -> Result<()> {
         .with_context(|| format!("Failed to serialize cache to file: {}", pool_cache_file))?;
     Ok(())
 }
+

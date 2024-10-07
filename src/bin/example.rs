@@ -16,8 +16,7 @@ async fn main() -> Result<()> {
 
     // Synchronize pools
     let (pools, last_synced_block) = pool_sync.sync_pools().await?;
-
-    println!("Synced {} pools!", pools.len());
+    println!("Synced {} pools up to block {}!", pools.len(), last_synced_block);
 
     Ok(())
 }

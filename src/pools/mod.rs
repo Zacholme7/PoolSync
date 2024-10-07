@@ -35,95 +35,79 @@ pub enum PoolType {
     UniswapV2,
     SushiSwapV2,
     PancakeSwapV2,
-
     UniswapV3,
     SushiSwapV3,
     PancakeSwapV3,
-
     Aerodrome,
     Slipstream,
-
     BaseSwapV2,
     BaseSwapV3,
-
     AlienBaseV2,
     AlienBaseV3,
-
     MaverickV1,
     MaverickV2,
-
     CurveTwoCrypto,
     CurveTriCrypto,
-
     BalancerV2,
-
     SwapBasedV2,
     SwapBasedV3,
-
     DackieSwapV2,
     DackieSwapV3
 }
 
 impl PoolType {
     pub fn is_v2(&self) -> bool {
-        self == &PoolType::UniswapV2
-            || self == &PoolType::SushiSwapV2
-            || self == &PoolType::PancakeSwapV2
-            || self == &PoolType::Aerodrome
-            || self == &PoolType::BaseSwapV2
-            || self == &PoolType::SwapBasedV2
-            || self == &PoolType::DackieSwapV2
-            || self == &PoolType::AlienBaseV2
-
+        matches!(self, 
+            PoolType::UniswapV2 | PoolType::SushiSwapV2 | PoolType::PancakeSwapV2 |
+            PoolType::Aerodrome | PoolType::BaseSwapV2 | PoolType::SwapBasedV2 |
+            PoolType::DackieSwapV2 | PoolType::AlienBaseV2
+        )
     }
 
+
     pub fn is_v3(&self) -> bool {
-        self == &PoolType::UniswapV3
-            || self == &PoolType::SushiSwapV3
-            || self == &PoolType::PancakeSwapV3
-            || self == &PoolType::Slipstream
-            || self == &PoolType::BaseSwapV3
-            || self == &PoolType::AlienBaseV3
-            || self == &PoolType::SwapBasedV3
-            || self == &PoolType::DackieSwapV3
+        matches!(self, 
+            PoolType::UniswapV3 | PoolType::SushiSwapV3 | PoolType::PancakeSwapV3 |
+            PoolType::Slipstream | PoolType::BaseSwapV3 | PoolType::AlienBaseV3 |
+            PoolType::SwapBasedV3 | PoolType::DackieSwapV3
+        )
     }
 
     pub fn is_maverick(&self) -> bool {
-        self == &PoolType::MaverickV1
-            || self == &PoolType::MaverickV2
+        matches!(self, PoolType::MaverickV1 | PoolType::MaverickV2)
     }
 
     pub fn is_curve_two(&self) -> bool {
-        self == &PoolType::CurveTwoCrypto
+        matches!(self, PoolType::CurveTwoCrypto)
     }
 
     pub fn is_curve_tri(&self) -> bool {
-        self == &PoolType::CurveTriCrypto
+        matches!(self, PoolType::CurveTriCrypto)
     }
 
     pub fn is_balancer(&self) -> bool {
-        self == &PoolType::BalancerV2
+        matches!(self, PoolType::BalancerV2)
     }
 
     pub fn build_pool(&self, pool_data: &[DynSolValue]) -> Pool {
         if self.is_v2() {
             let pool = UniswapV2Pool::from(pool_data);
-            Pool::new_v2(self.clone(), pool)
+            Pool::new_v2(*self, pool)
         } else if self.is_v3() {
             let pool = UniswapV3Pool::from(pool_data);
-            Pool::new_v3(self.clone(), pool)
+            Pool::new_v3(*self, pool)
         } else if self.is_maverick() {
             let pool = MaverickPool::from(pool_data);
-            Pool::new_maverick(self.clone(), pool)
+            Pool::new_maverick(*self, pool)
         } else if self.is_balancer() {
             let pool = BalancerV2Pool::from(pool_data);
-            Pool::new_balancer(self.clone(), pool)
+            Pool::new_balancer(*self, pool)
         } else if self.is_curve_two() {
             let pool = CurveTwoCryptoPool::from(pool_data);
-            Pool::new_curve_two(self.clone(), pool)
+            Pool::new_curve_two(*self, pool)
         }else if self.is_curve_tri() {
             let pool = CurveTriCryptoPool::from(pool_data);
-            Pool::new_curve_tri(self.clone(), pool)
+            Pool::new_curve_tri(*self, pool)
         } else {
             panic!("Invalid pool type");
         }
@@ -494,9 +478,8 @@ pub trait PoolFetcher: Send + Sync {
 
     /// Get the DynSolType for the pool
     fn get_pool_repr(&self) -> DynSolType;
-
-
 }
+
 
 /// Defines common methods that are used to access information about the pools
 pub trait PoolInfo {

@@ -67,7 +67,6 @@ impl PoolSync {
         while !fully_synced {
             fully_synced = true;
             let end_block = full.get_block_number().await.unwrap();
-            println!("{}", end_block);
 
             for cache in &mut pool_caches {
                 let start_block = cache.last_synced_block + 1;
@@ -85,7 +84,7 @@ impl PoolSync {
                         self.chain,
                         self.rate_limit,
                     )
-                    .await.unwrap();
+                    .await.expect("Failed to fetch pool addresses. Exiting due to having inconclusive state");
 
                     // populate all of the pool data
                     let new_pools = Rpc::populate_pools(
@@ -95,7 +94,8 @@ impl PoolSync {
                         fetcher.clone(),
                         self.rate_limit,
                     )
-                    .await.unwrap();
+                    .await
+                    .expect("Failed to sync pool data, Exiting due to haveing inconclusive state");
 
                     cache.pools.extend(new_pools);
 
@@ -104,10 +104,13 @@ impl PoolSync {
                         start_block,
                         end_block,
                         &mut cache.pools,
-                        archive.clone(), 
+                        archive.clone(),
                         cache.pool_type,
-                    ).await.unwrap();
+                    )
+                    .await
+                    .expect("Failed to populate liquidity information, Exiting due to having inconclusive state");
 
+                    // update info for cache
                     cache.last_synced_block = end_block;
                     last_synced_block = end_block;
                 }
@@ -120,9 +123,12 @@ impl PoolSync {
             .for_each(|cache| write_cache_file(cache, self.chain).unwrap());
 
         // return all the pools
-        Ok((pool_caches
-            .into_iter()
-            .flat_map(|cache| cache.pools)
-            .collect(), last_synced_block))
+        Ok((
+            pool_caches
+                .into_iter()
+                .flat_map(|cache| cache.pools)
+                .collect(),
+            last_synced_block,
+        ))
     }
 }

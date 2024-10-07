@@ -39,7 +39,6 @@ sol!(
     }
 );
 
-
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]

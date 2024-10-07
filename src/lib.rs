@@ -8,24 +8,24 @@
 // Public re-exports
 pub use chain::Chain;
 pub use pool_sync::PoolSync;
-pub use pools::{Pool, PoolInfo, PoolType};
-pub use rpc::Rpc;
 pub use pools::pool_structures::{
     balancer_v2_structure::BalancerV2Pool,
-    two_crypto_curve_structure::CurveTwoCryptoPool,
-    tri_crypto_curve_structure::CurveTriCryptoPool,
     maverick_structure::MaverickPool,
+    tri_crypto_curve_structure::CurveTriCryptoPool,
+    two_crypto_curve_structure::CurveTwoCryptoPool,
     v2_structure::UniswapV2Pool,
-    v3_structure::{UniswapV3Pool, TickInfo},
+    v3_structure::{TickInfo, UniswapV3Pool},
 };
+pub use pools::{Pool, PoolInfo, PoolType};
+pub use rpc::Rpc;
 
 // Internal modules
 mod builder;
 mod cache;
 mod chain;
 mod errors;
+mod events;
 mod pool_sync;
 mod pools;
 mod rpc;
 mod util;
-mod events;

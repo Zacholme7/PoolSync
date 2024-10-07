@@ -9,5 +9,6 @@ pub fn create_progress_bar(total_steps: u64, info: String) -> ProgressBar {
             .unwrap()
             .progress_chars("##-"),
     );
+    pb.tick();
     pb
 }

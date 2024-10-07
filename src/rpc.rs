@@ -6,8 +6,6 @@ use alloy::sol_types::SolEvent;
 use alloy::transports::Transport;
 use anyhow::Result;
 use futures::future::join_all;
-use futures::stream;
-use futures::stream::StreamExt;
 use log::warn;
 use rand::Rng;
 use std::collections::{BTreeMap, HashMap};
@@ -49,7 +47,7 @@ impl Rpc {
         if end_block.saturating_sub(start_block) > 0 {
             // construct set of block ranges to retrieve events over
             let block_range = Rpc::get_block_range(STEP_SIZE, start_block, end_block);
-            let pb_info = String::from("hello world");
+            let pb_info = format!("{} Address Sync", fetcher.pool_type());
             let progress_bar = create_progress_bar(block_range.len() as u64, pb_info);
 
             // semaphore and interval for rate limiting
@@ -93,15 +91,18 @@ impl Rpc {
                                 return Ok(addresses); // Return the addresses on success
                             }
                             Err(e) => {
+                                // if we have reached the retry count, just return
+                                // should fail here, will lead to inconsistent state most likely
                                 if retry_count >= MAX_RETRIES {
                                     pb.inc(1);
                                     return Err(e); // Return the error if max retries exceeded
                                 }
+                                // jitter the retry for best chance at success
                                 let jitter = rand::thread_rng().gen_range(0..=100);
                                 let sleep_duration = Duration::from_millis(backoff + jitter);
                                 tokio::time::sleep(sleep_duration).await;
                                 retry_count += 1;
-                                backoff *= 2; // Exponential backoff
+                                backoff *= 2;
                             }
                         }
                     }
@@ -136,20 +137,26 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        let BATCH_SIZE = if pool.is_balancer() { 10 } else { 40 };
-        let total_tasks = (pool_addrs.len() + BATCH_SIZE - 1) / BATCH_SIZE; // Ceiling division
+        // data batch size for contract calls
+        let batch_size = if pool.is_balancer() { 10 } else { 50 };
+
+        // informational and rate limiting initialization
+        let total_tasks = (pool_addrs.len() + batch_size - 1) / batch_size; // Ceiling division
         let progress_bar = create_progress_bar(total_tasks as u64, format!("{} data sync", pool));
         let semaphore = Arc::new(Semaphore::new(rate_limit as usize));
         let interval = Arc::new(tokio::sync::Mutex::new(interval(Duration::from_secs_f64(
             1.0 / rate_limit as f64,
         ))));
 
+        // break the addresses up into chunk
         let addr_chunks: Vec<Vec<Address>> = pool_addrs
-            .chunks(BATCH_SIZE)
+            .chunks(batch_size)
             .map(|chunk| chunk.to_vec())
             .collect();
 
+        // construct all of our tasks
         let tasks = addr_chunks.into_iter().map(|chunk| {
+            // clone all state to be used in the future
             let provider = provider.clone();
             let sem = semaphore.clone();
             let pb = progress_bar.clone();
@@ -158,19 +165,23 @@ impl Rpc {
             let interval = interval.clone();
 
             tokio::spawn(async move {
+                // make sure it is our turn to send a req
                 let _permit = sem.acquire().await.unwrap();
                 interval.lock().await.tick().await;
                 let data = fetcher.get_pool_repr();
                 let mut retry_count = 0;
                 let mut backoff = 1000; // Initial backoff of 1 second
 
+                // keep trying to fetch the result
                 loop {
+                    // try building pools from this set of addresses
                     match pool_builder::build_pools(provider.clone(), chunk.clone(), pool, data.clone()).await {
                         Ok(populated_pools) if !populated_pools.is_empty() => {
                             pb.inc(1);
                             return anyhow::Ok::<Vec<Pool>>(populated_pools);
                         }
                         Err(e) => {
+                            println!("Failed to fetche {:?}", e);
                             if retry_count >= MAX_RETRIES {
                                 return Ok(Vec::new());
                             }
@@ -186,9 +197,8 @@ impl Rpc {
             })
         });
 
+        // collect all of the results and process them into a list of pools
         let results = join_all(tasks).await;
-
-
         let populated_pools: Vec<Pool> = results
             .into_iter()
             .filter_map(|result| result.ok()) // Filter out any JoinError
@@ -201,7 +211,7 @@ impl Rpc {
     pub async fn populate_liquidity<P, T, N>(
         start_block: u64,
         end_block: u64,
-        pools: &mut Vec<Pool>,
+        pools: &mut [Pool],
         provider: Arc<P>,
         pool_type: PoolType,
     ) -> Result<()>
@@ -222,10 +232,23 @@ impl Rpc {
             .map(|(i, pool)| (pool.address(), i))
             .collect();
 
+        // if we have blocks to get information from
         if block_difference > 0 {
             // create the progress bar
 
             let mut new_logs: Vec<Log> = Vec::new();
+
+            // Need to fetch different events based on the type of pool we are syncing.
+            // This function will allow us to process events since the last sync to maintain proper
+            // state
+            //
+            // For uniswapv2, this function is called when we are finished with a first run sync 
+            // and we have to catch up with missed state/this is the first time running in a while.
+            //
+            // For uniswapv3, we need to reconstruct the state from the start of the chain so this
+            // will always be called. 
+
+
             if pool_type.is_v3() {
                 // fetch all mint/burn/swap logs
                 new_logs.extend(
@@ -408,10 +431,7 @@ impl Rpc {
 
     // Generate a range of blocks of step size distance
     pub fn get_block_range(step_size: u64, start_block: u64, end_block: u64) -> Vec<(u64, u64)> {
-        println!("this is running here");
-        println!("{end_block}, {start_block}");
         let block_difference = end_block.saturating_sub(start_block);
-        println!("{}asdf", block_difference);
         let (_, step_size) = if block_difference < step_size {
             (1, block_difference)
         } else {

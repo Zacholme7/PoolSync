@@ -113,7 +113,6 @@ where
         _=> panic!("Invalid pool type")
     };
 
-    //println!("Raw pool data: {:?}", hex::encode(&pool_data));
     let decoded_data = data.abi_decode_sequence(&pool_data)?;
     let mut pools = Vec::new();
 
