@@ -1,12 +1,12 @@
 use alloy::dyn_abi::DynSolValue;
 use alloy::primitives::{Address, U256};
+use alloy::rpc::types::Log;
 use alloy::sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use alloy::rpc::types::Log;
 
-use crate::pools::PoolType;
 use crate::events::{DataEvents, PancakeSwapEvents};
+use crate::pools::PoolType;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UniswapV3Pool {
@@ -33,7 +33,6 @@ pub struct TickInfo {
     pub liquidity_gross: u128,
 }
 
-
 pub fn process_tick_data(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType) {
     let event_sig = log.topic0().unwrap();
 
@@ -41,7 +40,9 @@ pub fn process_tick_data(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType
         process_burn(pool, log);
     } else if *event_sig == DataEvents::Mint::SIGNATURE_HASH {
         process_mint(pool, log);
-    } else if *event_sig == DataEvents::Swap::SIGNATURE_HASH || *event_sig == PancakeSwapEvents::Swap::SIGNATURE_HASH {
+    } else if *event_sig == DataEvents::Swap::SIGNATURE_HASH
+        || *event_sig == PancakeSwapEvents::Swap::SIGNATURE_HASH
+    {
         process_swap(pool, log, pool_type);
     }
 }
@@ -52,7 +53,7 @@ fn process_burn(pool: &mut UniswapV3Pool, log: Log) {
         pool,
         burn_event.tickLower.as_i32(),
         burn_event.tickUpper.as_i32(),
-        -(burn_event.amount as i128)
+        -(burn_event.amount as i128),
     );
 }
 
@@ -62,7 +63,7 @@ fn process_mint(pool: &mut UniswapV3Pool, log: Log) {
         pool,
         mint_event.tickLower.as_i32(),
         mint_event.tickUpper.as_i32(),
-        mint_event.amount as i128
+        mint_event.amount as i128,
     );
 }
 
@@ -204,3 +205,4 @@ impl From<&[DynSolValue]> for UniswapV3Pool {
         }
     }
 }
+

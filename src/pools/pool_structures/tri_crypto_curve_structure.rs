@@ -1,6 +1,6 @@
-use alloy::primitives::Address;
-use serde::{Serialize, Deserialize};
 use alloy::dyn_abi::DynSolValue;
+use alloy::primitives::Address;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CurveTriCryptoPool {
@@ -55,3 +55,4 @@ impl From<&[DynSolValue]> for CurveTriCryptoPool {
         }
     }
 }
+

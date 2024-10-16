@@ -1,10 +1,10 @@
+use crate::events::{AerodromeSync, DataEvents};
+use crate::pools::PoolType;
 use alloy::dyn_abi::DynSolValue;
 use alloy::primitives::{Address, U128, U256};
+use alloy::rpc::types::Log;
 use alloy::sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
-use alloy::rpc::types::Log;
-use crate::pools::PoolType;
-use crate::events::{DataEvents, AerodromeSync};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UniswapV2Pool {
@@ -48,3 +48,4 @@ impl From<&[DynSolValue]> for UniswapV2Pool {
         }
     }
 }
+

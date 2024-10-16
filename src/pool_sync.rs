@@ -84,7 +84,10 @@ impl PoolSync {
                         self.chain,
                         self.rate_limit,
                     )
-                    .await.expect("Failed to fetch pool addresses. Exiting due to having inconclusive state");
+                    .await
+                    .expect(
+                        "Failed to fetch pool addresses. Exiting due to having inconclusive state",
+                    );
 
                     // populate all of the pool data
                     let new_pools = Rpc::populate_pools(

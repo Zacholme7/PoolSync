@@ -124,7 +124,6 @@ impl Rpc {
         None
     }
 
-
     pub async fn populate_pools<P, T, N>(
         pool_addrs: Vec<Address>,
         provider: Arc<P>,
@@ -175,7 +174,14 @@ impl Rpc {
                 // keep trying to fetch the result
                 loop {
                     // try building pools from this set of addresses
-                    match pool_builder::build_pools(provider.clone(), chunk.clone(), pool, data.clone()).await {
+                    match pool_builder::build_pools(
+                        provider.clone(),
+                        chunk.clone(),
+                        pool,
+                        data.clone(),
+                    )
+                    .await
+                    {
                         Ok(populated_pools) if !populated_pools.is_empty() => {
                             pb.inc(1);
                             return anyhow::Ok::<Vec<Pool>>(populated_pools);
@@ -242,12 +248,11 @@ impl Rpc {
             // This function will allow us to process events since the last sync to maintain proper
             // state
             //
-            // For uniswapv2, this function is called when we are finished with a first run sync 
+            // For uniswapv2, this function is called when we are finished with a first run sync
             // and we have to catch up with missed state/this is the first time running in a while.
             //
             // For uniswapv3, we need to reconstruct the state from the start of the chain so this
-            // will always be called. 
-
+            // will always be called.
 
             if pool_type.is_v3() {
                 // fetch all mint/burn/swap logs

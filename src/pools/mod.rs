@@ -10,9 +10,9 @@ use alloy::primitives::U128;
 use alloy::primitives::U256;
 use alloy::primitives::{Address, Log};
 use pool_structures::balancer_v2_structure::BalancerV2Pool;
-use pool_structures::two_crypto_curve_structure::CurveTwoCryptoPool;
-use pool_structures::tri_crypto_curve_structure::CurveTriCryptoPool;
 use pool_structures::maverick_structure::MaverickPool;
+use pool_structures::tri_crypto_curve_structure::CurveTriCryptoPool;
+use pool_structures::two_crypto_curve_structure::CurveTwoCryptoPool;
 use pool_structures::v2_structure::UniswapV2Pool;
 use pool_structures::v3_structure::TickInfo;
 use pool_structures::v3_structure::UniswapV3Pool;
@@ -24,10 +24,10 @@ use std::fmt;
 use crate::chain::Chain;
 use crate::impl_pool_info;
 
+mod gen;
+pub mod pool_builder;
 pub mod pool_fetchers;
 pub mod pool_structures;
-pub mod pool_builder;
-mod gen;
 
 /// Enumerates the supported pool types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -52,24 +52,35 @@ pub enum PoolType {
     SwapBasedV2,
     SwapBasedV3,
     DackieSwapV2,
-    DackieSwapV3
+    DackieSwapV3,
 }
 
 impl PoolType {
     pub fn is_v2(&self) -> bool {
-        matches!(self, 
-            PoolType::UniswapV2 | PoolType::SushiSwapV2 | PoolType::PancakeSwapV2 |
-            PoolType::Aerodrome | PoolType::BaseSwapV2 | PoolType::SwapBasedV2 |
-            PoolType::DackieSwapV2 | PoolType::AlienBaseV2
+        matches!(
+            self,
+            PoolType::UniswapV2
+                | PoolType::SushiSwapV2
+                | PoolType::PancakeSwapV2
+                | PoolType::Aerodrome
+                | PoolType::BaseSwapV2
+                | PoolType::SwapBasedV2
+                | PoolType::DackieSwapV2
+                | PoolType::AlienBaseV2
         )
     }
 
-
     pub fn is_v3(&self) -> bool {
-        matches!(self, 
-            PoolType::UniswapV3 | PoolType::SushiSwapV3 | PoolType::PancakeSwapV3 |
-            PoolType::Slipstream | PoolType::BaseSwapV3 | PoolType::AlienBaseV3 |
-            PoolType::SwapBasedV3 | PoolType::DackieSwapV3
+        matches!(
+            self,
+            PoolType::UniswapV3
+                | PoolType::SushiSwapV3
+                | PoolType::PancakeSwapV3
+                | PoolType::Slipstream
+                | PoolType::BaseSwapV3
+                | PoolType::AlienBaseV3
+                | PoolType::SwapBasedV3
+                | PoolType::DackieSwapV3
         )
     }
 
@@ -105,14 +116,13 @@ impl PoolType {
         } else if self.is_curve_two() {
             let pool = CurveTwoCryptoPool::from(pool_data);
             Pool::new_curve_two(*self, pool)
-        }else if self.is_curve_tri() {
+        } else if self.is_curve_tri() {
             let pool = CurveTriCryptoPool::from(pool_data);
             Pool::new_curve_tri(*self, pool)
         } else {
             panic!("Invalid pool type");
         }
     }
-
 }
 
 /// Represents a populated pool from any of the supported protocols
@@ -376,9 +386,9 @@ impl Pool {
     }
 
     pub fn is_valid(&self) -> bool {
-        self.address() != Address::ZERO && 
-        self.token0_address() != Address::ZERO && 
-        self.token1_address() != Address::ZERO
+        self.address() != Address::ZERO
+            && self.token0_address() != Address::ZERO
+            && self.token1_address() != Address::ZERO
     }
 
     fn update_token0_name(pool: &mut Pool, token0: String) {
@@ -416,7 +426,7 @@ impl Pool {
         } else if pool.is_curve_tri() {
             let pool = pool.get_curve_tri_mut().unwrap();
             pool.token1_name = token1;
-        }else if pool.is_balancer() {
+        } else if pool.is_balancer() {
             let pool = pool.get_balancer_mut().unwrap();
             pool.token1_name = token1;
         } else if pool.is_maverick() {
@@ -458,7 +468,6 @@ impl_pool_info!(
     DackieSwapV3
 );
 
-
 /// Defines common functionality for fetching and decoding pool creation events
 ///
 /// This trait provides a unified interface for different pool types to implement
@@ -479,7 +488,6 @@ pub trait PoolFetcher: Send + Sync {
     /// Get the DynSolType for the pool
     fn get_pool_repr(&self) -> DynSolType;
 }
-
 
 /// Defines common methods that are used to access information about the pools
 pub trait PoolInfo {

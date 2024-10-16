@@ -4,19 +4,11 @@
 //! allowing for flexible configuration of pool types and chains to be synced.
 
 use crate::pools::pool_fetchers::{
-    BaseSwapV2Fetcher, BaseSwapV3Fetcher,
-    AerodromeFetcher, SlipstreamFetcher,
-    PancakeSwapV2Fetcher, PancakeSwapV3Fetcher,
-    SushiSwapV2Fetcher, SushiSwapV3Fetcher,
-    UniswapV2Fetcher, UniswapV3Fetcher,
-    AlienBaseV2Fetcher, AlienBaseV3Fetcher,
-    MaverickV1Fetcher, MaverickV2Fetcher,
-    CurveTwoCryptoFetcher, CurveTriCryptoFetcher,
-    BalancerV2Fetcher,
-    SwapBasedV2Fetcher,
-    SwapBasedV3Fetcher,
-    DackieSwapV2Fetcher,
-    DackieSwapV3Fetcher
+    AerodromeFetcher, AlienBaseV2Fetcher, AlienBaseV3Fetcher, BalancerV2Fetcher, BaseSwapV2Fetcher,
+    BaseSwapV3Fetcher, CurveTriCryptoFetcher, CurveTwoCryptoFetcher, DackieSwapV2Fetcher,
+    DackieSwapV3Fetcher, MaverickV1Fetcher, MaverickV2Fetcher, PancakeSwapV2Fetcher,
+    PancakeSwapV3Fetcher, SlipstreamFetcher, SushiSwapV2Fetcher, SushiSwapV3Fetcher,
+    SwapBasedV2Fetcher, SwapBasedV3Fetcher, UniswapV2Fetcher, UniswapV3Fetcher,
 };
 
 use crate::errors::*;
@@ -104,7 +96,7 @@ impl PoolSyncBuilder {
             PoolType::CurveTriCrypto => {
                 self.fetchers
                     .insert(PoolType::CurveTriCrypto, Arc::new(CurveTriCryptoFetcher));
-            }   
+            }
             PoolType::BalancerV2 => {
                 self.fetchers
                     .insert(PoolType::BalancerV2, Arc::new(BalancerV2Fetcher));

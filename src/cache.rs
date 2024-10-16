@@ -58,4 +58,3 @@ pub fn write_cache_file(pool_cache: &PoolCache, chain: Chain) -> Result<()> {
         .with_context(|| format!("Failed to serialize cache to file: {}", pool_cache_file))?;
     Ok(())
 }
-

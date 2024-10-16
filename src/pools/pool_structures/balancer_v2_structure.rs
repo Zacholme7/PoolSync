@@ -1,9 +1,9 @@
-use alloy::{dyn_abi::DynSolValue, primitives::Address};
-use alloy::sol_types::SolEvent;
-use serde::{Deserialize, Serialize};
-use alloy::primitives::U256;
 use alloy::primitives::FixedBytes;
+use alloy::primitives::U256;
 use alloy::rpc::types::Log;
+use alloy::sol_types::SolEvent;
+use alloy::{dyn_abi::DynSolValue, primitives::Address};
+use serde::{Deserialize, Serialize};
 
 use crate::events::BalancerV2Event;
 use crate::pools::gen::Vault;
@@ -38,7 +38,9 @@ impl BalancerV2Pool {
         } else if *token == self.token1 {
             Some(1)
         } else {
-            self.additional_tokens.iter().position(|&t| t == *token)
+            self.additional_tokens
+                .iter()
+                .position(|&t| t == *token)
                 .map(|pos| pos + 2)
         }
     }
@@ -59,8 +61,10 @@ pub fn process_balance_data(pool: &mut BalancerV2Pool, log: Log) {
     let log_token_in_idx = pool.get_token_index(&event.tokenIn).unwrap();
     let log_token_out_idx = pool.get_token_index(&event.tokenOut).unwrap();
 
-    pool.balances[log_token_in_idx] = pool.balances[log_token_in_idx].saturating_add(event.amountIn);
-    pool.balances[log_token_out_idx] = pool.balances[log_token_out_idx].saturating_sub(event.amountOut);
+    pool.balances[log_token_in_idx] =
+        pool.balances[log_token_in_idx].saturating_add(event.amountIn);
+    pool.balances[log_token_out_idx] =
+        pool.balances[log_token_out_idx].saturating_sub(event.amountOut);
 }
 
 impl From<&[DynSolValue]> for BalancerV2Pool {
@@ -71,10 +75,30 @@ impl From<&[DynSolValue]> for BalancerV2Pool {
         let token1 = data[3].as_address().unwrap();
         let token0_decimals = data[4].as_uint().unwrap().0.to::<u8>();
         let token1_decimals = data[5].as_uint().unwrap().0.to::<u8>();
-        let additional_tokens: Vec<Address> = data[6].as_array().unwrap().iter().map(|v| v.as_address().unwrap()).collect();
-        let additional_token_decimals: Vec<u8> = data[7].as_array().unwrap().iter().map(|v| v.as_uint().unwrap().0.to::<u8>()).collect();
-        let balances: Vec<U256> = data[8].as_array().unwrap().iter().map(|v| v.as_uint().unwrap().0).collect();
-        let weights: Vec<U256> = data[9].as_array().unwrap().iter().map(|v| v.as_uint().unwrap().0).collect();
+        let additional_tokens: Vec<Address> = data[6]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_address().unwrap())
+            .collect();
+        let additional_token_decimals: Vec<u8> = data[7]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_uint().unwrap().0.to::<u8>())
+            .collect();
+        let balances: Vec<U256> = data[8]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_uint().unwrap().0)
+            .collect();
+        let weights: Vec<U256> = data[9]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_uint().unwrap().0)
+            .collect();
         let swap_fee = data[10].as_uint().unwrap().0;
 
         Self {
@@ -95,3 +119,4 @@ impl From<&[DynSolValue]> for BalancerV2Pool {
         }
     }
 }
+

@@ -1,32 +1,26 @@
 //use crate::{
 //    pools::{Pool, PoolType}, rpc::{DataEvents, PancakeSwap, Rpc}
 //}; //, snapshot::{v3_tick_snapshot, v3_tickbitmap_snapshot}};
+use crate::PoolInfo;
+use alloy::dyn_abi::DynSolType;
 use alloy::network::Network;
-use alloy::primitives::{Address, address};
-use anyhow::Result;
+use alloy::primitives::{address, Address};
 use alloy::providers::Provider;
 use alloy::transports::Transport;
-use alloy::dyn_abi::DynSolType;
+use anyhow::Result;
 use rand::Rng;
 use std::sync::Arc;
-use crate::PoolInfo;
 
 use std::time::Duration;
 use uniswap_v3_math;
 
 use super::gen::{
-    V2DataSync, 
-    V3DataSync, 
-    PancakeSwapDataSync, 
-    MaverickDataSync,
-    SlipStreamDataSync,
-    BalancerV2DataSync,
-    TwoCurveDataSync,
-    TriCurveDataSync
+    BalancerV2DataSync, MaverickDataSync, PancakeSwapDataSync, SlipStreamDataSync,
+    TriCurveDataSync, TwoCurveDataSync, V2DataSync, V3DataSync,
 };
 
 use crate::pools::gen::ERC20;
-use crate::pools::gen::{AerodromeV2Factory, AerodromePool};
+use crate::pools::gen::{AerodromePool, AerodromeV2Factory};
 use crate::pools::{Pool, PoolType};
 
 pub const INITIAL_BACKOFF: u64 = 1000; // 1 second
@@ -36,7 +30,7 @@ pub async fn build_pools<P, T, N>(
     provider: Arc<P>,
     addresses: Vec<Address>,
     pool_type: PoolType,
-    data: DynSolType
+    data: DynSolType,
 ) -> Result<Vec<Pool>>
 where
     P: Provider<T, N> + Sync + 'static,
@@ -47,7 +41,8 @@ where
     let mut backoff = INITIAL_BACKOFF;
 
     loop {
-        match populate_pool_data(provider.clone(), addresses.clone(), pool_type, data.clone()).await {
+        match populate_pool_data(provider.clone(), addresses.clone(), pool_type, data.clone()).await
+        {
             Ok(pools) => {
                 drop(provider);
                 return Ok(pools);
@@ -82,20 +77,26 @@ where
     N: Network,
 {
     let pool_data = match pool_type {
-        PoolType::UniswapV2 | PoolType::SushiSwapV2 | 
-        PoolType::PancakeSwapV2 | PoolType::BaseSwapV2 |
-        PoolType::Aerodrome | PoolType::AlienBaseV2 | 
-        PoolType::SwapBasedV2 | PoolType::DackieSwapV2 => {
+        PoolType::UniswapV2
+        | PoolType::SushiSwapV2
+        | PoolType::PancakeSwapV2
+        | PoolType::BaseSwapV2
+        | PoolType::Aerodrome
+        | PoolType::AlienBaseV2
+        | PoolType::SwapBasedV2
+        | PoolType::DackieSwapV2 => {
             V2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
         PoolType::MaverickV1 | PoolType::MaverickV2 => {
             MaverickDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
-        } 
-        PoolType::PancakeSwapV3  | PoolType::SwapBasedV3 | PoolType::DackieSwapV3 => {
+        }
+        PoolType::PancakeSwapV3 | PoolType::SwapBasedV3 | PoolType::DackieSwapV3 => {
             PancakeSwapDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
-        PoolType::UniswapV3 | PoolType::SushiSwapV3 | 
-        PoolType::BaseSwapV3 | PoolType::AlienBaseV3 => {
+        PoolType::UniswapV3
+        | PoolType::SushiSwapV3
+        | PoolType::BaseSwapV3
+        | PoolType::AlienBaseV3 => {
             V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
         PoolType::Slipstream => {
@@ -110,7 +111,7 @@ where
         PoolType::CurveTriCrypto => {
             TriCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
-        _=> panic!("Invalid pool type")
+        _ => panic!("Invalid pool type"),
     };
 
     let decoded_data = data.abi_decode_sequence(&pool_data)?;
@@ -165,11 +166,16 @@ where
             let pool = pool.get_v2_mut().unwrap();
             // get if it is stable or not
             let pool_contract = AerodromePool::new(pool.address, provider.clone());
-            let AerodromePool::stableReturn {_0: stable } = pool_contract.stable().call().await.unwrap();
+            let AerodromePool::stableReturn { _0: stable } =
+                pool_contract.stable().call().await.unwrap();
             pool.stable = Some(stable);
 
             let factory_contract = AerodromeV2Factory::new(factory, provider.clone());
-            let AerodromeV2Factory::getFeeReturn {_0: fee} = factory_contract.getFee(pool.address, stable).call().await.unwrap();
+            let AerodromeV2Factory::getFeeReturn { _0: fee } = factory_contract
+                .getFee(pool.address, stable)
+                .call()
+                .await
+                .unwrap();
             pool.fee = Some(fee);
         }
     }
