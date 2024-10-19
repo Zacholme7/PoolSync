@@ -37,7 +37,7 @@ impl Rpc {
         fetcher: Arc<dyn PoolFetcher>,
         chain: Chain,
         rate_limit: u64,
-    ) -> Option<Vec<Address>>
+    ) -> Result<Vec<Address>>
     where
         P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
@@ -88,6 +88,7 @@ impl Rpc {
                                     .map(|log| fetcher.log_to_address(&log.inner))
                                     .collect();
                                 pb.inc(1);
+                                drop(provider);
                                 return Ok(addresses); // Return the addresses on success
                             }
                             Err(e) => {
@@ -119,9 +120,9 @@ impl Rpc {
                 .filter_map(|inner_result| inner_result.ok()) // Filter out any Err from our task
                 .flatten() // Flatten the Vec<Vec<Address>> into Vec<Address>
                 .collect();
-            return Some(all_addresses);
+            return Ok(all_addresses);
         }
-        None
+        Ok(vec![])
     }
 
     pub async fn populate_pools<P, T, N>(
@@ -184,6 +185,7 @@ impl Rpc {
                     {
                         Ok(populated_pools) if !populated_pools.is_empty() => {
                             pb.inc(1);
+                            drop(provider);
                             return anyhow::Ok::<Vec<Pool>>(populated_pools);
                         }
                         Err(e) => {
