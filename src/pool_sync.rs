@@ -109,6 +109,7 @@ impl PoolSync {
                         &mut cache.pools,
                         archive.clone(),
                         cache.pool_type,
+                        self.rate_limit
                     )
                     .await
                     .expect("Failed to populate liquidity information, Exiting due to having inconclusive state");

@@ -142,7 +142,7 @@ where
 
         // If the pool is balancer, update names for the other tokens
         if pool_type == PoolType::BalancerV2 {
-            let mut pool = pool.get_balancer_mut().unwrap();
+            let pool = pool.get_balancer_mut().unwrap();
             for token in &pool.additional_tokens {
                 let token_contract = ERC20::new(*token, provider.clone());
                 if let Ok(ERC20::symbolReturn { _0: name }) = token_contract.symbol().call().await {

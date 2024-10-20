@@ -6,6 +6,7 @@ use alloy::sol_types::SolEvent;
 use alloy::transports::Transport;
 use anyhow::Result;
 use futures::future::join_all;
+use log::info;
 use log::warn;
 use rand::Rng;
 use std::collections::{BTreeMap, HashMap};
@@ -95,7 +96,12 @@ impl Rpc {
                                 // if we have reached the retry count, just return
                                 // should fail here, will lead to inconsistent state most likely
                                 if retry_count >= MAX_RETRIES {
+                                    info!(
+                                        "Failed to fetch addresses in range {}..{}",
+                                        from_block, to_block
+                                    );
                                     pb.inc(1);
+                                    drop(provider);
                                     return Err(e); // Return the error if max retries exceeded
                                 }
                                 // jitter the retry for best chance at success
@@ -160,7 +166,6 @@ impl Rpc {
             let provider = provider.clone();
             let sem = semaphore.clone();
             let pb = progress_bar.clone();
-            let pool = pool.clone();
             let fetcher = fetcher.clone();
             let interval = interval.clone();
 
@@ -189,8 +194,9 @@ impl Rpc {
                             return anyhow::Ok::<Vec<Pool>>(populated_pools);
                         }
                         Err(e) => {
-                            println!("Failed to fetche {:?}", e);
                             if retry_count >= MAX_RETRIES {
+                                info!("Failed to populate pools data: {}", e);
+                                drop(provider);
                                 return Ok(Vec::new());
                             }
                             let jitter = rand::thread_rng().gen_range(0..=100);
@@ -222,6 +228,7 @@ impl Rpc {
         pools: &mut [Pool],
         provider: Arc<P>,
         pool_type: PoolType,
+        rate_limit: u64,
     ) -> Result<()>
     where
         P: Provider<T, N> + Sync + 'static,
@@ -269,7 +276,7 @@ impl Rpc {
                         ],
                         provider.clone(),
                         String::from("Tick sync"),
-                        10, // have to adjust this
+                        rate_limit,
                     )
                     .await
                     .unwrap(),
@@ -287,7 +294,7 @@ impl Rpc {
                             ],
                             provider.clone(),
                             String::from("Swap sync"),
-                            10, // have to adjust this
+                            rate_limit,
                         )
                         .await
                         .unwrap(),
@@ -302,8 +309,8 @@ impl Rpc {
                             5000,
                             vec![BalancerV2Event::Swap::SIGNATURE_HASH],
                             provider.clone(),
-                            String::from("hello world"),
-                            10, // have to ajdust some rate limit
+                            String::from("Swap Sync"),
+                            rate_limit, // have to ajdust some rate limit
                         )
                         .await
                         .unwrap(),
@@ -323,8 +330,8 @@ impl Rpc {
                                 DataEvents::Sync::SIGNATURE_HASH,
                             ],
                             provider.clone(),
-                            String::from("hello world"),
-                            10, // have to ajdust some rate limit
+                            String::from("Reserve Sync"),
+                            rate_limit, // have to ajdust some rate limit
                         )
                         .await
                         .unwrap(),
@@ -413,12 +420,13 @@ impl Rpc {
                 pb.inc(1);
 
                 match result {
-                    Ok(logs) => logs,
+                    Ok(logs) => {drop(provider); logs},
                     Err(_) => {
-                        warn!(
+                        info!(
                             "Failed to get logs for the block range {}..{}",
                             from_block, to_block
                         );
+                        drop(provider);
                         vec![]
                     }
                 }
