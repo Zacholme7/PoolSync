@@ -25,6 +25,7 @@ ARCHIVE = "archive node endpoint"
 - SushiswapV2/V2
 - PancakeswapV2/V3
 - MaverickV1/V2
+- Curve
 ### Base
 - UniswapV2/V3
 - SushiswapV2/V3
@@ -33,13 +34,20 @@ ARCHIVE = "archive node endpoint"
 - MaverickV1/V2
 - Aerodrome/Slipstream
 - AlienBase
+- Curve
+### BSC
+- UniswapV2/V3
+- SushiswapV2/V3
+- PancakeswapV2/V3
+- Curve
 
 ## Example Usage
 ```rust
 use pool_sync::{PoolSync, PoolType, Chain, PoolInfo};
+use std::error;
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn error::Error>> {
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         .add_pool(PoolType::UniswapV2)

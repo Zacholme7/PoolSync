@@ -15,7 +15,8 @@ pub enum Chain {
     Ethereum,
     /// Base chain
     Base,
-    // Additional chains can be added here
+    /// Binance Smart Chain
+    BSC, // Additional chains can be added here
 }
 
 /// Static mapping of supported pool types for each chain
@@ -71,6 +72,22 @@ static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
             PoolType::SwapBasedV3,
             PoolType::DackieSwapV2,
             PoolType::DackieSwapV3,
+        ]
+        .iter()
+        .cloned()
+        .collect(),
+    );
+    m.insert(
+        Chain::BSC,
+        [
+            PoolType::UniswapV2,
+            PoolType::UniswapV3,
+            PoolType::PancakeSwapV2,
+            PoolType::PancakeSwapV3,
+            PoolType::SushiSwapV2,
+            PoolType::SushiSwapV3,
+            PoolType::CurveTwoCrypto,
+            PoolType::CurveTriCrypto,
         ]
         .iter()
         .cloned()

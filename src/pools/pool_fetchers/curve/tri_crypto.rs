@@ -1,7 +1,7 @@
+use alloy::dyn_abi::DynSolType;
+use alloy::primitives::Log;
 use alloy::primitives::{address, Address};
 use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
 
 use crate::pools::gen::TriCryptoFactory;
 use crate::pools::PoolFetcher;
@@ -19,6 +19,7 @@ impl PoolFetcher for CurveTriCryptoFetcher {
         match chain {
             Chain::Ethereum => address!("0c0e5f2fF0ff18a3be9b835635039256dC4B4963"),
             Chain::Base => address!("A5961898870943c68037F6848d2D866Ed2016bcB"),
+            Chain::BSC => address!("c55837710bc500F1E3c7bb9dd1d51F7c5647E657"),
         }
     }
 
@@ -33,7 +34,7 @@ impl PoolFetcher for CurveTriCryptoFetcher {
 
     fn get_pool_repr(&self) -> DynSolType {
         DynSolType::Array(Box::new(DynSolType::Tuple(vec![
-            DynSolType::Address,                                  
+            DynSolType::Address,
             DynSolType::Address,
             DynSolType::Address,
             DynSolType::Address,
@@ -42,5 +43,4 @@ impl PoolFetcher for CurveTriCryptoFetcher {
             DynSolType::Uint(8),
         ])))
     }
-
 }

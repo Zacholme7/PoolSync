@@ -1,11 +1,11 @@
-use alloy::primitives::{address, Address};
-use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
 use crate::pools::gen::PancakeSwapV2Factory;
 use crate::pools::PoolFetcher;
 use crate::pools::PoolType;
 use crate::Chain;
+use alloy::dyn_abi::DynSolType;
+use alloy::primitives::Log;
+use alloy::primitives::{address, Address};
+use alloy::sol_types::SolEvent;
 
 pub struct PancakeSwapV2Fetcher;
 
@@ -16,8 +16,9 @@ impl PoolFetcher for PancakeSwapV2Fetcher {
 
     fn factory_address(&self, chain: Chain) -> Address {
         match chain {
-            Chain::Ethereum => address!("1097053Fd2ea711dad45caCcc45EfF7548fCB362"),            
+            Chain::Ethereum => address!("1097053Fd2ea711dad45caCcc45EfF7548fCB362"),
             Chain::Base => address!("02a84c1b3BBD7401a5f7fa98a384EBC70bB5749E"),
+            Chain::BSC => address!("cA143Ce32Fe78f1f7019d7d551a6402fC5350c73"),
         }
     }
 
@@ -30,7 +31,6 @@ impl PoolFetcher for PancakeSwapV2Fetcher {
         decoded_log.data.pair
     }
 
-
     fn get_pool_repr(&self) -> DynSolType {
         DynSolType::Array(Box::new(DynSolType::Tuple(vec![
             DynSolType::Address,
@@ -42,5 +42,4 @@ impl PoolFetcher for PancakeSwapV2Fetcher {
             DynSolType::Uint(112),
         ])))
     }
-
 }

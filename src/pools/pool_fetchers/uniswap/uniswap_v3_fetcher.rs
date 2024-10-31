@@ -1,11 +1,11 @@
-use alloy::primitives::{address, Address};
-use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
-use crate::pools::PoolFetcher;
 use crate::pools::gen::UniswapV3Factory;
+use crate::pools::PoolFetcher;
 use crate::pools::PoolType;
 use crate::Chain;
+use alloy::dyn_abi::DynSolType;
+use alloy::primitives::Log;
+use alloy::primitives::{address, Address};
+use alloy::sol_types::SolEvent;
 pub struct UniswapV3Fetcher;
 
 impl PoolFetcher for UniswapV3Fetcher {
@@ -17,6 +17,7 @@ impl PoolFetcher for UniswapV3Fetcher {
         match chain {
             Chain::Ethereum => address!("1F98431c8aD98523631AE4a59f267346ea31F984"),
             Chain::Base => address!("33128a8fC17869897dcE68Ed026d694621f6FDfD"),
+            Chain::BSC => address!("dB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7"),
         }
     }
 
@@ -27,7 +28,6 @@ impl PoolFetcher for UniswapV3Fetcher {
     fn log_to_address(&self, log: &Log) -> Address {
         let decoded_log = UniswapV3Factory::PoolCreated::decode_log(log, false).unwrap();
         decoded_log.data.pool
-        
     }
 
     fn get_pool_repr(&self) -> DynSolType {
@@ -45,6 +45,4 @@ impl PoolFetcher for UniswapV3Fetcher {
             DynSolType::Int(128),
         ])))
     }
-
-
 }

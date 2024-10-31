@@ -48,4 +48,3 @@ impl From<&[DynSolValue]> for UniswapV2Pool {
         }
     }
 }
-

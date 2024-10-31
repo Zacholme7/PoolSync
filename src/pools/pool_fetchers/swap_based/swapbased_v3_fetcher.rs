@@ -1,11 +1,11 @@
-use alloy::primitives::{address, Address};
-use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
 use crate::pools::gen::BaseSwapV3Factory;
 use crate::pools::PoolFetcher;
 use crate::pools::PoolType;
 use crate::Chain;
+use alloy::dyn_abi::DynSolType;
+use alloy::primitives::Log;
+use alloy::primitives::{address, Address};
+use alloy::sol_types::SolEvent;
 
 pub struct SwapBasedV3Fetcher;
 
@@ -17,7 +17,7 @@ impl PoolFetcher for SwapBasedV3Fetcher {
     fn factory_address(&self, chain: Chain) -> Address {
         match chain {
             Chain::Base => address!("b5620F90e803C7F957A9EF351B8DB3C746021BEa"),
-            _ => panic!("SwapBased not supported on this chain")
+            _ => panic!("SwapBased not supported on this chain"),
         }
     }
 

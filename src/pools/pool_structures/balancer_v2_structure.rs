@@ -119,4 +119,3 @@ impl From<&[DynSolValue]> for BalancerV2Pool {
         }
     }
 }
-

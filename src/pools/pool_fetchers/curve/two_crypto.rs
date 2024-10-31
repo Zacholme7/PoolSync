@@ -1,11 +1,11 @@
-use alloy::primitives::{address, Address};
-use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
-use crate::Chain;
 use crate::pools::gen::TwoCryptoFactory;
 use crate::pools::PoolFetcher;
 use crate::pools::PoolType;
+use crate::Chain;
+use alloy::dyn_abi::DynSolType;
+use alloy::primitives::Log;
+use alloy::primitives::{address, Address};
+use alloy::sol_types::SolEvent;
 
 pub struct CurveTwoCryptoFetcher;
 
@@ -18,6 +18,7 @@ impl PoolFetcher for CurveTwoCryptoFetcher {
         match chain {
             Chain::Ethereum => address!("98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F"),
             Chain::Base => address!("c9Fe0C63Af9A39402e8a5514f9c43Af0322b665F"),
+            Chain::BSC => address!("98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F"),
         }
     }
 
