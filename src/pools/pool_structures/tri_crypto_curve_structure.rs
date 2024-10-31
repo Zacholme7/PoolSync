@@ -55,4 +55,3 @@ impl From<&[DynSolValue]> for CurveTriCryptoPool {
         }
     }
 }
-

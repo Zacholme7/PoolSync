@@ -420,7 +420,10 @@ impl Rpc {
                 pb.inc(1);
 
                 match result {
-                    Ok(logs) => {drop(provider); logs},
+                    Ok(logs) => {
+                        drop(provider);
+                        logs
+                    }
                     Err(_) => {
                         info!(
                             "Failed to get logs for the block range {}..{}",

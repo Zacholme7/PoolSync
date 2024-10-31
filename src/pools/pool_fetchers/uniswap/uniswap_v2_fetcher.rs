@@ -1,11 +1,11 @@
+use crate::pools::gen::UniswapV2Factory;
+use crate::pools::PoolFetcher;
+use crate::pools::PoolType;
+use crate::Chain;
+use alloy::dyn_abi::DynSolType;
+use alloy::primitives::Log;
 use alloy::primitives::{address, Address};
 use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
-use crate::pools::PoolType;
-use crate::pools::PoolFetcher;
-use crate::pools::gen::UniswapV2Factory;
-use crate::Chain;
 
 pub struct UniswapV2Fetcher;
 
@@ -18,6 +18,7 @@ impl PoolFetcher for UniswapV2Fetcher {
         match chain {
             Chain::Ethereum => address!("5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"),
             Chain::Base => address!("8909Dc15e40173Ff4699343b6eB8132c65e18eC6"),
+            Chain::BSC => address!("BCfCcbde45cE874adCB698cC183deBcF17952812"),
         }
     }
 
@@ -41,7 +42,4 @@ impl PoolFetcher for UniswapV2Fetcher {
             DynSolType::Uint(112),
         ])))
     }
-
-
 }
-

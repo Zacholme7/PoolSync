@@ -1,11 +1,11 @@
-use alloy::primitives::{address, Address};
-use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
 use crate::pools::gen::MaverickV1Factory;
 use crate::pools::PoolFetcher;
 use crate::pools::PoolType;
 use crate::Chain;
+use alloy::dyn_abi::DynSolType;
+use alloy::primitives::Log;
+use alloy::primitives::{address, Address};
+use alloy::sol_types::SolEvent;
 
 pub struct MaverickV1Fetcher;
 
@@ -18,12 +18,12 @@ impl PoolFetcher for MaverickV1Fetcher {
         match chain {
             Chain::Ethereum => address!("Eb6625D65a0553c9dBc64449e56abFe519bd9c9B"),
             Chain::Base => address!("B2855783a346735e4AAe0c1eb894DEf861Fa9b45"),
+            Chain::BSC => todo!(),
         }
     }
 
     fn pair_created_signature(&self) -> &str {
         MaverickV1Factory::PoolCreated::SIGNATURE
-        
     }
 
     fn log_to_address(&self, log: &Log) -> Address {
@@ -39,7 +39,5 @@ impl PoolFetcher for MaverickV1Fetcher {
             DynSolType::Uint(8),
             DynSolType::Uint(8),
         ])))
-    
     }
 }
-

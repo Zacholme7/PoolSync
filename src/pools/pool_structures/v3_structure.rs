@@ -205,4 +205,3 @@ impl From<&[DynSolValue]> for UniswapV3Pool {
         }
     }
 }
-

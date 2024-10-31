@@ -1,11 +1,11 @@
+use crate::pools::gen::SushiSwapV2Factory;
+use crate::pools::PoolFetcher;
+use crate::pools::PoolType;
+use crate::Chain;
+use alloy::dyn_abi::DynSolType;
+use alloy::primitives::Log;
 use alloy::primitives::{address, Address};
 use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
-use crate::Chain;
-use crate::pools::PoolType;
-use crate::pools::PoolFetcher;
-use crate::pools::gen::SushiSwapV2Factory;
 pub struct SushiSwapV2Fetcher;
 
 impl PoolFetcher for SushiSwapV2Fetcher {
@@ -17,9 +17,10 @@ impl PoolFetcher for SushiSwapV2Fetcher {
         match chain {
             Chain::Ethereum => address!("C0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"),
             Chain::Base => address!("71524B4f93c58fcbF659783284E38825f0622859"),
+            Chain::BSC => address!("cA143Ce32Fe78f1f7019d7d551a6402fC5350c73"),
         }
     }
-    
+
     fn pair_created_signature(&self) -> &str {
         SushiSwapV2Factory::PairCreated::SIGNATURE
     }
@@ -40,6 +41,4 @@ impl PoolFetcher for SushiSwapV2Fetcher {
             DynSolType::Uint(112),
         ])))
     }
-
-
 }
