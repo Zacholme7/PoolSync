@@ -74,6 +74,8 @@ async fn main() -> Result<()> {
 - Implement rate limiting to make it possible to sync on free public endpoints
 - Add option to use DB directly for sync. 
 
+## Acknowledgment
+Took a ton of inspiration from [amm-rs](https://github.com/darkforestry/amms-rs). Make sure to check them out, super great work there! :)
 
 
 
