@@ -94,7 +94,7 @@ impl Rpc {
                             }
                             Err(e) => {
                                 // if we have reached the retry count, just return
-                                // should fail here, will lead to inconsistent state most likely
+                                // should maybe fail here? rest of sync can continue but missing addresses
                                 if retry_count >= MAX_RETRIES {
                                     info!(
                                         "Failed to fetch addresses in range {}..{}",
@@ -287,7 +287,7 @@ impl Rpc {
                         Rpc::fetch_event_logs(
                             start_block,
                             end_block,
-                            250,
+                            500,
                             vec![
                                 PancakeSwapEvents::Swap::SIGNATURE_HASH,
                                 DataEvents::Swap::SIGNATURE_HASH,
@@ -324,14 +324,14 @@ impl Rpc {
                         Rpc::fetch_event_logs(
                             start_block,
                             end_block,
-                            100,
+                            500,
                             vec![
                                 AerodromeSync::Sync::SIGNATURE_HASH,
                                 DataEvents::Sync::SIGNATURE_HASH,
                             ],
                             provider.clone(),
                             String::from("Reserve Sync"),
-                            rate_limit, // have to ajdust some rate limit
+                            rate_limit,
                         )
                         .await
                         .unwrap(),
@@ -420,7 +420,10 @@ impl Rpc {
                 pb.inc(1);
 
                 match result {
-                    Ok(logs) => {drop(provider); logs},
+                    Ok(logs) => {
+                        drop(provider);
+                        logs
+                    }
                     Err(_) => {
                         info!(
                             "Failed to get logs for the block range {}..{}",
