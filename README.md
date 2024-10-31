@@ -60,6 +60,11 @@ async fn main() -> Result<()> {
 ```
 
 ## How to add a new protocol
+### If the protocol already exists 
+1) Add the factory address to the proper fetcher in `pools/pool_fetchers`
+2) If the chain does not exist, modify the chain enum and mapping in `chain.rs` to reflect it.
+
+### If the protocol does not exist 
 1) Add the pool abi to `pools/abi`
 2) Create a new directory in `pools/pool_fetchers` with the relevant pool files. Implement the `PoolFetcher` trait. This is very simple to implement and is used for event parsing. Use other implementations as an example.
 3) Most pools will fit into the structures defined in `pools/pool_structures`. In the case that it is not, create a new file for your pool type, define the structure of the pool, and implement From<&DynSolValue]> for the pool.
