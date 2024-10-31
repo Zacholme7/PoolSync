@@ -37,9 +37,10 @@ ARCHIVE = "archive node endpoint"
 ## Example Usage
 ```rust
 use pool_sync::{PoolSync, PoolType, Chain, PoolInfo};
+use std::error;
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn error::Error>> {
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
         .add_pool(PoolType::UniswapV2)
