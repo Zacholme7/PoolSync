@@ -30,8 +30,9 @@ const MAX_RETRIES: u32 = 5;
 const INITIAL_BACKOFF: u64 = 1000; // 1 second
 
 // Define event configurations
+#[derive(Debug)]
 struct EventConfig {
-    events: &'static [B256],
+    events: &'static [&'static str],
     step_size: u64,
     description: &'static str,
     requires_initial_sync: bool,
@@ -252,6 +253,34 @@ impl Rpc {
         anyhow::Ok(())
     }
 
+    // Given a config and a range, fetch all the logs for it 
+    // This is a top level call which will delegate to individual fetching
+    // functions to get the logs and to ensure retries on failure
+    async fn fetch_logs_for_config<P, T, N>(
+        config: &EventConfig,
+        start_block: u64,
+        end_block: u64,
+        provider: Arc<P>,
+        rate_limit: u64,
+    ) -> Result<Vec<Log>>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        let filter = Filter::new().events(config.events.iter().copied());
+        Rpc::fetch_event_logs(
+            start_block,
+            end_block,
+            config.step_size,
+            provider,
+            config.description.to_string(),
+            rate_limit,
+            filter,
+        )
+        .await
+    }
+
     // fetch all the logs for a specific event set
     pub async fn fetch_event_logs<T, N, P>(
         start_block: u64,
@@ -347,42 +376,18 @@ impl Rpc {
         }
     }
 
-    async fn fetch_logs_for_config<P, T, N>(
-        config: &EventConfig,
-        start_block: u64,
-        end_block: u64,
-        provider: Arc<P>,
-        rate_limit: u64,
-    ) -> Result<Vec<Log>>
-    where
-        P: Provider<T, N> + 'static,
-        T: Transport + Clone + 'static,
-        N: Network,
-    {
-        let filter = Filter::new().events(config.events.iter().copied());
-        Rpc::fetch_event_logs(
-            start_block,
-            end_block,
-            config.step_size,
-            provider,
-            config.description.to_string(),
-            rate_limit,
-            filter,
-        )
-        .await
-    }
 
     fn get_event_config(pool_type: PoolType) -> Vec<EventConfig> {
         match pool_type {
             pt if pt.is_v3() => vec![
                 EventConfig {
-                    events: &[DataEvents::Burn::SIGNATURE_HASH, DataEvents::Mint::SIGNATURE_HASH],
+                    events: &[DataEvents::Mint::SIGNATURE, DataEvents::Burn::SIGNATURE],
                     step_size: 1500,
                     description: "Tick sync",
                     requires_initial_sync: false, // Always fetch these
                 },
                 EventConfig {
-                    events: &[PancakeSwapEvents::Swap::SIGNATURE_HASH, DataEvents::Swap::SIGNATURE_HASH],
+                    events: &[PancakeSwapEvents::Swap::SIGNATURE, DataEvents::Swap::SIGNATURE],
                     step_size: 500,
                     description: "Swap sync",
                     requires_initial_sync: true, // Only fetch after initial sync
@@ -390,7 +395,7 @@ impl Rpc {
             ],
             pt if pt.is_balancer() => vec![
                 EventConfig {
-                    events: &[BalancerV2Event::Swap::SIGNATURE_HASH],
+                    events: &[BalancerV2Event::Swap::SIGNATURE],
                     step_size: 5000,
                     description: "Swap Sync",
                     requires_initial_sync: true,
@@ -398,7 +403,7 @@ impl Rpc {
             ],
             _ => vec![
                 EventConfig {
-                    events: &[AerodromeSync::Sync::SIGNATURE_HASH, DataEvents::Sync::SIGNATURE_HASH],
+                    events: &[AerodromeSync::Sync::SIGNATURE, DataEvents::Sync::SIGNATURE],
                     step_size: 500,
                     description: "Reserve Sync",
                     requires_initial_sync: true,
