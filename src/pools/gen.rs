@@ -128,7 +128,7 @@ sol!(
     "src/pools/abis/BalancerV2Factory.json"
 );
 
-/// SwapBased
+// SwapBased
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]

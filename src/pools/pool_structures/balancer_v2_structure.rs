@@ -5,7 +5,6 @@ use alloy::sol_types::SolEvent;
 use alloy::{dyn_abi::DynSolValue, primitives::Address};
 use serde::{Deserialize, Serialize};
 
-use crate::events::BalancerV2Event;
 use crate::pools::gen::Vault;
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BalancerV2Pool {

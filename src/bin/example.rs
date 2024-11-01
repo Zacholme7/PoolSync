@@ -3,7 +3,7 @@
 //! This program synchronizes pools from a specified blockchain using the PoolSync library.
 //! It demonstrates how to set up a provider, configure pool synchronization, and execute the sync process.
 use anyhow::Result;
-use pool_sync::{Chain, PoolInfo, PoolSync, PoolType};
+use pool_sync::{Chain, PoolSync, PoolType};
 use env_logger;
 
 #[tokio::main]

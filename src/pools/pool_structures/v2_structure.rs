@@ -1,9 +1,8 @@
-use core::sync;
 
 use crate::events::{AerodromeSync, DataEvents};
 use crate::pools::PoolType;
 use alloy::dyn_abi::DynSolValue;
-use alloy::primitives::{Address, U128, U256};
+use alloy::primitives::{Address, U256};
 use alloy::rpc::types::Log;
 use alloy::sol_types::SolEvent;
 use serde::{Deserialize, Serialize};

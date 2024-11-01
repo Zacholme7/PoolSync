@@ -1,7 +1,6 @@
 use alloy::network::Network;
 use alloy::primitives::Address;
 use alloy::providers::Provider;
-use alloy::primitives::B256;
 use anyhow::anyhow;
 use alloy::rpc::types::{Filter, Log};
 use alloy::sol_types::SolEvent;

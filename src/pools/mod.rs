@@ -6,19 +6,15 @@
 
 use alloy::dyn_abi::DynSolType;
 use alloy::dyn_abi::DynSolValue;
-use alloy::primitives::U128;
-use alloy::primitives::U256;
 use alloy::primitives::{Address, Log};
 use pool_structures::balancer_v2_structure::BalancerV2Pool;
 use pool_structures::maverick_structure::MaverickPool;
 use pool_structures::tri_crypto_curve_structure::CurveTriCryptoPool;
 use pool_structures::two_crypto_curve_structure::CurveTwoCryptoPool;
 use pool_structures::v2_structure::UniswapV2Pool;
-use pool_structures::v3_structure::TickInfo;
 use pool_structures::v3_structure::UniswapV3Pool;
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt;
 
 use crate::chain::Chain;
@@ -503,6 +499,7 @@ pub trait PoolInfo {
     fn stable(&self) -> bool;
 }
 
+/* 
 pub trait V2PoolInfo {
     fn token0_reserves(&self) -> U128;
     fn token1_reserves(&self) -> U128;
@@ -514,6 +511,7 @@ pub trait V3PoolInfo {
     fn tick_bitmap(&self) -> HashMap<i16, U256>;
     fn ticks(&self) -> HashMap<i32, TickInfo>;
 }
+*/
 
 /// Macro for generating getter methods for all of the suppored pools
 #[macro_export]

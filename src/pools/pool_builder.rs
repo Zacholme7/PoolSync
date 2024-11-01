@@ -10,9 +10,7 @@ use alloy::transports::Transport;
 use anyhow::Result;
 use rand::Rng;
 use std::sync::Arc;
-
 use std::time::Duration;
-use uniswap_v3_math;
 
 use super::gen::{
     BalancerV2DataSync, MaverickDataSync, PancakeSwapDataSync, SlipStreamDataSync,
@@ -111,7 +109,6 @@ where
         PoolType::CurveTriCrypto => {
             TriCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
-        _ => panic!("Invalid pool type"),
     };
 
     let decoded_data = data.abi_decode_sequence(&pool_data)?;
