@@ -29,3 +29,4 @@ mod pool_sync;
 mod pools;
 mod rpc;
 mod util;
+mod data_tests;
