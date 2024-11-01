@@ -1,5 +1,5 @@
 use alloy::dyn_abi::DynSolValue;
-use alloy::primitives::{Address, U256};
+use alloy::primitives::{Address, U256, address};
 use alloy::rpc::types::Log;
 use alloy::sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
@@ -51,8 +51,8 @@ fn process_burn(pool: &mut UniswapV3Pool, log: Log) {
     let burn_event = DataEvents::Burn::decode_log(log.as_ref(), true).unwrap();
     modify_position(
         pool,
-        burn_event.tickLower.as_i32(),
-        burn_event.tickUpper.as_i32(),
+        burn_event.tickLower.unchecked_into(),
+        burn_event.tickUpper.unchecked_into(),
         -(burn_event.amount as i128),
     );
 }
@@ -61,8 +61,8 @@ fn process_mint(pool: &mut UniswapV3Pool, log: Log) {
     let mint_event = DataEvents::Mint::decode_log(log.as_ref(), true).unwrap();
     modify_position(
         pool,
-        mint_event.tickLower.as_i32(),
-        mint_event.tickUpper.as_i32(),
+        mint_event.tickLower.unchecked_into(),
+        mint_event.tickUpper.unchecked_into(),
         mint_event.amount as i128,
     );
 }
@@ -92,9 +92,14 @@ pub fn modify_position(
     //therefore we do not need to checkTicks as that has happened before the event is emitted
     update_position(pool, tick_lower, tick_upper, liquidity_delta);
 
+    let address = address!("8CE8a0279D091c827ca9e25aaF6C8EE24A18E23f");
+    if pool.address == address {
+        println!("got here {liquidity_delta}, pool tick {}, lower {}, upper {}", pool.tick, tick_lower, tick_upper);
+
+    }
     if liquidity_delta != 0 {
         //if the tick is between the tick lower and tick upper, update the liquidity between the ticks
-        if pool.tick > tick_lower && pool.tick < tick_upper {
+        if pool.tick >= tick_lower && pool.tick < tick_upper {
             pool.liquidity = if liquidity_delta < 0 {
                 pool.liquidity - ((-liquidity_delta) as u128)
             } else {

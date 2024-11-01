@@ -189,13 +189,6 @@ sol!(
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
-    PancakeSwapDataSync,
-    "src/abi/PancakeDataSync.json"
-);
-
-sol!(
-    #[derive(Debug)]
-    #[sol(rpc)]
     BalancerV2DataSync,
     "src/abi/BalancerV2DataSync.json"
 );

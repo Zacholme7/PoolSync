@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use super::gen::{
-    BalancerV2DataSync, MaverickDataSync, PancakeSwapDataSync, SlipStreamDataSync,
+    BalancerV2DataSync, MaverickDataSync, SlipStreamDataSync,
     TriCurveDataSync, TwoCurveDataSync, V2DataSync, V3DataSync,
 };
 

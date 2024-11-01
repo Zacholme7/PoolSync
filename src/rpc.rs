@@ -198,50 +198,47 @@ impl Rpc {
 
         // if we have blocks to get information from
         if block_difference > 0 {
-            let mut new_logs  = Vec::new();
             for config in Rpc::get_event_config(pool_type) {
                 // Only fetch if:
                 // 1. The event doesn't require initial sync (like V3 Mint/Burn)
                 // 2. OR we're past the initial sync block
                 if !config.requires_initial_sync || start_block > 10_000_000 {
-                    new_logs.extend(
-                        Rpc::fetch_logs_for_config(
+                    let new_logs = Rpc::fetch_logs_for_config(
                             &config,
                             start_block,
                             end_block,
                             provider.clone(),
                             rate_limit,
                         )
-                        .await?
-                    );
-                }
-            }
+                        .await?;
 
-            // order all of the logs by block number
-            let mut ordered_logs: BTreeMap<u64, Vec<Log>> = BTreeMap::new();
-            for log in new_logs {
-                if let Some(block_number) = log.block_number {
-                    if let Some(log_group) = ordered_logs.get_mut(&block_number) {
-                        log_group.push(log);
-                    } else {
-                        ordered_logs.insert(block_number, vec![log]);
-                    }
-                }
-            }
-
-            // process all of the logs
-            for (_, log_group) in ordered_logs {
-                for log in log_group {
-                    let address = log.address();
-                    if let Some(&index) = address_to_index.get(&address) {
-                        if let Some(pool) = pools.get_mut(index) {
-                            // Note: removed & before index
-                            if pool_type.is_v3() {
-                                process_tick_data(pool.get_v3_mut().unwrap(), log, pool_type);
-                            } else if pool_type.is_balancer() {
-                                process_balance_data(pool.get_balancer_mut().unwrap(), log);
+                    // order all of the logs by block number
+                    let mut ordered_logs: BTreeMap<u64, Vec<Log>> = BTreeMap::new();
+                    for log in new_logs {
+                        if let Some(block_number) = log.block_number {
+                            if let Some(log_group) = ordered_logs.get_mut(&block_number) {
+                                log_group.push(log);
                             } else {
-                                process_sync_data(pool.get_v2_mut().unwrap(), log, pool_type);
+                                ordered_logs.insert(block_number, vec![log]);
+                            }
+                        }
+                    }
+
+                    // process all of the logs
+                    for (_, log_group) in ordered_logs {
+                        for log in log_group {
+                            let address = log.address();
+                            if let Some(&index) = address_to_index.get(&address) {
+                                if let Some(pool) = pools.get_mut(index) {
+                                    // Note: removed & before index
+                                    if pool_type.is_v3() {
+                                        process_tick_data(pool.get_v3_mut().unwrap(), log, pool_type);
+                                    } else if pool_type.is_balancer() {
+                                        process_balance_data(pool.get_balancer_mut().unwrap(), log);
+                                    } else {
+                                        process_sync_data(pool.get_v2_mut().unwrap(), log, pool_type);
+                                    }
+                                }
                             }
                         }
                     }
