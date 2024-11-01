@@ -49,7 +49,7 @@ where
             }
             Err(e) => {
                 if retry_count >= MAX_RETRIES {
-                    eprintln!("Max retries reached. Error: {:?}", e);
+                    eprintln!("Max retries reached. Error: {:?} {:?}", e,addresses );
                     drop(provider);
                     return Ok(Vec::new());
                 }

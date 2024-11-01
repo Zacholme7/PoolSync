@@ -9,7 +9,7 @@ interface IUniswapV2Pair {
     function getReserves()
         external
         view
-        returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+        returns (uint256 reserve0, uint256 reserve1, uint256 blockTimestampLast);
 }
 
 interface IERC20 {
@@ -27,8 +27,8 @@ contract V2DataSync {
         address tokenB;
         uint8 tokenADecimals;
         uint8 tokenBDecimals;
-        uint112 reserve0;
-        uint112 reserve1;
+        uint256 reserve0;
+        uint256 reserve1;
     }
 
     constructor(address[] memory pools) {

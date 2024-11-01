@@ -94,7 +94,7 @@ impl Rpc {
         N: Network,
     {
         // data batch size for contract calls
-        let batch_size = if pool.is_balancer() { 10 } else { 20 };
+        let batch_size = if pool.is_balancer() { 10 } else { 50 };
 
         // informational and rate limiting initialization
         let total_tasks = (pool_addrs.len() + batch_size - 1) / batch_size; // Ceiling division
