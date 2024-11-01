@@ -75,40 +75,34 @@ where
     N: Network,
 {
     let pool_data = match pool_type {
-        PoolType::UniswapV2
-        | PoolType::SushiSwapV2
-        | PoolType::PancakeSwapV2
-        | PoolType::BaseSwapV2
-        | PoolType::Aerodrome
-        | PoolType::AlienBaseV2
-        | PoolType::SwapBasedV2
-        | PoolType::DackieSwapV2 => {
-            V2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
-        }
-        PoolType::MaverickV1 | PoolType::MaverickV2 => {
-            MaverickDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
-        }
-        PoolType::PancakeSwapV3 | PoolType::SwapBasedV3 | PoolType::DackieSwapV3 => {
-            PancakeSwapDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
-        }
-        PoolType::UniswapV3
-        | PoolType::SushiSwapV3
-        | PoolType::BaseSwapV3
-        | PoolType::AlienBaseV3 => {
-            V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
-        }
-        PoolType::Slipstream => {
-            SlipStreamDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
-        }
-        PoolType::BalancerV2 => {
-            BalancerV2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
-        }
-        PoolType::CurveTwoCrypto => {
-            TwoCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
-        }
-        PoolType::CurveTriCrypto => {
-            TriCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
-        }
+        // V2-style pools
+        PoolType::UniswapV2     |
+        PoolType::SushiSwapV2   |
+        PoolType::PancakeSwapV2 |
+        PoolType::BaseSwapV2    |
+        PoolType::Aerodrome     |
+        PoolType::AlienBaseV2   |
+        PoolType::SwapBasedV2   |
+        PoolType::DackieSwapV2  => V2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
+
+        // Maverick pools
+        PoolType::MaverickV1    |
+        PoolType::MaverickV2    => MaverickDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
+
+        // V3-style pools
+        PoolType::UniswapV3     |
+        PoolType::SushiSwapV3   |
+        PoolType::BaseSwapV3    |
+        PoolType::AlienBaseV3   |
+        PoolType::PancakeSwapV3 |
+        PoolType::SwapBasedV3   |
+        PoolType::DackieSwapV3  => V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
+
+        // Other specialized pools
+        PoolType::Slipstream    => SlipStreamDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
+        PoolType::BalancerV2    => BalancerV2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
+        PoolType::CurveTwoCrypto => TwoCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
+        PoolType::CurveTriCrypto => TriCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
     };
 
     let decoded_data = data.abi_decode_sequence(&pool_data)?;

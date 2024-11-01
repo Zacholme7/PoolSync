@@ -82,9 +82,9 @@ mod data_test {
         // Sync in all uniswapv3 pools
         let pool_sync = PoolSync::builder()
             .add_pools(&[
-                //PoolType::UniswapV3,
+                PoolType::UniswapV3,
                 //PoolType::SushiSwapV3,
-                PoolType::PancakeSwapV3,
+                //PoolType::PancakeSwapV3,
                 //PoolType::Slipstream,
                 //PoolType::BaseSwapV3,
                 //PoolType::SwapBasedV3,
@@ -103,6 +103,7 @@ mod data_test {
         for pool in pools {
             let v3_pool = pool.get_v3().unwrap();
             let contract = V3State::new(pool.address(), provider.clone());
+            println!("{:?}", last_synced_block);
 
             // Get slot0 data
             let V3State::slot0Return { 
