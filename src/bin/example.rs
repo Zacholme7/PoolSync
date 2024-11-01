@@ -4,12 +4,14 @@
 //! It demonstrates how to set up a provider, configure pool synchronization, and execute the sync process.
 use anyhow::Result;
 use pool_sync::{Chain, PoolInfo, PoolSync, PoolType};
+use env_logger;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
-        .add_pool(PoolType::UniswapV2)
+        .add_pool(PoolType::UniswapV3)
         .chain(Chain::Base)
         .rate_limit(500)
         .build()?;

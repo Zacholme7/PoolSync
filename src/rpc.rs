@@ -1,14 +1,17 @@
 use alloy::network::Network;
 use alloy::primitives::{Address, FixedBytes};
 use alloy::providers::Provider;
+use anyhow::anyhow;
 use alloy::rpc::types::{Filter, Log};
 use alloy::sol_types::SolEvent;
 use alloy::transports::Transport;
 use anyhow::Result;
 use futures::future::join_all;
+use indicatif::ProgressBar;
 use log::info;
 use log::warn;
 use rand::Rng;
+use std::borrow::BorrowMut;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use tokio::sync::{Mutex, Semaphore};
@@ -24,7 +27,6 @@ use crate::util::create_progress_bar;
 use crate::{Chain, Pool, PoolInfo, PoolType};
 
 /// The number of blocks to query in one call to get_logs
-const STEP_SIZE: u64 = 10000;
 const MAX_RETRIES: u32 = 5;
 const INITIAL_BACKOFF: u64 = 1000; // 1 second
 
@@ -46,89 +48,31 @@ impl Rpc {
     {
         // if there is a range to fetch
         if end_block.saturating_sub(start_block) > 0 {
-            // construct set of block ranges to retrieve events over
-            let block_range = Rpc::get_block_range(STEP_SIZE, start_block, end_block);
-            let pb_info = format!("{} Address Sync", fetcher.pool_type());
-            let progress_bar = create_progress_bar(block_range.len() as u64, pb_info);
 
-            // semaphore and interval for rate limiting
-            let semaphore = Arc::new(Semaphore::new(rate_limit as usize));
-            let interval = Arc::new(Mutex::new(interval(Duration::from_secs_f64(
-                1.0 / rate_limit as f64,
-            ))));
+            // fetch all of the logs
+            let filter = Filter::new()
+                .address(fetcher.factory_address(chain))
+                .event(fetcher.pair_created_signature());
 
-            // create all of the tasks
-            let tasks = block_range.into_iter().map(|(from_block, to_block)| {
-                // clone all of the state we need
-                let provider = provider.clone();
-                let sem = semaphore.clone();
-                let pb = progress_bar.clone();
-                let interval = interval.clone();
-                let fetcher = fetcher.clone();
+            // fetch all of the logs
+            let logs = Rpc::fetch_event_logs(
+                start_block,
+                end_block,
+                10000,
+                provider,
+                format!("{} Address Sync", fetcher.pool_type()),
+                rate_limit,
+                filter
+            ).await?;
 
-                // spawn the future
-                tokio::spawn(async move {
-                    let _permit = sem.acquire().await.unwrap();
-                    interval.lock().await.tick().await;
-                    // setup filter for pool addresses in block range
-                    let filter = Filter::new()
-                        .address(fetcher.factory_address(chain))
-                        .event(fetcher.pair_created_signature())
-                        .from_block(from_block)
-                        .to_block(to_block);
-
-                    // fetch the logs with retry for failure
-                    let mut retry_count = 0;
-                    let mut backoff = 1000; // Initial backoff of 1 second
-                    loop {
-                        match provider.get_logs(&filter).await {
-                            Ok(logs) => {
-                                // extract all of the addresses
-                                let addresses: Vec<Address> = logs
-                                    .iter()
-                                    .map(|log| fetcher.log_to_address(&log.inner))
-                                    .collect();
-                                pb.inc(1);
-                                drop(provider);
-                                return Ok(addresses); // Return the addresses on success
-                            }
-                            Err(e) => {
-                                // if we have reached the retry count, just return
-                                // should maybe fail here? rest of sync can continue but missing addresses
-                                if retry_count >= MAX_RETRIES {
-                                    info!(
-                                        "Failed to fetch addresses in range {}..{}",
-                                        from_block, to_block
-                                    );
-                                    pb.inc(1);
-                                    drop(provider);
-                                    return Err(e); // Return the error if max retries exceeded
-                                }
-                                // jitter the retry for best chance at success
-                                let jitter = rand::thread_rng().gen_range(0..=100);
-                                let sleep_duration = Duration::from_millis(backoff + jitter);
-                                tokio::time::sleep(sleep_duration).await;
-                                retry_count += 1;
-                                backoff *= 2;
-                            }
-                        }
-                    }
-                })
-            });
-
-            // Wait for all tasks to complete and collect the results
-            let results = join_all(tasks).await;
-
-            // Collect all addresses, filtering out errors
-            let all_addresses: Vec<Address> = results
-                .into_iter()
-                .filter_map(|result| result.ok()) // Filter out any JoinError
-                .filter_map(|inner_result| inner_result.ok()) // Filter out any Err from our task
-                .flatten() // Flatten the Vec<Vec<Address>> into Vec<Address>
+            // extract the addresses from the logs
+            let addresses: Vec<Address> = logs
+                .iter()
+                .map(|log| fetcher.log_to_address(&log.inner))
                 .collect();
-            return Ok(all_addresses);
+            return anyhow::Ok(addresses); // Return the addresses on success
         }
-        Ok(vec![])
+        anyhow::Ok(vec![])
     }
 
     pub async fn populate_pools<P, T, N>(
@@ -264,74 +208,81 @@ impl Rpc {
             // will always be called.
 
             if pool_type.is_v3() {
-                // fetch all mint/burn/swap logs
+                // setup our filter and fetch the logs
+                let filter = Filter::new()
+                    .events([
+                        DataEvents::Burn::SIGNATURE_HASH,
+                        DataEvents::Mint::SIGNATURE_HASH,
+                    ]);
                 new_logs.extend(
                     Rpc::fetch_event_logs(
                         start_block,
                         end_block,
                         1500,
-                        vec![
-                            DataEvents::Burn::SIGNATURE_HASH,
-                            DataEvents::Mint::SIGNATURE_HASH,
-                        ],
                         provider.clone(),
                         String::from("Tick sync"),
                         rate_limit,
+                        filter,
                     )
-                    .await
-                    .unwrap(),
+                    .await?
                 );
                 if start_block > 10_000_000 {
                     // make sure we dont fetch swap events after initial sync
+                    let filter = Filter::new()
+                        .events([
+                            PancakeSwapEvents::Swap::SIGNATURE_HASH,
+                            DataEvents::Swap::SIGNATURE_HASH,
+                        ]);
                     new_logs.extend(
                         Rpc::fetch_event_logs(
                             start_block,
                             end_block,
                             500,
-                            vec![
-                                PancakeSwapEvents::Swap::SIGNATURE_HASH,
-                                DataEvents::Swap::SIGNATURE_HASH,
-                            ],
                             provider.clone(),
                             String::from("Swap sync"),
                             rate_limit,
+                            filter
                         )
-                        .await
-                        .unwrap(),
+                        .await?
                     );
                 }
             } else if pool_type.is_balancer() {
                 if start_block > 10_000_000 {
+                    let filter = Filter::new()
+                        .events([
+                            BalancerV2Event::Swap::SIGNATURE_HASH,
+                        ]);
                     new_logs.extend(
                         Rpc::fetch_event_logs(
                             start_block,
                             end_block,
                             5000,
-                            vec![BalancerV2Event::Swap::SIGNATURE_HASH],
                             provider.clone(),
                             String::from("Swap Sync"),
                             rate_limit, // have to ajdust some rate limit
+                            filter,
                         )
-                        .await
-                        .unwrap(),
+                        .await?
                     );
                 }
             } else {
                 // v2 sync events. Initially populated from the contract so this is just used when
                 // updating state from missed blocks since the last sync
                 if start_block > 10_000_000 {
+                    let filter = Filter::new()
+                        .events([
+                            AerodromeSync::Sync::SIGNATURE_HASH,
+                            DataEvents::Sync::SIGNATURE_HASH,
+                        ]);
                     new_logs.extend(
                         Rpc::fetch_event_logs(
                             start_block,
                             end_block,
                             500,
-                            vec![
-                                AerodromeSync::Sync::SIGNATURE_HASH,
-                                DataEvents::Sync::SIGNATURE_HASH,
-                            ],
                             provider.clone(),
                             String::from("Reserve Sync"),
                             rate_limit,
+                            filter,
                         )
                         .await
                         .unwrap(),
@@ -379,10 +330,10 @@ impl Rpc {
         start_block: u64,
         end_block: u64,
         step_size: u64,
-        events: Vec<FixedBytes<32>>,
         provider: Arc<P>,
         pb_info: String,
         rate_limit: u64,
+        filter: Filter,
     ) -> Result<Vec<Log>>
     where
         T: Transport + Clone,
@@ -401,50 +352,73 @@ impl Rpc {
 
         // generate all the tasks
         let tasks = block_range.into_iter().map(|(from_block, to_block)| {
+
+            // clone all the state that we need
             let provider = provider.clone();
-            let events = events.clone();
             let sem = semaphore.clone();
             let pb = progress_bar.clone();
             let interval = interval.clone();
+            let filter = filter.clone();
 
             tokio::spawn(async move {
+                // make sure it is our turn to request
                 let _permit = sem.acquire().await.unwrap();
                 interval.lock().await.tick().await;
 
-                let filter = Filter::new()
-                    .event_signature(events)
+                // set the filter range
+                let filter = filter
                     .from_block(from_block)
                     .to_block(to_block);
 
-                let result = provider.get_logs(&filter).await;
-                pb.inc(1);
-
-                match result {
-                    Ok(logs) => {
-                        drop(provider);
-                        logs
-                    }
-                    Err(_) => {
-                        info!(
-                            "Failed to get logs for the block range {}..{}",
-                            from_block, to_block
-                        );
-                        drop(provider);
-                        vec![]
-                    }
-                }
+                // fetch the logs
+                let logs = Rpc::get_logs_with_retry(provider, &filter, pb).await?;
+                return anyhow::Ok(logs)
             })
         });
 
-        // fetch all the logs
-        let results = join_all(tasks).await;
-        let new_logs: Vec<Log> = results
+        // fetch all the logs and propagate errors
+        let all_logs = join_all(tasks)
+            .await
             .into_iter()
-            .filter_map(|r| r.ok())
-            .flatten()
-            .collect();
+            .flatten() // Flatten JoinError
+            .flatten() // flatten Result
+            .flatten() // Flatten Vec<Log>
+            .collect::<Vec<Log>>();
+        anyhow::Ok(all_logs)
+    }
 
-        Ok(new_logs)
+    // Fetch logs with retry functionality
+    async fn get_logs_with_retry<P, T, N>(
+        provider: Arc<P>,
+        filter: &Filter,
+        pb: ProgressBar,
+    ) -> Result<Vec<Log>>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        let mut retry_count = 0;
+        let mut backoff = INITIAL_BACKOFF;
+        
+        loop {
+            match provider.get_logs(filter).await {
+                Ok(logs) => {
+                    pb.inc(1);
+                    return Ok(logs);
+                }
+                Err(e) => {
+                    if retry_count >= MAX_RETRIES {
+                        return Err(anyhow!(e));
+                    }
+                    let jitter = rand::thread_rng().gen_range(0..=100);
+                    let sleep_duration = Duration::from_millis(backoff + jitter);
+                    tokio::time::sleep(sleep_duration).await;
+                    retry_count += 1;
+                    backoff *= 2;
+                }
+            }
+        }
     }
 
     // Generate a range of blocks of step size distance
@@ -467,4 +441,5 @@ impl Rpc {
             .collect();
         block_ranges
     }
+
 }
