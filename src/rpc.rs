@@ -1,6 +1,7 @@
 use alloy::network::Network;
-use alloy::primitives::{Address, FixedBytes};
+use alloy::primitives::Address;
 use alloy::providers::Provider;
+use alloy::primitives::B256;
 use anyhow::anyhow;
 use alloy::rpc::types::{Filter, Log};
 use alloy::sol_types::SolEvent;
@@ -9,9 +10,7 @@ use anyhow::Result;
 use futures::future::join_all;
 use indicatif::ProgressBar;
 use log::info;
-use log::warn;
 use rand::Rng;
-use std::borrow::BorrowMut;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use tokio::sync::{Mutex, Semaphore};
@@ -26,9 +25,17 @@ use crate::pools::PoolFetcher;
 use crate::util::create_progress_bar;
 use crate::{Chain, Pool, PoolInfo, PoolType};
 
-/// The number of blocks to query in one call to get_logs
+// Retry constants
 const MAX_RETRIES: u32 = 5;
 const INITIAL_BACKOFF: u64 = 1000; // 1 second
+
+// Define event configurations
+struct EventConfig {
+    events: &'static [B256],
+    step_size: u64,
+    description: &'static str,
+    requires_initial_sync: bool,
+}
 
 pub struct Rpc;
 impl Rpc {
@@ -46,9 +53,7 @@ impl Rpc {
         T: Transport + Clone + 'static,
         N: Network,
     {
-        // if there is a range to fetch
         if end_block.saturating_sub(start_block) > 0 {
-
             // fetch all of the logs
             let filter = Filter::new()
                 .address(fetcher.factory_address(chain))
@@ -88,7 +93,7 @@ impl Rpc {
         N: Network,
     {
         // data batch size for contract calls
-        let batch_size = if pool.is_balancer() { 10 } else { 50 };
+        let batch_size = if pool.is_balancer() { 10 } else { 20 };
 
         // informational and rate limiting initialization
         let total_tasks = (pool_addrs.len() + batch_size - 1) / batch_size; // Ceiling division
@@ -173,14 +178,14 @@ impl Rpc {
         provider: Arc<P>,
         pool_type: PoolType,
         rate_limit: u64,
-    ) -> Result<()>
+    ) -> anyhow::Result<()>
     where
         P: Provider<T, N> + Sync + 'static,
         T: Transport + Sync + Clone,
         N: Network,
     {
         if pools.is_empty() {
-            return Ok(());
+            return anyhow::Ok(());
         }
 
         // get the block difference
@@ -193,99 +198,21 @@ impl Rpc {
 
         // if we have blocks to get information from
         if block_difference > 0 {
-            // create the progress bar
-
-            let mut new_logs: Vec<Log> = Vec::new();
-
-            // Need to fetch different events based on the type of pool we are syncing.
-            // This function will allow us to process events since the last sync to maintain proper
-            // state
-            //
-            // For uniswapv2, this function is called when we are finished with a first run sync
-            // and we have to catch up with missed state/this is the first time running in a while.
-            //
-            // For uniswapv3, we need to reconstruct the state from the start of the chain so this
-            // will always be called.
-
-            if pool_type.is_v3() {
-                // setup our filter and fetch the logs
-                let filter = Filter::new()
-                    .events([
-                        DataEvents::Burn::SIGNATURE_HASH,
-                        DataEvents::Mint::SIGNATURE_HASH,
-                    ]);
-                new_logs.extend(
-                    Rpc::fetch_event_logs(
-                        start_block,
-                        end_block,
-                        1500,
-                        provider.clone(),
-                        String::from("Tick sync"),
-                        rate_limit,
-                        filter,
-                    )
-                    .await?
-                );
-                if start_block > 10_000_000 {
-                    // make sure we dont fetch swap events after initial sync
-                    let filter = Filter::new()
-                        .events([
-                            PancakeSwapEvents::Swap::SIGNATURE_HASH,
-                            DataEvents::Swap::SIGNATURE_HASH,
-                        ]);
+            let mut new_logs  = Vec::new();
+            for config in Rpc::get_event_config(pool_type) {
+                // Only fetch if:
+                // 1. The event doesn't require initial sync (like V3 Mint/Burn)
+                // 2. OR we're past the initial sync block
+                if !config.requires_initial_sync || start_block > 10_000_000 {
                     new_logs.extend(
-                        Rpc::fetch_event_logs(
+                        Rpc::fetch_logs_for_config(
+                            &config,
                             start_block,
                             end_block,
-                            500,
                             provider.clone(),
-                            String::from("Swap sync"),
                             rate_limit,
-                            filter
                         )
                         .await?
-                    );
-                }
-            } else if pool_type.is_balancer() {
-                if start_block > 10_000_000 {
-                    let filter = Filter::new()
-                        .events([
-                            BalancerV2Event::Swap::SIGNATURE_HASH,
-                        ]);
-                    new_logs.extend(
-                        Rpc::fetch_event_logs(
-                            start_block,
-                            end_block,
-                            5000,
-                            provider.clone(),
-                            String::from("Swap Sync"),
-                            rate_limit, // have to ajdust some rate limit
-                            filter,
-                        )
-                        .await?
-                    );
-                }
-            } else {
-                // v2 sync events. Initially populated from the contract so this is just used when
-                // updating state from missed blocks since the last sync
-                if start_block > 10_000_000 {
-                    let filter = Filter::new()
-                        .events([
-                            AerodromeSync::Sync::SIGNATURE_HASH,
-                            DataEvents::Sync::SIGNATURE_HASH,
-                        ]);
-                    new_logs.extend(
-                        Rpc::fetch_event_logs(
-                            start_block,
-                            end_block,
-                            500,
-                            provider.clone(),
-                            String::from("Reserve Sync"),
-                            rate_limit,
-                            filter,
-                        )
-                        .await
-                        .unwrap(),
                     );
                 }
             }
@@ -322,7 +249,7 @@ impl Rpc {
             }
         }
 
-        Ok(())
+        anyhow::Ok(())
     }
 
     // fetch all the logs for a specific event set
@@ -334,7 +261,7 @@ impl Rpc {
         pb_info: String,
         rate_limit: u64,
         filter: Filter,
-    ) -> Result<Vec<Log>>
+    ) -> anyhow::Result<Vec<Log>>
     where
         T: Transport + Clone,
         N: Network,
@@ -352,7 +279,6 @@ impl Rpc {
 
         // generate all the tasks
         let tasks = block_range.into_iter().map(|(from_block, to_block)| {
-
             // clone all the state that we need
             let provider = provider.clone();
             let sem = semaphore.clone();
@@ -392,7 +318,7 @@ impl Rpc {
         provider: Arc<P>,
         filter: &Filter,
         pb: ProgressBar,
-    ) -> Result<Vec<Log>>
+    ) -> anyhow::Result<Vec<Log>>
     where
         P: Provider<T, N> + 'static,
         T: Transport + Clone + 'static,
@@ -405,7 +331,7 @@ impl Rpc {
             match provider.get_logs(filter).await {
                 Ok(logs) => {
                     pb.inc(1);
-                    return Ok(logs);
+                    return anyhow::Ok(logs);
                 }
                 Err(e) => {
                     if retry_count >= MAX_RETRIES {
@@ -418,6 +344,66 @@ impl Rpc {
                     backoff *= 2;
                 }
             }
+        }
+    }
+
+    async fn fetch_logs_for_config<P, T, N>(
+        config: &EventConfig,
+        start_block: u64,
+        end_block: u64,
+        provider: Arc<P>,
+        rate_limit: u64,
+    ) -> Result<Vec<Log>>
+    where
+        P: Provider<T, N> + 'static,
+        T: Transport + Clone + 'static,
+        N: Network,
+    {
+        let filter = Filter::new().events(config.events.iter().copied());
+        Rpc::fetch_event_logs(
+            start_block,
+            end_block,
+            config.step_size,
+            provider,
+            config.description.to_string(),
+            rate_limit,
+            filter,
+        )
+        .await
+    }
+
+    fn get_event_config(pool_type: PoolType) -> Vec<EventConfig> {
+        match pool_type {
+            pt if pt.is_v3() => vec![
+                EventConfig {
+                    events: &[DataEvents::Burn::SIGNATURE_HASH, DataEvents::Mint::SIGNATURE_HASH],
+                    step_size: 1500,
+                    description: "Tick sync",
+                    requires_initial_sync: false, // Always fetch these
+                },
+                EventConfig {
+                    events: &[PancakeSwapEvents::Swap::SIGNATURE_HASH, DataEvents::Swap::SIGNATURE_HASH],
+                    step_size: 500,
+                    description: "Swap sync",
+                    requires_initial_sync: true, // Only fetch after initial sync
+                },
+            ],
+            pt if pt.is_balancer() => vec![
+                EventConfig {
+                    events: &[BalancerV2Event::Swap::SIGNATURE_HASH],
+                    step_size: 5000,
+                    description: "Swap Sync",
+                    requires_initial_sync: true,
+                },
+            ],
+            _ => vec![
+                EventConfig {
+                    events: &[AerodromeSync::Sync::SIGNATURE_HASH, DataEvents::Sync::SIGNATURE_HASH],
+                    step_size: 500,
+                    description: "Reserve Sync",
+                    requires_initial_sync: true,
+                },
+            ],
         }
     }
 
