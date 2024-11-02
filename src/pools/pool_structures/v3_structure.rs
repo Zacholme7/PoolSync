@@ -92,11 +92,6 @@ pub fn modify_position(
     //therefore we do not need to checkTicks as that has happened before the event is emitted
     update_position(pool, tick_lower, tick_upper, liquidity_delta);
 
-    let address = address!("8CE8a0279D091c827ca9e25aaF6C8EE24A18E23f");
-    if pool.address == address {
-        println!("got here {liquidity_delta}, pool tick {}, lower {}, upper {}", pool.tick, tick_lower, tick_upper);
-
-    }
     if liquidity_delta != 0 {
         //if the tick is between the tick lower and tick upper, update the liquidity between the ticks
         if pool.tick >= tick_lower && pool.tick < tick_upper {

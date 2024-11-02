@@ -85,10 +85,10 @@ mod data_test {
         let pool_sync = PoolSync::builder()
             .add_pools(&[
                 PoolType::UniswapV3,
-                //PoolType::SushiSwapV3,
+                PoolType::SushiSwapV3,
                 //PoolType::PancakeSwapV3,
                 //PoolType::Slipstream,
-                //PoolType::BaseSwapV3,
+                PoolType::BaseSwapV3,
                 //PoolType::SwapBasedV3,
                 //PoolType::DackieSwapV3,
                 //PoolType::AlienBaseV3,

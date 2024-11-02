@@ -59,14 +59,19 @@ impl Rpc {
                 .address(fetcher.factory_address(chain))
                 .event(fetcher.pair_created_signature());
 
+            let step_size: u64 = 10000;
+            let num_tasks = end_block  / step_size; 
+            let pb_info = format!("{} Address Sync", fetcher.pool_type());
+            let progress_bar = create_progress_bar(num_tasks as u64, pb_info);
+
             // fetch all of the logs
             let logs = Rpc::fetch_event_logs(
                 start_block,
                 end_block,
                 10000,
                 provider,
-                format!("{} Address Sync", fetcher.pool_type()),
                 rate_limit,
+                progress_bar,
                 filter,
             )
             .await?;
@@ -189,7 +194,6 @@ impl Rpc {
             return anyhow::Ok(());
         }
 
-        // get the block difference
         let block_difference = end_block.saturating_sub(start_block);
         let address_to_index: HashMap<Address, usize> = pools
             .iter()
@@ -197,51 +201,52 @@ impl Rpc {
             .map(|(i, pool)| (pool.address(), i))
             .collect();
 
-        // if we have blocks to get information from
+        let config = Rpc::get_event_config(pool_type);
+
+        // create the progress bar
+        let num_tasks = end_block  / config.step_size;
+        let pb_info = config.description.to_string();
+        let progress_bar = create_progress_bar(num_tasks as u64, pb_info);
+
+
         if block_difference > 0 {
             let batch_size = 1_000_000;
             let mut current_block = start_block;
 
             while current_block < end_block {
                 let batch_end = (current_block + batch_size).min(end_block);
-                let mut new_logs: Vec<Log> = Vec::new();
+                if !config.requires_initial_sync || current_block > 10_000_000 {
+                    let logs = Rpc::fetch_logs_for_config(
+                        &config,
+                        current_block,
+                        batch_end,
+                        provider.clone(),
+                        progress_bar.clone(),
+                        rate_limit,
+                    )
+                    .await?;
 
-                // Fetch logs for this batch
-                for config in Rpc::get_event_config(pool_type) {
-                    if !config.requires_initial_sync || current_block > 10_000_000 {
-                        new_logs.extend(
-                            Rpc::fetch_logs_for_config(
-                                &config,
-                                current_block,
-                                batch_end,
-                                provider.clone(),
-                                rate_limit,
-                            )
-                            .await?,
-                        );
+                    // Process logs immediately after fetching
+                    let mut ordered_logs: BTreeMap<u64, Vec<Log>> = BTreeMap::new();
+                    for log in logs {
+                        if let Some(block_number) = log.block_number {
+                            ordered_logs.entry(block_number).or_default().push(log);
+                        }
                     }
-                }
 
-                // Process this batch of logs
-                let mut ordered_logs: BTreeMap<u64, Vec<Log>> = BTreeMap::new();
-                for log in new_logs {
-                    if let Some(block_number) = log.block_number {
-                        ordered_logs.entry(block_number).or_default().push(log);
-                    }
-                }
-
-                // Process logs in order
-                for (_, log_group) in ordered_logs {
-                    for log in log_group {
-                        let address = log.address();
-                        if let Some(&index) = address_to_index.get(&address) {
-                            if let Some(pool) = pools.get_mut(index) {
-                                if pool_type.is_v3() {
-                                    process_tick_data(pool.get_v3_mut().unwrap(), log, pool_type);
-                                } else if pool_type.is_balancer() {
-                                    process_balance_data(pool.get_balancer_mut().unwrap(), log);
-                                } else {
-                                    process_sync_data(pool.get_v2_mut().unwrap(), log, pool_type);
+                    // Process logs in order
+                    for (_, log_group) in ordered_logs {
+                        for log in log_group {
+                            let address = log.address();
+                            if let Some(&index) = address_to_index.get(&address) {
+                                if let Some(pool) = pools.get_mut(index) {
+                                    if pool_type.is_v3() {
+                                        process_tick_data(pool.get_v3_mut().unwrap(), log, pool_type);
+                                    } else if pool_type.is_balancer() {
+                                        process_balance_data(pool.get_balancer_mut().unwrap(), log);
+                                    } else {
+                                        process_sync_data(pool.get_v2_mut().unwrap(), log, pool_type);
+                                    }
                                 }
                             }
                         }
@@ -263,6 +268,7 @@ impl Rpc {
         start_block: u64,
         end_block: u64,
         provider: Arc<P>,
+        progress_bar: ProgressBar,
         rate_limit: u64,
     ) -> Result<Vec<Log>>
     where
@@ -276,8 +282,8 @@ impl Rpc {
             end_block,
             config.step_size,
             provider,
-            config.description.to_string(),
             rate_limit,
+            progress_bar,
             filter,
         )
         .await
@@ -289,8 +295,8 @@ impl Rpc {
         end_block: u64,
         step_size: u64,
         provider: Arc<P>,
-        pb_info: String,
         rate_limit: u64,
+        progress_bar: ProgressBar,
         filter: Filter,
     ) -> anyhow::Result<Vec<Log>>
     where
@@ -300,7 +306,6 @@ impl Rpc {
     {
         // generate the block range for the sync and setup progress bar
         let block_range = Rpc::get_block_range(step_size, start_block, end_block);
-        let progress_bar = create_progress_bar(block_range.len() as u64, pb_info);
 
         // semaphore and interval for rate limiting
         let semaphore = Arc::new(Semaphore::new(rate_limit as usize));
@@ -378,39 +383,26 @@ impl Rpc {
         }
     }
 
-    fn get_event_config(pool_type: PoolType) -> Vec<EventConfig> {
+    fn get_event_config(pool_type: PoolType) -> EventConfig {
         match pool_type {
-            pt if pt.is_v3() => vec![
-                EventConfig {
+            pt if pt.is_v3() => EventConfig {
                     events: &[DataEvents::Mint::SIGNATURE, DataEvents::Burn::SIGNATURE, DataEvents::Swap::SIGNATURE],
                     step_size: 500,
                     description: "Tick sync",
                     requires_initial_sync: false, // Always fetch these
-                },
-                /*
-                EventConfig {
-                    events: &[
-                        PancakeSwapEvents::Swap::SIGNATURE,
-                        DataEvents::Swap::SIGNATURE,
-                    ],
-                    step_size: 500,
-                    description: "Swap sync",
-                    requires_initial_sync: true, // Only fetch after initial sync
-                },
-                */
-            ],
-            pt if pt.is_balancer() => vec![EventConfig {
+            },
+            pt if pt.is_balancer() => EventConfig {
                 events: &[BalancerV2Event::Swap::SIGNATURE],
                 step_size: 5000,
                 description: "Swap Sync",
                 requires_initial_sync: true,
-            }],
-            _ => vec![EventConfig {
+            },
+            _ => EventConfig {
                 events: &[AerodromeSync::Sync::SIGNATURE, DataEvents::Sync::SIGNATURE],
                 step_size: 500,
                 description: "Reserve Sync",
                 requires_initial_sync: true,
-            }],
+            },
         }
     }
 
