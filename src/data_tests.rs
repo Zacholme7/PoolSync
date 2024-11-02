@@ -84,8 +84,8 @@ mod data_test {
         // Sync in all uniswapv3 pools
         let pool_sync = PoolSync::builder()
             .add_pools(&[
-                //PoolType::UniswapV3,
-                PoolType::SushiSwapV3,
+                PoolType::UniswapV3,
+                //PoolType::SushiSwapV3,
                 //PoolType::PancakeSwapV3,
                 //PoolType::Slipstream,
                 //PoolType::BaseSwapV3,
@@ -156,7 +156,6 @@ mod data_test {
             */
 
             // Assert all values match
-            println!("{}, {}", v3_pool.liquidity, liquidity);
             assert_eq!(v3_pool.sqrt_price, U256::from(sqrtPriceX96), "SqrtPrice: Address {}, Pool Type {}", pool.address(), pool.pool_type());
             assert_eq!(v3_pool.tick, tick.as_i32(), "Tick: Address {}, Pool Type {}", pool.address(), pool.pool_type());
             assert_eq!(v3_pool.liquidity, liquidity as u128, "Liquidity: Address {}, Pool Type {}", pool.address(), pool.pool_type());

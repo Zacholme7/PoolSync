@@ -1,10 +1,10 @@
 use alloy::network::Network;
 use alloy::primitives::Address;
 use alloy::providers::Provider;
-use anyhow::anyhow;
 use alloy::rpc::types::{Filter, Log};
 use alloy::sol_types::SolEvent;
 use alloy::transports::Transport;
+use anyhow::anyhow;
 use anyhow::Result;
 use futures::future::join_all;
 use indicatif::ProgressBar;
@@ -67,8 +67,9 @@ impl Rpc {
                 provider,
                 format!("{} Address Sync", fetcher.pool_type()),
                 rate_limit,
-                filter
-            ).await?;
+                filter,
+            )
+            .await?;
 
             // extract the addresses from the logs
             let addresses: Vec<Address> = logs
@@ -198,58 +199,63 @@ impl Rpc {
 
         // if we have blocks to get information from
         if block_difference > 0 {
-            for config in Rpc::get_event_config(pool_type) {
-                // Only fetch if:
-                // 1. The event doesn't require initial sync (like V3 Mint/Burn)
-                // 2. OR we're past the initial sync block
-                if !config.requires_initial_sync || start_block > 10_000_000 {
-                    let new_logs = Rpc::fetch_logs_for_config(
-                            &config,
-                            start_block,
-                            end_block,
-                            provider.clone(),
-                            rate_limit,
-                        )
-                        .await?;
+            let batch_size = 1_000_000;
+            let mut current_block = start_block;
 
-                    // order all of the logs by block number
-                    let mut ordered_logs: BTreeMap<u64, Vec<Log>> = BTreeMap::new();
-                    for log in new_logs {
-                        if let Some(block_number) = log.block_number {
-                            if let Some(log_group) = ordered_logs.get_mut(&block_number) {
-                                log_group.push(log);
-                            } else {
-                                ordered_logs.insert(block_number, vec![log]);
-                            }
-                        }
+            while current_block < end_block {
+                let batch_end = (current_block + batch_size).min(end_block);
+                let mut new_logs: Vec<Log> = Vec::new();
+
+                // Fetch logs for this batch
+                for config in Rpc::get_event_config(pool_type) {
+                    if !config.requires_initial_sync || current_block > 10_000_000 {
+                        new_logs.extend(
+                            Rpc::fetch_logs_for_config(
+                                &config,
+                                current_block,
+                                batch_end,
+                                provider.clone(),
+                                rate_limit,
+                            )
+                            .await?,
+                        );
                     }
+                }
 
-                    // process all of the logs
-                    for (_, log_group) in ordered_logs {
-                        for log in log_group {
-                            let address = log.address();
-                            if let Some(&index) = address_to_index.get(&address) {
-                                if let Some(pool) = pools.get_mut(index) {
-                                    // Note: removed & before index
-                                    if pool_type.is_v3() {
-                                        process_tick_data(pool.get_v3_mut().unwrap(), log, pool_type);
-                                    } else if pool_type.is_balancer() {
-                                        process_balance_data(pool.get_balancer_mut().unwrap(), log);
-                                    } else {
-                                        process_sync_data(pool.get_v2_mut().unwrap(), log, pool_type);
-                                    }
+                // Process this batch of logs
+                let mut ordered_logs: BTreeMap<u64, Vec<Log>> = BTreeMap::new();
+                for log in new_logs {
+                    if let Some(block_number) = log.block_number {
+                        ordered_logs.entry(block_number).or_default().push(log);
+                    }
+                }
+
+                // Process logs in order
+                for (_, log_group) in ordered_logs {
+                    for log in log_group {
+                        let address = log.address();
+                        if let Some(&index) = address_to_index.get(&address) {
+                            if let Some(pool) = pools.get_mut(index) {
+                                if pool_type.is_v3() {
+                                    process_tick_data(pool.get_v3_mut().unwrap(), log, pool_type);
+                                } else if pool_type.is_balancer() {
+                                    process_balance_data(pool.get_balancer_mut().unwrap(), log);
+                                } else {
+                                    process_sync_data(pool.get_v2_mut().unwrap(), log, pool_type);
                                 }
                             }
                         }
                     }
                 }
+
+                current_block = batch_end + 1;
             }
         }
 
         anyhow::Ok(())
     }
 
-    // Given a config and a range, fetch all the logs for it 
+    // Given a config and a range, fetch all the logs for it
     // This is a top level call which will delegate to individual fetching
     // functions to get the logs and to ensure retries on failure
     async fn fetch_logs_for_config<P, T, N>(
@@ -351,7 +357,7 @@ impl Rpc {
     {
         let mut retry_count = 0;
         let mut backoff = INITIAL_BACKOFF;
-        
+
         loop {
             match provider.get_logs(filter).await {
                 Ok(logs) => {
@@ -372,39 +378,39 @@ impl Rpc {
         }
     }
 
-
     fn get_event_config(pool_type: PoolType) -> Vec<EventConfig> {
         match pool_type {
             pt if pt.is_v3() => vec![
                 EventConfig {
-                    events: &[DataEvents::Mint::SIGNATURE, DataEvents::Burn::SIGNATURE],
-                    step_size: 1500,
+                    events: &[DataEvents::Mint::SIGNATURE, DataEvents::Burn::SIGNATURE, DataEvents::Swap::SIGNATURE],
+                    step_size: 500,
                     description: "Tick sync",
                     requires_initial_sync: false, // Always fetch these
                 },
+                /*
                 EventConfig {
-                    events: &[PancakeSwapEvents::Swap::SIGNATURE, DataEvents::Swap::SIGNATURE],
+                    events: &[
+                        PancakeSwapEvents::Swap::SIGNATURE,
+                        DataEvents::Swap::SIGNATURE,
+                    ],
                     step_size: 500,
                     description: "Swap sync",
                     requires_initial_sync: true, // Only fetch after initial sync
                 },
+                */
             ],
-            pt if pt.is_balancer() => vec![
-                EventConfig {
-                    events: &[BalancerV2Event::Swap::SIGNATURE],
-                    step_size: 5000,
-                    description: "Swap Sync",
-                    requires_initial_sync: true,
-                },
-            ],
-            _ => vec![
-                EventConfig {
-                    events: &[AerodromeSync::Sync::SIGNATURE, DataEvents::Sync::SIGNATURE],
-                    step_size: 500,
-                    description: "Reserve Sync",
-                    requires_initial_sync: true,
-                },
-            ],
+            pt if pt.is_balancer() => vec![EventConfig {
+                events: &[BalancerV2Event::Swap::SIGNATURE],
+                step_size: 5000,
+                description: "Swap Sync",
+                requires_initial_sync: true,
+            }],
+            _ => vec![EventConfig {
+                events: &[AerodromeSync::Sync::SIGNATURE, DataEvents::Sync::SIGNATURE],
+                step_size: 500,
+                description: "Reserve Sync",
+                requires_initial_sync: true,
+            }],
         }
     }
 
@@ -428,5 +434,4 @@ impl Rpc {
             .collect();
         block_ranges
     }
-
 }
