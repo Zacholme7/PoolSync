@@ -90,7 +90,7 @@ impl PoolSync {
                     );
 
                     // populate all of the pool data
-                    let new_pools = Rpc::populate_pools(
+                    let mut new_pools = Rpc::populate_pools(
                         pool_addrs,
                         full.clone(),
                         cache.pool_type,
@@ -100,23 +100,44 @@ impl PoolSync {
                     .await
                     .expect("Failed to sync pool data, Exiting due to haveing inconclusive state");
 
-                    cache.pools.extend(new_pools);
 
-                    // we need to do the initial tick sync
+                    // catch up all the old pools
                     Rpc::populate_liquidity(
                         start_block,
                         end_block,
                         &mut cache.pools,
                         archive.clone(),
                         cache.pool_type,
-                        self.rate_limit
+                        self.rate_limit,
+                        cache.is_initial_sync,
                     )
                     .await
                     .expect("Failed to populate liquidity information, Exiting due to having inconclusive state");
 
+                    // update the new pools
+                    if !new_pools.is_empty() {
+                        Rpc::populate_liquidity(
+                            start_block,
+                            end_block,
+                            &mut new_pools,
+                            archive.clone(),
+                            cache.pool_type,
+                            self.rate_limit,
+                            true,
+                        )
+                        .await
+                        .expect("Failed to populate liquidity information, Exiting due to having inconclusive state");
+                    }
+
+
+                    // merge old and new
+                    cache.pools.extend(new_pools);
+
+
                     // update info for cache
                     cache.last_synced_block = end_block;
                     last_synced_block = end_block;
+                    cache.is_initial_sync = false;
                 }
             }
         }

@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
     env_logger::init();
     // Configure and build the PoolSync instance
     let pool_sync = PoolSync::builder()
-        .add_pool(PoolType::SushiSwapV3)
+        .add_pool(PoolType::BaseSwapV3)
         .chain(Chain::Base)
         .rate_limit(1000)
         .build()?;

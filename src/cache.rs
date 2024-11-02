@@ -16,6 +16,7 @@ pub struct PoolCache {
     pub last_synced_block: u64,
     pub pool_type: PoolType,
     pub pools: Vec<Pool>,
+    pub is_initial_sync: bool,
 }
 
 pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> Result<PoolCache> {
@@ -34,12 +35,14 @@ pub fn read_cache_file(pool_type: &PoolType, chain: Chain) -> Result<PoolCache> 
                 last_synced_block: 0,
                 pool_type: *pool_type,
                 pools: Vec::new(),
+                is_initial_sync: true,
             })
         } else {
             Ok(PoolCache {
                 last_synced_block: 9_999_999,
                 pool_type: *pool_type,
                 pools: Vec::new(),
+                is_initial_sync: true,
             })
         }
     }

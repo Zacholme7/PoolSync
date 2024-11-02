@@ -1,5 +1,5 @@
 use alloy::dyn_abi::DynSolValue;
-use alloy::primitives::{Address, U256, address};
+use alloy::primitives::{address, Address, U256};
 use alloy::rpc::types::Log;
 use alloy::sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
@@ -33,41 +33,48 @@ pub struct TickInfo {
     pub liquidity_gross: u128,
 }
 
-pub fn process_tick_data(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType) {
+pub fn process_tick_data(
+    pool: &mut UniswapV3Pool,
+    log: Log,
+    pool_type: PoolType,
+    is_initial_sync: bool,
+) {
     let event_sig = log.topic0().unwrap();
 
     if *event_sig == DataEvents::Burn::SIGNATURE_HASH {
-        process_burn(pool, log);
+        process_burn(pool, log, is_initial_sync);
     } else if *event_sig == DataEvents::Mint::SIGNATURE_HASH {
-        process_mint(pool, log);
+        process_mint(pool, log, is_initial_sync);
     } else if *event_sig == DataEvents::Swap::SIGNATURE_HASH
         || *event_sig == PancakeSwapEvents::Swap::SIGNATURE_HASH
     {
-        process_swap(pool, log, pool_type);
+        process_swap(pool, log, pool_type, is_initial_sync);
     }
 }
 
-fn process_burn(pool: &mut UniswapV3Pool, log: Log) {
+fn process_burn(pool: &mut UniswapV3Pool, log: Log, is_initial_sync: bool) {
     let burn_event = DataEvents::Burn::decode_log(log.as_ref(), true).unwrap();
     modify_position(
         pool,
         burn_event.tickLower.unchecked_into(),
         burn_event.tickUpper.unchecked_into(),
         -(burn_event.amount as i128),
+        is_initial_sync,
     );
 }
 
-fn process_mint(pool: &mut UniswapV3Pool, log: Log) {
+fn process_mint(pool: &mut UniswapV3Pool, log: Log, is_initial_sync: bool) {
     let mint_event = DataEvents::Mint::decode_log(log.as_ref(), true).unwrap();
     modify_position(
         pool,
         mint_event.tickLower.unchecked_into(),
         mint_event.tickUpper.unchecked_into(),
         mint_event.amount as i128,
+        is_initial_sync,
     );
 }
 
-fn process_swap(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType) {
+fn process_swap(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType, is_initial_sync: bool) {
     if pool_type == PoolType::PancakeSwapV3 {
         let swap_event = PancakeSwapEvents::Swap::decode_log(log.as_ref(), true).unwrap();
         pool.tick = swap_event.tick.as_i32();
@@ -87,12 +94,14 @@ pub fn modify_position(
     tick_lower: i32,
     tick_upper: i32,
     liquidity_delta: i128,
+    is_initial_sync: bool,
 ) {
     //We are only using this function when a mint or burn event is emitted,
     //therefore we do not need to checkTicks as that has happened before the event is emitted
     update_position(pool, tick_lower, tick_upper, liquidity_delta);
 
-    if liquidity_delta != 0 {
+    // if it is the initial sync, ignore since liq is populated via contract
+    if liquidity_delta != 0 && !is_initial_sync {
         //if the tick is between the tick lower and tick upper, update the liquidity between the ticks
         if pool.tick >= tick_lower && pool.tick < tick_upper {
             pool.liquidity = if liquidity_delta < 0 {
@@ -197,6 +206,7 @@ impl From<&[DynSolValue]> for UniswapV3Pool {
             token0_decimals: data[2].as_uint().unwrap().0.to::<u8>(),
             token1: data[3].as_address().unwrap(),
             token1_decimals: data[4].as_uint().unwrap().0.to::<u8>(),
+            liquidity: data[5].as_uint().unwrap().0.to::<u128>(),
             sqrt_price: data[6].as_uint().unwrap().0,
             tick: data[7].as_int().unwrap().0.as_i32(),
             tick_spacing: data[8].as_int().unwrap().0.as_i32(),
@@ -205,4 +215,3 @@ impl From<&[DynSolValue]> for UniswapV3Pool {
         }
     }
 }
-

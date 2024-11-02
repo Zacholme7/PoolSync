@@ -7,6 +7,7 @@ use alloy::transports::Transport;
 use anyhow::anyhow;
 use anyhow::Result;
 use futures::future::join_all;
+use futures::StreamExt;
 use indicatif::ProgressBar;
 use log::info;
 use rand::Rng;
@@ -60,9 +61,14 @@ impl Rpc {
                 .event(fetcher.pair_created_signature());
 
             let step_size: u64 = 10000;
-            let num_tasks = end_block  / step_size; 
-            let pb_info = format!("{} Address Sync", fetcher.pool_type());
-            let progress_bar = create_progress_bar(num_tasks as u64, pb_info);
+            let num_tasks = end_block / step_size;
+            let pb_info = format!(
+                "{} Address Sync. Block range {}-{}",
+                fetcher.pool_type(),
+                start_block,
+                end_block
+            );
+            let progress_bar = Arc::new(create_progress_bar(num_tasks, pb_info));
 
             // fetch all of the logs
             let logs = Rpc::fetch_event_logs(
@@ -184,6 +190,7 @@ impl Rpc {
         provider: Arc<P>,
         pool_type: PoolType,
         rate_limit: u64,
+        is_initial_sync: bool,
     ) -> anyhow::Result<()>
     where
         P: Provider<T, N> + Sync + 'static,
@@ -201,63 +208,143 @@ impl Rpc {
             .map(|(i, pool)| (pool.address(), i))
             .collect();
 
-        let config = Rpc::get_event_config(pool_type);
-
-        // create the progress bar
-        let num_tasks = end_block  / config.step_size;
-        let pb_info = config.description.to_string();
-        let progress_bar = create_progress_bar(num_tasks as u64, pb_info);
-
-
         if block_difference > 0 {
             let batch_size = 1_000_000;
             let mut current_block = start_block;
 
+
+            // get the configuration for this sync
+            let config = Rpc::get_event_config(pool_type, is_initial_sync);
+
+            // construct the progress bar
+            let num_tasks = (end_block - start_block) / config.step_size;
+            let pb_info = format!(
+                "{} {}. Block range {}-{}",
+                pool_type, config.description, current_block, end_block
+            );
+            let progress_bar = Arc::new(create_progress_bar(num_tasks, pb_info));
+
+
+            // sync in batches
             while current_block < end_block {
                 let batch_end = (current_block + batch_size).min(end_block);
-                if !config.requires_initial_sync || current_block > 10_000_000 {
-                    let logs = Rpc::fetch_logs_for_config(
-                        &config,
-                        current_block,
-                        batch_end,
-                        provider.clone(),
-                        progress_bar.clone(),
-                        rate_limit,
-                    )
-                    .await?;
 
-                    // Process logs immediately after fetching
-                    let mut ordered_logs: BTreeMap<u64, Vec<Log>> = BTreeMap::new();
-                    for log in logs {
-                        if let Some(block_number) = log.block_number {
-                            ordered_logs.entry(block_number).or_default().push(log);
-                        }
-                    }
+                let logs = Rpc::fetch_logs_for_config(
+                    &config,
+                    current_block,
+                    batch_end,
+                    provider.clone(),
+                    progress_bar.clone(),
+                    rate_limit,
+                )
+                .await?;
 
-                    // Process logs in order
-                    for (_, log_group) in ordered_logs {
-                        for log in log_group {
-                            let address = log.address();
-                            if let Some(&index) = address_to_index.get(&address) {
-                                if let Some(pool) = pools.get_mut(index) {
-                                    if pool_type.is_v3() {
-                                        process_tick_data(pool.get_v3_mut().unwrap(), log, pool_type);
-                                    } else if pool_type.is_balancer() {
-                                        process_balance_data(pool.get_balancer_mut().unwrap(), log);
-                                    } else {
-                                        process_sync_data(pool.get_v2_mut().unwrap(), log, pool_type);
-                                    }
-                                }
-                            }
-                        }
+                // create pb for block processing
+                let processing_pb_info = format!(
+                    "Processing logs batch for blocks {}-{}",
+                    start_block, end_block
+                );
+                let processing_progress_bar =
+                    create_progress_bar(logs.len().try_into().unwrap(), processing_pb_info);
+
+                // Process logs immediately after fetching
+                let mut ordered_logs: BTreeMap<u64, Vec<Log>> = BTreeMap::new();
+                for log in logs {
+                    if let Some(block_number) = log.block_number {
+                        ordered_logs.entry(block_number).or_default().push(log);
                     }
                 }
 
+                // Process logs in order
+                for (_, log_group) in ordered_logs {
+                    for log in log_group {
+                        let address = log.address();
+                        if let Some(&index) = address_to_index.get(&address) {
+                            if let Some(pool) = pools.get_mut(index) {
+                                if pool_type.is_v3() {
+                                    process_tick_data(
+                                        pool.get_v3_mut().unwrap(),
+                                        log,
+                                        pool_type,
+                                        is_initial_sync,
+                                    );
+                                } else if pool_type.is_balancer() {
+                                    process_balance_data(
+                                        pool.get_balancer_mut().unwrap(),
+                                        log,
+                                    );
+                                } else {
+                                    process_sync_data(
+                                        pool.get_v2_mut().unwrap(),
+                                        log,
+                                        pool_type,
+                                    );
+                                }
+                            }
+                        }
+                        processing_progress_bar.inc(1);
+                    }
+                }
                 current_block = batch_end + 1;
             }
         }
 
         anyhow::Ok(())
+    }
+
+    pub async fn fetch_event_logs<T, N, P>(
+        start_block: u64,
+        end_block: u64,
+        step_size: u64,
+        provider: Arc<P>,
+        rate_limit: u64,
+        progress_bar: Arc<ProgressBar>,
+        filter: Filter,
+    ) -> anyhow::Result<Vec<Log>>
+    where
+        T: Transport + Clone,
+        N: Network,
+        P: Provider<T, N> + 'static,
+    {
+        // generate the block range for the sync and setup progress bar
+        let block_range = Rpc::get_block_range(step_size, start_block, end_block);
+
+        // semaphore and interval for rate limiting
+        let semaphore = Arc::new(Semaphore::new(rate_limit as usize));
+        let interval = Arc::new(Mutex::new(interval(Duration::from_secs_f64(
+            1.0 / rate_limit as f64,
+        ))));
+
+        // Create a stream of futures
+        let mut stream =
+            futures::stream::iter(block_range.into_iter().map(|(from_block, to_block)| {
+                let provider = provider.clone();
+                let sem = semaphore.clone();
+                let pb = progress_bar.clone();
+                let interval = interval.clone();
+                let filter = filter.clone();
+
+                async move {
+                    let _permit = sem.acquire().await.unwrap();
+                    interval.lock().await.tick().await;
+
+                    let filter = filter.from_block(from_block).to_block(to_block);
+                    Rpc::get_logs_with_retry(provider, &filter, pb).await
+                }
+            }))
+            .buffer_unordered(rate_limit as usize); // Process up to rate_limit tasks concurrently
+
+        let mut all_logs = Vec::new();
+
+        // Process results as they complete
+        while let Some(result) = stream.next().await {
+            match result {
+                Ok(logs) => all_logs.extend(logs),
+                Err(e) => return Err(e),
+            }
+        }
+
+        Ok(all_logs)
     }
 
     // Given a config and a range, fetch all the logs for it
@@ -268,7 +355,7 @@ impl Rpc {
         start_block: u64,
         end_block: u64,
         provider: Arc<P>,
-        progress_bar: ProgressBar,
+        progress_bar: Arc<ProgressBar>,
         rate_limit: u64,
     ) -> Result<Vec<Log>>
     where
@@ -289,71 +376,11 @@ impl Rpc {
         .await
     }
 
-    // fetch all the logs for a specific event set
-    pub async fn fetch_event_logs<T, N, P>(
-        start_block: u64,
-        end_block: u64,
-        step_size: u64,
-        provider: Arc<P>,
-        rate_limit: u64,
-        progress_bar: ProgressBar,
-        filter: Filter,
-    ) -> anyhow::Result<Vec<Log>>
-    where
-        T: Transport + Clone,
-        N: Network,
-        P: Provider<T, N> + 'static,
-    {
-        // generate the block range for the sync and setup progress bar
-        let block_range = Rpc::get_block_range(step_size, start_block, end_block);
-
-        // semaphore and interval for rate limiting
-        let semaphore = Arc::new(Semaphore::new(rate_limit as usize));
-        let interval = Arc::new(Mutex::new(interval(Duration::from_secs_f64(
-            1.0 / rate_limit as f64,
-        ))));
-
-        // generate all the tasks
-        let tasks = block_range.into_iter().map(|(from_block, to_block)| {
-            // clone all the state that we need
-            let provider = provider.clone();
-            let sem = semaphore.clone();
-            let pb = progress_bar.clone();
-            let interval = interval.clone();
-            let filter = filter.clone();
-
-            tokio::spawn(async move {
-                // make sure it is our turn to request
-                let _permit = sem.acquire().await.unwrap();
-                interval.lock().await.tick().await;
-
-                // set the filter range
-                let filter = filter
-                    .from_block(from_block)
-                    .to_block(to_block);
-
-                // fetch the logs
-                let logs = Rpc::get_logs_with_retry(provider, &filter, pb).await?;
-                return anyhow::Ok(logs)
-            })
-        });
-
-        // fetch all the logs and propagate errors
-        let all_logs = join_all(tasks)
-            .await
-            .into_iter()
-            .flatten() // Flatten JoinError
-            .flatten() // flatten Result
-            .flatten() // Flatten Vec<Log>
-            .collect::<Vec<Log>>();
-        anyhow::Ok(all_logs)
-    }
-
     // Fetch logs with retry functionality
     async fn get_logs_with_retry<P, T, N>(
         provider: Arc<P>,
         filter: &Filter,
-        pb: ProgressBar,
+        pb: Arc<ProgressBar>,
     ) -> anyhow::Result<Vec<Log>>
     where
         P: Provider<T, N> + 'static,
@@ -383,14 +410,24 @@ impl Rpc {
         }
     }
 
-    fn get_event_config(pool_type: PoolType) -> EventConfig {
+    fn get_event_config(pool_type: PoolType, is_initial_sync: bool) -> EventConfig {
         match pool_type {
-            pt if pt.is_v3() => EventConfig {
-                    events: &[DataEvents::Mint::SIGNATURE, DataEvents::Burn::SIGNATURE, DataEvents::Swap::SIGNATURE],
-                    step_size: 500,
-                    description: "Tick sync",
-                    requires_initial_sync: false, // Always fetch these
-            },
+            pt if pt.is_v3() => 
+                if is_initial_sync {
+                     EventConfig {
+                        events: &[DataEvents::Mint::SIGNATURE, DataEvents::Burn::SIGNATURE],
+                        step_size: 1500,
+                        description: "Tick sync",
+                        requires_initial_sync: false, // Always fetch these
+                    }
+                } else {
+                    EventConfig {
+                        events: &[DataEvents::Mint::SIGNATURE, DataEvents::Burn::SIGNATURE, DataEvents::Swap::SIGNATURE],
+                        step_size: 100,
+                        description: "Full sync",
+                        requires_initial_sync: true, // Always fetch these
+                    }
+                }
             pt if pt.is_balancer() => EventConfig {
                 events: &[BalancerV2Event::Swap::SIGNATURE],
                 step_size: 5000,

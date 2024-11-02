@@ -88,7 +88,7 @@ mod data_test {
                 PoolType::SushiSwapV3,
                 //PoolType::PancakeSwapV3,
                 //PoolType::Slipstream,
-                PoolType::BaseSwapV3,
+                //PoolType::BaseSwapV3,
                 //PoolType::SwapBasedV3,
                 //PoolType::DackieSwapV3,
                 //PoolType::AlienBaseV3,
@@ -97,9 +97,11 @@ mod data_test {
             .rate_limit(1000)
             .build().unwrap();
         let (pools, last_synced_block) = pool_sync.sync_pools().await.unwrap();
-
         let provider = Arc::new(ProviderBuilder::new()
             .on_http(std::env::var("FULL").unwrap().parse().unwrap()));
+        let current_block = provider.get_block_number().await.unwrap();
+        println!("Last synced block {}, current block {}", last_synced_block, current_block);
+
 
         // for each pool, fetch the onchain data and confirm that it matches
         for pool in pools {
