@@ -13,8 +13,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use super::gen::{
-    BalancerV2DataSync, MaverickDataSync, SlipStreamDataSync,
-    TriCurveDataSync, TwoCurveDataSync, V2DataSync, V3DataSync,
+    BalancerV2DataSync, MaverickDataSync, SlipStreamDataSync, TriCurveDataSync, TwoCurveDataSync,
+    V2DataSync, V3DataSync,
 };
 
 use crate::pools::gen::ERC20;
@@ -25,7 +25,7 @@ pub const INITIAL_BACKOFF: u64 = 1000; // 1 second
 pub const MAX_RETRIES: u32 = 5;
 
 pub async fn build_pools<P, T, N>(
-    provider: Arc<P>,
+    provider: &Arc<P>,
     addresses: Vec<Address>,
     pool_type: PoolType,
     data: DynSolType,
@@ -39,16 +39,14 @@ where
     let mut backoff = INITIAL_BACKOFF;
 
     loop {
-        match populate_pool_data(provider.clone(), addresses.clone(), pool_type, data.clone()).await
+        match populate_pool_data(provider, addresses.clone(), pool_type, data.clone()).await
         {
             Ok(pools) => {
-                drop(provider);
                 return Ok(pools);
             }
             Err(e) => {
                 if retry_count >= MAX_RETRIES {
-                    eprintln!("Max retries reached. Error: {:?} {:?}", e,addresses );
-                    drop(provider);
+                    eprintln!("Max retries reached. Error: {:?} {:?}", e, addresses);
                     return Ok(Vec::new());
                 }
 
@@ -64,7 +62,7 @@ where
 }
 
 async fn populate_pool_data<P, T, N>(
-    provider: Arc<P>,
+    provider: &Arc<P>,
     pool_addresses: Vec<Address>,
     pool_type: PoolType,
     data: DynSolType,
@@ -76,33 +74,46 @@ where
 {
     let pool_data = match pool_type {
         // V2-style pools
-        PoolType::UniswapV2     |
-        PoolType::SushiSwapV2   |
-        PoolType::PancakeSwapV2 |
-        PoolType::BaseSwapV2    |
-        PoolType::Aerodrome     |
-        PoolType::AlienBaseV2   |
-        PoolType::SwapBasedV2   |
-        PoolType::DackieSwapV2  => V2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
+        PoolType::UniswapV2
+        | PoolType::SushiSwapV2
+        | PoolType::PancakeSwapV2
+        | PoolType::BaseSwapV2
+        | PoolType::Aerodrome
+        | PoolType::AlienBaseV2
+        | PoolType::SwapBasedV2
+        | PoolType::DackieSwapV2 => {
+            V2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
 
         // Maverick pools
-        PoolType::MaverickV1    |
-        PoolType::MaverickV2    => MaverickDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
+        PoolType::MaverickV1 | PoolType::MaverickV2 => {
+            MaverickDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
 
         // V3-style pools
-        PoolType::UniswapV3     |
-        PoolType::SushiSwapV3   |
-        PoolType::BaseSwapV3    |
-        PoolType::AlienBaseV3   |
-        PoolType::PancakeSwapV3 |
-        PoolType::SwapBasedV3   |
-        PoolType::DackieSwapV3  => V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
+        PoolType::UniswapV3
+        | PoolType::SushiSwapV3
+        | PoolType::BaseSwapV3
+        | PoolType::AlienBaseV3
+        | PoolType::PancakeSwapV3
+        | PoolType::SwapBasedV3
+        | PoolType::DackieSwapV3 => {
+            V3DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
 
         // Other specialized pools
-        PoolType::Slipstream    => SlipStreamDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
-        PoolType::BalancerV2    => BalancerV2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
-        PoolType::CurveTwoCrypto => TwoCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
-        PoolType::CurveTriCrypto => TriCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?,
+        PoolType::Slipstream => {
+            SlipStreamDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
+        PoolType::BalancerV2 => {
+            BalancerV2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
+        PoolType::CurveTwoCrypto => {
+            TwoCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
+        PoolType::CurveTriCrypto => {
+            TriCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+        }
     };
 
     let decoded_data = data.abi_decode_sequence(&pool_data)?;
@@ -121,12 +132,12 @@ where
 
     // fill in missing info for the pool, this is more impl specific details. fetched by the full node, okay to not batch
     for pool in &mut pools {
-        let token0_contract = ERC20::new(pool.token0_address(), provider.clone());
+        let token0_contract = ERC20::new(pool.token0_address(), &provider);
         if let Ok(ERC20::symbolReturn { _0: name }) = token0_contract.symbol().call().await {
             Pool::update_token0_name(pool, name);
         }
 
-        let token1_contract = ERC20::new(pool.token1_address(), provider.clone());
+        let token1_contract = ERC20::new(pool.token1_address(), &provider);
         if let Ok(ERC20::symbolReturn { _0: name }) = token1_contract.symbol().call().await {
             Pool::update_token1_name(pool, name);
         }
@@ -135,7 +146,7 @@ where
         if pool_type == PoolType::BalancerV2 {
             let pool = pool.get_balancer_mut().unwrap();
             for token in &pool.additional_tokens {
-                let token_contract = ERC20::new(*token, provider.clone());
+                let token_contract = ERC20::new(*token, &provider);
                 if let Ok(ERC20::symbolReturn { _0: name }) = token_contract.symbol().call().await {
                     pool.additional_token_names.push(name);
                 }
@@ -145,7 +156,7 @@ where
         // if the pool is curve, update name for the third token
         if pool_type == PoolType::CurveTriCrypto {
             let pool = pool.get_curve_tri_mut().unwrap();
-            let token_contract = ERC20::new(pool.token2, provider.clone());
+            let token_contract = ERC20::new(pool.token2, &provider);
             if let Ok(ERC20::symbolReturn { _0: name }) = token_contract.symbol().call().await {
                 pool.token2_name = name;
             }
@@ -156,12 +167,12 @@ where
             let factory = address!("420DD381b31aEf6683db6B902084cB0FFECe40Da");
             let pool = pool.get_v2_mut().unwrap();
             // get if it is stable or not
-            let pool_contract = AerodromePool::new(pool.address, provider.clone());
+            let pool_contract = AerodromePool::new(pool.address, &provider);
             let AerodromePool::stableReturn { _0: stable } =
                 pool_contract.stable().call().await.unwrap();
             pool.stable = Some(stable);
 
-            let factory_contract = AerodromeV2Factory::new(factory, provider.clone());
+            let factory_contract = AerodromeV2Factory::new(factory, &provider);
             let AerodromeV2Factory::getFeeReturn { _0: fee } = factory_contract
                 .getFee(pool.address, stable)
                 .call()

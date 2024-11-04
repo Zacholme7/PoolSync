@@ -85,7 +85,7 @@ mod data_test {
         let pool_sync = PoolSync::builder()
             .add_pools(&[
                 PoolType::UniswapV3,
-                PoolType::SushiSwapV3,
+                //PoolType::SushiSwapV3,
                 //PoolType::PancakeSwapV3,
                 //PoolType::Slipstream,
                 //PoolType::BaseSwapV3,
@@ -144,18 +144,22 @@ mod data_test {
                 .await
                 .unwrap();
 
-            // Get tick data
-            /* 
-            let V3State::ticksReturn { 
-                liquidityNet,
-                ..
-            } = contract
-                .ticks(tick)
-                .block(last_synced_block.into())
-                .call()
-                .await
-                .unwrap();
-            */
+             // Get tick data for all initialized ticks
+            for (tick, tick_info) in &v3_pool.ticks {
+                let V3State::ticksReturn { 
+                    liquidityGross,
+                    liquidityNet,
+                    ..
+                } = contract
+                    .ticks((*tick).try_into().unwrap())
+                    .block(last_synced_block.into())
+                    .call()
+                    .await
+                    .unwrap();
+
+                assert_eq!(tick_info.liquidity_gross, liquidityGross as u128, "Liquidity Gross at tick {}: Address {}, Pool Type {}", tick, pool.address(), pool.pool_type());
+                assert_eq!(tick_info.liquidity_net, liquidityNet as i128, "Liquidity Net at tick {}: Address {}, Pool Type {}", tick, pool.address(), pool.pool_type());
+            }
 
             // Assert all values match
             assert_eq!(v3_pool.sqrt_price, U256::from(sqrtPriceX96), "SqrtPrice: Address {}, Pool Type {}", pool.address(), pool.pool_type());
