@@ -96,6 +96,7 @@ impl PoolSync {
                         cache.pool_type,
                         fetcher.clone(),
                         self.rate_limit,
+                        self.chain,
                     )
                     .await
                     .expect("Failed to sync pool data, Exiting due to haveing inconclusive state");

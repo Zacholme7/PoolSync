@@ -19,9 +19,9 @@ contract TriCurveDataSync {
         uint8 token2Decimals;
     }
 
-    constructor(address[] memory pools) {
+    constructor(address factoryAddr, address[] memory pools) {
         PoolData[] memory allPoolData = new PoolData[](pools.length);
-        TriCryptoFactory factory = TriCryptoFactory(0xA5961898870943c68037F6848d2D866Ed2016bcB);
+        TriCryptoFactory factory = TriCryptoFactory(factoryAddr);
 
         for (uint256 i = 0; i < pools.length; ++i) {
             address poolAddress = pools[i];

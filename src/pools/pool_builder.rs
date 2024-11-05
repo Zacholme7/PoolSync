@@ -19,7 +19,7 @@ use super::gen::{
 
 use crate::pools::gen::ERC20;
 use crate::pools::gen::{AerodromePool, AerodromeV2Factory};
-use crate::pools::{Pool, PoolType};
+use crate::pools::{Pool, PoolType, Chain};
 
 pub const INITIAL_BACKOFF: u64 = 1000; // 1 second
 pub const MAX_RETRIES: u32 = 5;
@@ -29,6 +29,7 @@ pub async fn build_pools<P, T, N>(
     addresses: Vec<Address>,
     pool_type: PoolType,
     data: DynSolType,
+    chain: Chain,
 ) -> Result<Vec<Pool>>
 where
     P: Provider<T, N> + Sync + 'static,
@@ -39,7 +40,7 @@ where
     let mut backoff = INITIAL_BACKOFF;
 
     loop {
-        match populate_pool_data(provider, addresses.clone(), pool_type, data.clone()).await
+        match populate_pool_data(provider, addresses.clone(), pool_type, data.clone(), chain).await
         {
             Ok(pools) => {
                 return Ok(pools);
@@ -66,6 +67,7 @@ async fn populate_pool_data<P, T, N>(
     pool_addresses: Vec<Address>,
     pool_type: PoolType,
     data: DynSolType,
+    chain: Chain
 ) -> Result<Vec<Pool>>
 where
     P: Provider<T, N> + Sync + 'static,
@@ -109,10 +111,20 @@ where
             BalancerV2DataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
         }
         PoolType::CurveTwoCrypto => {
-            TwoCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+            let factory_addr = if chain == Chain::Ethereum {
+                address!("98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F")
+            } else {
+                address!("c9Fe0C63Af9A39402e8a5514f9c43Af0322b665F")
+            };
+            TwoCurveDataSync::deploy_builder(provider.clone(), factory_addr,  pool_addresses.to_vec()).await?
         }
         PoolType::CurveTriCrypto => {
-            TriCurveDataSync::deploy_builder(provider.clone(), pool_addresses.to_vec()).await?
+            let factory_addr = if chain == Chain::Ethereum {
+                address!("0c0e5f2fF0ff18a3be9b835635039256dC4B4963")
+            } else {
+                address!("A5961898870943c68037F6848d2D866Ed2016bcB")
+            };
+            TriCurveDataSync::deploy_builder(provider.clone(), factory_addr, pool_addresses.to_vec()).await?
         }
     };
 

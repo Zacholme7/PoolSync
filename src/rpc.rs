@@ -94,6 +94,7 @@ impl Rpc {
         pool: PoolType,
         fetcher: Arc<dyn PoolFetcher>,
         rate_limit: u64,
+        chain: Chain
     ) -> Result<Vec<Pool>>
     where
         P: Provider<T, N> + 'static,
@@ -137,6 +138,7 @@ impl Rpc {
                         chunk.clone(),
                         pool,
                         data.clone(),
+                        chain
                     )
                     .await
                     {
