@@ -9,7 +9,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pool-sync = "2.0.1"
+pool-sync = "3.0.0"
 ```
 
 Configure your .env with a full node and a archive node. Archive must be an archive node. The full node can be either. It is designed this way due to the fact the fact that is it much more accessible to host full nodes due to the storage requirements. The typical workflow is to use a paid archive endpoint for the initial intensive sync and let the fullnode take it from there. After the initial sync, all information will be cached and the strain on the endpoints is reduced immensely. 
