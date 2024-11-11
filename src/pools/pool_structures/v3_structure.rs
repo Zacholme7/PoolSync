@@ -1,5 +1,5 @@
 use alloy::dyn_abi::DynSolValue;
-use alloy::primitives::{address, Address, U256};
+use alloy::primitives::{Address, U256};
 use alloy::rpc::types::Log;
 use alloy::sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ pub fn process_tick_data(
     } else if *event_sig == DataEvents::Swap::SIGNATURE_HASH
         || *event_sig == PancakeSwapEvents::Swap::SIGNATURE_HASH
     {
-        process_swap(pool, log, pool_type, is_initial_sync);
+        process_swap(pool, log, pool_type);
     }
 }
 
@@ -74,7 +74,7 @@ fn process_mint(pool: &mut UniswapV3Pool, log: Log, is_initial_sync: bool) {
     );
 }
 
-fn process_swap(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType, is_initial_sync: bool) {
+fn process_swap(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType) {
     if pool_type == PoolType::PancakeSwapV3 {
         let swap_event = PancakeSwapEvents::Swap::decode_log(log.as_ref(), true).unwrap();
         pool.tick = swap_event.tick.as_i32();
