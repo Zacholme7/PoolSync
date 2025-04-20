@@ -74,7 +74,6 @@ impl Syncer for RpcSyncer {
             })
             .collect();
 
-        //let results = futures::future::join_all(futures).await;
         let results: Vec<_> = stream::iter(futures).buffer_unordered(100).collect().await;
         Ok(results
             .into_iter()
@@ -91,8 +90,10 @@ impl Syncer for RpcSyncer {
 
     async fn populate_liquidity(
         &self,
-        pools: &mut Vec<Pool>,
+        _pools: &mut Vec<Pool>,
         pool_type: &PoolType,
+        _start_block: u64,
+        _end_block: u64
     ) -> Result<(), PoolSyncError> {
         // Liquidity already populated for v2 contracts
         if pool_type.is_v2() {
@@ -109,9 +110,6 @@ impl Syncer for RpcSyncer {
             .map_err(|_| PoolSyncError::ProviderError("failed to get block".to_string()))
     }
 
-    fn get_chain(&self) -> Chain {
-        self.chain
-    }
 }
 
 impl RpcSyncer {

@@ -169,10 +169,10 @@ impl PoolSyncBuilder {
 
         // Create db from custom path if specified
         let database = if let Some(db_path) = self.db_path {
-            Some(Arc::new(PoolDatabase::new(db_path)?))
+            Arc::new(PoolDatabase::new(db_path)?)
         } else {
             let path = PathBuf::from_str("pool_sync.db").expect("Failed to create default db path");
-            Some(Arc::new(PoolDatabase::new(path)?))
+            Arc::new(PoolDatabase::new(path)?)
         };
 
         // Build the syncer
@@ -181,6 +181,6 @@ impl PoolSyncBuilder {
             SyncType::RpcSync => RpcSyncer::new(chain)?,
         };
 
-        Ok(PoolSync::new(self.fetchers, Box::new(syncer), database))
+        Ok(PoolSync::new(self.fetchers, Box::new(syncer), database, chain))
     }
 }

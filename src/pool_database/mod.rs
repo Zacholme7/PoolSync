@@ -64,8 +64,10 @@ impl PoolDatabase {
         tx.execute(
             &format!(
                 "CREATE TABLE IF NOT EXISTS {} (
-                    chain TEXT PRIMARY KEY,
-                    last_block INTEGER NOT NULL
+                    chain TEXT NOT NULL,
+                    pool_type TEXT NOT NULL,
+                    last_block INTEGER NOT NULL,
+                    PRIMARY KEY (chain, pool_type)
                 )",
                 TableName::SyncState.as_str()
             ),
@@ -125,16 +127,20 @@ impl PoolDatabase {
         Ok(())
     }
 
-    /// Gets the last processed block for a chain
-    pub fn get_last_processed_block(&self, chain: Chain) -> Result<Option<u64>, PoolSyncError> {
+    /// Gets the last processed block for a chain and pool type
+    pub fn get_last_processed_block(
+        &self,
+        chain: Chain,
+        pool_type: crate::PoolType,
+    ) -> Result<Option<u64>, PoolSyncError> {
         let conn = self.connection.lock().unwrap();
         let result = conn
             .query_row(
                 &format!(
-                    "SELECT last_block FROM {} WHERE chain = ?1",
+                    "SELECT last_block FROM {} WHERE chain = ?1 AND pool_type = ?2",
                     TableName::SyncState.as_str()
                 ),
-                [chain.to_string()],
+                params![chain.to_string(), pool_type.to_string()],
                 |row| row.get::<_, u64>(0),
             )
             .optional()
@@ -148,20 +154,21 @@ impl PoolDatabase {
         Ok(result)
     }
 
-    /// Updates the last processed block for a chain
+    /// Updates the last processed block for a chain and pool type
     pub fn update_last_processed_block(
         &self,
         chain: Chain,
+        pool_type: crate::PoolType,
         block: u64,
     ) -> Result<(), PoolSyncError> {
         let conn = self.connection.lock().unwrap();
         conn.execute(
             &format!(
-                "INSERT INTO {} (chain, last_block) VALUES (?1, ?2)
-                 ON CONFLICT(chain) DO UPDATE SET last_block = ?2",
+                "INSERT INTO {} (chain, pool_type, last_block) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(chain, pool_type) DO UPDATE SET last_block = ?3",
                 TableName::SyncState.as_str()
             ),
-            params![chain.to_string(), block],
+            params![chain.to_string(), pool_type.to_string(), block],
         )
         .map_err(|e| {
             PoolSyncError::IoError(std::io::Error::new(
@@ -171,8 +178,8 @@ impl PoolDatabase {
         })?;
 
         debug!(
-            "Updated last processed block for chain {:?} to {}",
-            chain, block
+            "Updated last processed block for chain {:?} pool type {:?} to {}",
+            chain, pool_type, block
         );
         Ok(())
     }

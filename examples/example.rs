@@ -30,17 +30,6 @@ async fn main() -> Result<()> {
         .with_database(db_path)
         .build()?;
 
-    // First, attempt to load any previously saved pools
-    let loaded_pools = pool_sync.load_pools().await?;
-    println!("Loaded {} pools from database", loaded_pools.len());
-
-    // Get the last processed block
-    if let Some(block) = pool_sync.get_last_processed_block().await? {
-        println!("Resuming sync from block {}", block);
-    } else {
-        println!("Starting new sync");
-    }
-
     // Sync pools
     let (pools, last_block) = pool_sync.sync_pools().await?;
     println!("Synced {} pools up to block {}", pools.len(), last_block);

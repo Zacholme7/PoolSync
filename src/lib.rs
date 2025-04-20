@@ -59,13 +59,16 @@ pub(crate) trait Syncer {
     ) -> Result<Vec<Pool>, PoolSyncError>;
 
     // For a set of pools, populate it with all liquidity information
-    async fn populate_liquidity(&self, pools: &mut Vec<Pool>, pool_type: &PoolType) -> Result<(), PoolSyncError>;
+    async fn populate_liquidity(
+        &self,
+        pools: &mut Vec<Pool>,
+        pool_type: &PoolType,
+        start_block: u64,
+        end_block: u64,
+    ) -> Result<(), PoolSyncError>;
 
     // Get the latest block number
     async fn block_number(&self) -> Result<u64, PoolSyncError>;
-
-    // Get the chain being synced
-    fn get_chain(&self) -> Chain;
 }
 
 // Enumerate every specific pool variant that the syncer supports
