@@ -9,10 +9,12 @@ use async_trait::async_trait;
 use futures::{stream, StreamExt};
 use std::future::Future;
 use std::sync::Arc;
+use tracing::debug;
+use tracing::error;
 
 // Batch steps size for address syncing
 const ADDRESS_BATCH_SIZE: u64 = 10_000;
-const INFO_BATCH_SIZE: u64 = 100;
+const INFO_BATCH_SIZE: u64 = 50;
 const RETRY_LIMIT: usize = 10;
 
 // Sync pools via rpc
@@ -41,7 +43,13 @@ impl Syncer for RpcSyncer {
         let logs: Vec<_> = stream::iter(tasks).buffer_unordered(100).collect().await;
         let logs: Vec<Log> = logs
             .into_iter()
-            .filter_map(|result| result.ok())
+            .filter_map(|result| match result {
+                Ok(logs) => Some(logs),
+                Err(e) => {
+                    error!("Fetching failed: {}", e);
+                    None
+                }
+            })
             .flatten()
             .collect();
 
@@ -70,7 +78,13 @@ impl Syncer for RpcSyncer {
         let results: Vec<_> = stream::iter(futures).buffer_unordered(100).collect().await;
         Ok(results
             .into_iter()
-            .filter_map(|result| result.ok())
+            .filter_map(|result| match result {
+                Ok(pools) => Some(pools),
+                Err(e) => {
+                    error!("building failed: {}", e);
+                    None
+                }
+            })
             .flatten()
             .collect())
     }
@@ -93,6 +107,10 @@ impl Syncer for RpcSyncer {
             .get_block_number()
             .await
             .map_err(|_| PoolSyncError::ProviderError("failed to get block".to_string()))
+    }
+
+    fn get_chain(&self) -> Chain {
+        self.chain
     }
 }
 
@@ -125,7 +143,10 @@ impl RpcSyncer {
             loop {
                 // Fetch the logs w/ a backoff retry
                 match client.get_logs(&filter).await {
-                    Ok(logs) => return Ok(logs),
+                    Ok(logs) => {
+                        debug!("Fetched logs from block {} to {}", start_block, end_block);
+                        return Ok(logs);
+                    }
                     Err(_) => {
                         fetch_cnt += 1;
                         if fetch_cnt == RETRY_LIMIT {

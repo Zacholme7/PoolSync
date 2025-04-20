@@ -12,12 +12,15 @@ use crate::pools::pool_fetchers::{
 };
 
 use crate::errors::PoolSyncError;
+use crate::pool_database::PoolDatabase;
 use crate::pool_sync::PoolSync;
 use crate::pools::*;
 use crate::sync_rpc::RpcSyncer;
 use crate::{Chain, PoolType};
 use anyhow::Result;
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 
 // Option to do a RPC sync or database sync
@@ -34,6 +37,8 @@ pub struct PoolSyncBuilder {
     chain: Option<Chain>,
     /// Type of sync to perform
     sync_type: Option<SyncType>,
+    /// Path for the databse
+    db_path: Option<PathBuf>,
 }
 
 impl PoolSyncBuilder {
@@ -144,6 +149,12 @@ impl PoolSyncBuilder {
         self
     }
 
+    /// Sets the database path for persistence
+    pub fn with_database<P: Into<PathBuf>>(mut self, path: P) -> Self {
+        self.db_path = Some(path.into());
+        self
+    }
+
     /// Consumes the builder and produces a constructed PoolSync
     pub fn build(self) -> Result<PoolSync, PoolSyncError> {
         // Ensure the chain is set
@@ -156,12 +167,20 @@ impl PoolSyncBuilder {
             }
         }
 
+        // Create db from custom path if specified
+        let database = if let Some(db_path) = self.db_path {
+            Some(Arc::new(PoolDatabase::new(db_path)?))
+        } else {
+            let path = PathBuf::from_str("pool_sync.db").expect("Failed to create default db path");
+            Some(Arc::new(PoolDatabase::new(path)?))
+        };
+
         // Build the syncer
         let sync_type = self.sync_type.unwrap_or(SyncType::RpcSync);
         let syncer = match sync_type {
             SyncType::RpcSync => RpcSyncer::new(chain)?,
         };
 
-        Ok(PoolSync::new(self.fetchers, Box::new(syncer)))
+        Ok(PoolSync::new(self.fetchers, Box::new(syncer), database))
     }
 }

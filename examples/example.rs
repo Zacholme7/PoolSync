@@ -5,30 +5,45 @@
 use anyhow::Result;
 use pool_sync::PoolSync;
 use pool_sync::{Chain, PoolType};
-
-use tracing::Level;
-use tracing_subscriber::FmtSubscriber;
+use std::path::Path;
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::INFO)
-        .finish();
-    tracing::subscriber::set_global_default(subscriber).expect("Failed to set subscriber");
+    // Initialize logging
+    let filter = EnvFilter::builder()
+        .parse("debug,alloy_transport_http=off,alloy_rpc_client=off,alloy_transport_ws=off,hyper_util=off,reqwest=off")
+        .expect("filter should be valid");
 
-    // Configure and build the PoolSync instance
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(filter)
+        .init();
+
+    // Define database path
+    let db_path = Path::new("./pools.db");
+
+    // Configure the pool sync with a database
     let pool_sync = PoolSync::builder()
-        .add_pool(PoolType::UniswapV2)
         .chain(Chain::Base)
+        .add_pool(PoolType::UniswapV2)
+        .with_database(db_path)
         .build()?;
 
-    // Synchronize pools
-    let (pools, last_synced_block) = pool_sync.sync_pools().await?;
-    println!(
-        "Synced {} pools up to block {}!",
-        pools.len(),
-        last_synced_block
-    );
+    // First, attempt to load any previously saved pools
+    let loaded_pools = pool_sync.load_pools().await?;
+    println!("Loaded {} pools from database", loaded_pools.len());
+
+    // Get the last processed block
+    if let Some(block) = pool_sync.get_last_processed_block().await? {
+        println!("Resuming sync from block {}", block);
+    } else {
+        println!("Starting new sync");
+    }
+
+    // Sync pools
+    let (pools, last_block) = pool_sync.sync_pools().await?;
+    println!("Synced {} pools up to block {}", pools.len(), last_block);
 
     Ok(())
 }

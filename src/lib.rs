@@ -26,6 +26,7 @@ mod builder;
 mod chain;
 mod errors;
 mod onchain;
+mod pool_database;
 mod pool_sync;
 mod pools;
 mod sync_database;
@@ -62,6 +63,9 @@ pub(crate) trait Syncer {
 
     // Get the latest block number
     async fn block_number(&self) -> Result<u64, PoolSyncError>;
+
+    // Get the chain being synced
+    fn get_chain(&self) -> Chain;
 }
 
 // Enumerate every specific pool variant that the syncer supports

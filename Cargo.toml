@@ -40,8 +40,10 @@ uniswap_v3_math = "0.6.0"
 fastrand = "2.3.0"
 
 tokio = {version = "1.44.2", features = ["rt-multi-thread", "macros"]}
-tracing-subscriber = "0.3.19"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 tracing = "0.1.41"
+rusqlite = "0.35.0"
+chrono = "0.4.40"
 
 
 
