@@ -1,11 +1,12 @@
-use alloy::primitives::{address, Address};
-use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
-use crate::pools::PoolType;
+use crate::onchain::UniswapV2Factory;
 use crate::pools::PoolFetcher;
-use crate::pools::gen::UniswapV2Factory;
+use crate::pools::PoolType;
+use crate::Pool;
 use crate::Chain;
+use alloy_dyn_abi::DynSolType;
+use alloy_primitives::{address, Address, Log};
+use alloy_sol_types::SolEvent;
+
 
 pub struct UniswapV2Fetcher;
 
@@ -26,22 +27,39 @@ impl PoolFetcher for UniswapV2Fetcher {
     }
 
     fn log_to_address(&self, log: &Log) -> Address {
-        let decoded_log = UniswapV2Factory::PairCreated::decode_log(log, false).unwrap();
+        let decoded_log = UniswapV2Factory::PairCreated::decode_log(log).unwrap();
         decoded_log.data.pair
     }
 
     fn get_pool_repr(&self) -> DynSolType {
-        DynSolType::Array(Box::new(DynSolType::Tuple(vec![
-            DynSolType::Address,
-            DynSolType::Address,
-            DynSolType::Address,
-            DynSolType::Uint(8),
-            DynSolType::Uint(8),
-            DynSolType::Uint(112),
-            DynSolType::Uint(112),
-        ])))
+        todo!()
     }
 
-
 }
+/*
+*
+*
+*
+*
+* impl UniswapV2Pool {
+    // Public function to get raw pool data
+    pub async fn get_raw_pool_data(
+        end_block: u64,
+        provider: Arc<RootProvider>,
+        addresses: &[Address],
+    ) -> Result<impl Iterator<Item = Vec<DynSolValue>>, PoolSyncError> {
+        let bytes = V2DataSync::deploy_builder(provider.clone(), addresses.to_vec())
+            .call_raw()
+            .block(end_block.into())
+            .await
+            .map_err(|_| PoolSyncError::FailedDeployment)?;
+            
+        let data = Self::get_pool_repr().abi_decode_sequence(&bytes).unwrap();
+        
+        Ok(Self::iter_raw_pool_data(data))
+    }
+}
+Then in your code, you could use it like this:
 
+
+*/

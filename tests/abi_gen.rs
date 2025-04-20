@@ -1,6 +1,7 @@
+/*
 use alloy::sol;
 
-sol!{
+sol! {
     #[sol(rpc)]
     contract V3State {
         function slot0() external view returns (
@@ -29,7 +30,7 @@ sol!{
 }
 
 // For Slipstream pool
-sol!{
+sol! {
     #[sol(rpc)]
     contract V3StateNoFee {
         function slot0() external view returns (
@@ -58,9 +59,10 @@ sol!{
     }
 }
 
-sol!{
+sol! {
     #[sol(rpc)]
     contract V2State {
         function getReserves() external view returns (uint256 reserve0, uint256 reserve1, uint256 blockTimestampLast);
     }
 }
+*/

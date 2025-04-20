@@ -1,34 +1,56 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface IUniswapV2Pair {
+interface IUniswapV3Pool {
     function token0() external view returns (address);
-
     function token1() external view returns (address);
-
-    function getReserves()
+    function fee() external view returns (uint24);
+    function tickSpacing() external view returns (int24);
+    function liquidity() external view returns (uint128);
+    function slot0()
         external
         view
-        returns (uint256 reserve0, uint256 reserve1, uint256 blockTimestampLast);
+        returns (
+            uint160 sqrtPriceX96,
+            int24 tick,
+            uint16 observationIndex,
+            uint16 observationCardinality,
+            uint16 observationCardinalityNext,
+            uint32 feeProtocol,
+            bool unlocked
+        );
+    function ticks(int24 tick)
+        external
+        view
+        returns (
+            uint128 liquidityGross,
+            int128 liquidityNet,
+            uint256 feeGrowthOutside0X128,
+            uint256 feeGrowthOutside1X128,
+            int56 tickCumulativeOutside,
+            uint160 secondsPerLiquidityOutsideX128,
+            uint32 secondsOutside,
+            bool initialized
+        );
 }
 
 interface IERC20 {
     function decimals() external view returns (uint8);
 }
 
-/**
- * @dev This contract is not meant to be deployed. Instead, use a static call with the
- *       deployment bytecode as payload.
- */
-contract V2DataSync {
+contract V3DataSync {
     struct PoolData {
         address poolAddr;
         address tokenA;
-        address tokenB;
         uint8 tokenADecimals;
+        address tokenB;
         uint8 tokenBDecimals;
-        uint256 reserve0;
-        uint256 reserve1;
+        uint128 liquidity;
+        uint160 sqrtPrice;
+        int24 tick;
+        int24 tickSpacing;
+        uint24 fee;
+        int128 liquidityNet;
     }
 
     constructor(address[] memory pools) {
@@ -41,16 +63,17 @@ contract V2DataSync {
 
             PoolData memory poolData;
 
-            // Get tokens A and B
-            poolData.tokenA = IUniswapV2Pair(poolAddress).token0();
-            poolData.tokenB = IUniswapV2Pair(poolAddress).token1();
             poolData.poolAddr = poolAddress;
 
-            // Check that tokenA and tokenB do not have codesize of 0
+            IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
+            poolData.tokenA = pool.token0();
+            poolData.tokenB = pool.token1();
+
+            //Check that tokenA and tokenB do not have codesize of 0
             if (codeSizeIsZero(poolData.tokenA)) continue;
             if (codeSizeIsZero(poolData.tokenB)) continue;
 
-            // Get tokenA decimals
+            //Get tokenA decimals
             (
                 bool tokenADecimalsSuccess,
                 bytes memory tokenADecimalsData
@@ -79,7 +102,6 @@ contract V2DataSync {
                 continue;
             }
 
-            // Get tokenB decimals
             (
                 bool tokenBDecimalsSuccess,
                 bytes memory tokenBDecimalsData
@@ -89,7 +111,6 @@ contract V2DataSync {
 
             if (tokenBDecimalsSuccess) {
                 uint256 tokenBDecimals;
-
                 if (tokenBDecimalsData.length == 32) {
                     (tokenBDecimals) = abi.decode(
                         tokenBDecimalsData,
@@ -108,18 +129,19 @@ contract V2DataSync {
                 continue;
             }
 
-            // Get reserves
-            (poolData.reserve0, poolData.reserve1, ) = IUniswapV2Pair(
-                poolAddress
-            ).getReserves();
+            (uint160 sqrtPriceX96, int24 tick, , , , , ) = pool.slot0();
+            (, int128 liquidityNet, , , , , , ) = pool.ticks(tick);
+            poolData.liquidity = pool.liquidity();
+            poolData.tickSpacing = pool.tickSpacing();
+            poolData.fee = pool.fee();
+            poolData.sqrtPrice = sqrtPriceX96;
+            poolData.tick = tick;
+            poolData.liquidityNet = liquidityNet;
 
             allPoolData[i] = poolData;
         }
 
-        // ensure abi encoding, not needed here but increase reusability for different return types
-        // note: abi.encode add a first 32 bytes word with the address of the original data
         bytes memory _abiEncodedData = abi.encode(allPoolData);
-
         assembly {
             // Return from the start of the data (discarding the original data address)
             // up to the end of the memory used

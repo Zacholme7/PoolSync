@@ -11,11 +11,19 @@ use crate::pools::pool_fetchers::{
     SwapBasedV2Fetcher, SwapBasedV3Fetcher, UniswapV2Fetcher, UniswapV3Fetcher,
 };
 
-use crate::errors::*;
+use crate::errors::PoolSyncError;
+use crate::pool_sync::PoolSync;
 use crate::pools::*;
-use crate::{Chain, PoolSync, PoolType};
+use crate::sync_rpc::RpcSyncer;
+use crate::{Chain, PoolType};
+use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+// Option to do a RPC sync or database sync
+enum SyncType {
+    RpcSync, //.. Database
+}
 
 /// Builder for constructing a PoolSync instance
 #[derive(Default)]
@@ -24,8 +32,8 @@ pub struct PoolSyncBuilder {
     fetchers: HashMap<PoolType, Arc<dyn PoolFetcher>>,
     /// The chain to be synced on
     chain: Option<Chain>,
-    /// Rate limit on the rpc endpoint
-    rate_limit: Option<usize>,
+    /// Type of sync to perform
+    sync_type: Option<SyncType>,
 }
 
 impl PoolSyncBuilder {
@@ -122,9 +130,9 @@ impl PoolSyncBuilder {
     }
 
     /// Add multiple pools to be synced
-    pub fn add_pools(mut self, pools: &[PoolType]) -> Self {
-        for pool in pools.iter() {
-            self = self.add_pool(*pool);
+    pub fn add_pools(mut self, pools: impl Iterator<Item = PoolType>) -> Self {
+        for pool in pools {
+            self = self.add_pool(pool);
         }
         self
     }
@@ -133,13 +141,6 @@ impl PoolSyncBuilder {
     /// The builder instance for method chaining
     pub fn chain(mut self, chain: Chain) -> Self {
         self.chain = Some(chain);
-        self
-    }
-
-    /// Set the rate limit of the rpc
-    /// The builder instance for method chaining
-    pub fn rate_limit(mut self, rate_limit: usize) -> Self {
-        self.rate_limit = Some(rate_limit);
         self
     }
 
@@ -155,15 +156,12 @@ impl PoolSyncBuilder {
             }
         }
 
-        // set rate limit to user defined if specified, otherwise set high value
-        // that will not be hit to simulate unlimited requests
-        let rate_limit = self.rate_limit.unwrap_or(10000) as u64;
+        // Build the syncer
+        let sync_type = self.sync_type.unwrap_or(SyncType::RpcSync);
+        let syncer = match sync_type {
+            SyncType::RpcSync => RpcSyncer::new(chain)?,
+        };
 
-        // Construct PoolSync
-        Ok(PoolSync {
-            fetchers: self.fetchers,
-            rate_limit,
-            chain,
-        })
+        Ok(PoolSync::new(self.fetchers, Box::new(syncer)))
     }
 }

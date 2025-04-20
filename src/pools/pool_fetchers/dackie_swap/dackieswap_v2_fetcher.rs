@@ -1,11 +1,10 @@
-use alloy::primitives::{address, Address};
-use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
-use crate::pools::gen::DackieSwapV2Factory;
-use crate::pools::PoolFetcher;
-use crate::pools::PoolType;
+use crate::onchain::DackieSwapV2Factory;
+use crate::pools::{PoolFetcher, PoolType};
 use crate::Chain;
+use alloy_dyn_abi::DynSolType;
+use alloy_primitives::Log;
+use alloy_primitives::{address, Address};
+use alloy_sol_types::SolEvent;
 
 pub struct DackieSwapV2Fetcher;
 
@@ -17,7 +16,7 @@ impl PoolFetcher for DackieSwapV2Fetcher {
     fn factory_address(&self, chain: Chain) -> Address {
         match chain {
             Chain::Base => address!("591f122D1df761E616c13d265006fcbf4c6d6551"),
-            _ => panic!("DackieSwap not supported on this chain")
+            _ => panic!("DackieSwap not supported on this chain"),
         }
     }
 
@@ -26,7 +25,7 @@ impl PoolFetcher for DackieSwapV2Fetcher {
     }
 
     fn log_to_address(&self, log: &Log) -> Address {
-        let decoded_log = DackieSwapV2Factory::PairCreated::decode_log(log, false).unwrap();
+        let decoded_log = DackieSwapV2Factory::PairCreated::decode_log(log).unwrap();
         decoded_log.data.pair
     }
 

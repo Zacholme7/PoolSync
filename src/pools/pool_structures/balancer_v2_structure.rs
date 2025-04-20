@@ -1,11 +1,10 @@
-use alloy::primitives::FixedBytes;
-use alloy::primitives::U256;
-use alloy::rpc::types::Log;
-use alloy::sol_types::SolEvent;
-use alloy::{dyn_abi::DynSolValue, primitives::Address};
+use crate::onchain::Vault;
+use alloy_dyn_abi::DynSolValue;
+use alloy_primitives::{Address, FixedBytes, U256};
+use alloy_rpc_types::Log;
+use alloy_sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
 
-use crate::pools::gen::Vault;
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BalancerV2Pool {
     pub address: Address,
@@ -55,7 +54,7 @@ impl BalancerV2Pool {
 }
 
 pub fn process_balance_data(pool: &mut BalancerV2Pool, log: Log) {
-    let event = Vault::Swap::decode_log(log.as_ref(), true).unwrap();
+    let event = Vault::Swap::decode_log(log.as_ref()).unwrap();
 
     let log_token_in_idx = pool.get_token_index(&event.tokenIn).unwrap();
     let log_token_out_idx = pool.get_token_index(&event.tokenOut).unwrap();
@@ -118,4 +117,3 @@ impl From<&[DynSolValue]> for BalancerV2Pool {
         }
     }
 }
-

@@ -4,9 +4,8 @@
 //! the mapping of supported pool types for each chain.
 
 use crate::PoolType;
-use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
-use std::fmt;
+use std::sync::LazyLock;
 
 /// Enum representing supported blockchain networks
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -22,7 +21,7 @@ pub enum Chain {
 ///
 /// This mapping is important because not all protocols are deployed on all chains,
 /// and the contract addresses for the same protocol may differ across chains.
-static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
+static CHAIN_POOLS: LazyLock<HashMap<Chain, HashSet<PoolType>>> = LazyLock::new(|| {
     let mut m = HashMap::new();
 
     // Protocols supported by Ethereum
@@ -78,7 +77,6 @@ static CHAIN_POOLS: Lazy<HashMap<Chain, HashSet<PoolType>>> = Lazy::new(|| {
     );
 
     // Additional chains can be configured here
-
     m
 });
 
@@ -89,12 +87,5 @@ impl Chain {
             .get(self)
             .map(|pools| pools.contains(pool_type))
             .unwrap_or(false)
-    }
-}
-
-// Display implementation for Chain, used for file naming and debugging purposes
-impl fmt::Display for Chain {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
     }
 }

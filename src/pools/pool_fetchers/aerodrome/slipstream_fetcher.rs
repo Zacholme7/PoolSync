@@ -1,14 +1,11 @@
-use alloy::primitives::{address, Address};
-use alloy::sol_types::SolEvent;
-use alloy::dyn_abi::DynSolType;
-use alloy::primitives::Log;
-use crate::pools::gen::SlipstreamFactory;
-use crate::pools::PoolFetcher;
-use crate::pools::PoolType;
+use crate::onchain::SlipstreamFactory;
+use crate::pools::{PoolFetcher, PoolType};
 use crate::Chain;
+use alloy_dyn_abi::DynSolType;
+use alloy_primitives::{address, Address, Log};
+use alloy_sol_types::SolEvent;
 
 pub struct SlipstreamFetcher;
-
 
 impl PoolFetcher for SlipstreamFetcher {
     fn pool_type(&self) -> PoolType {
@@ -18,7 +15,7 @@ impl PoolFetcher for SlipstreamFetcher {
     fn factory_address(&self, chain: Chain) -> Address {
         match chain {
             Chain::Base => address!("5e7BB104d84c7CB9B682AaC2F3d509f5F406809A"),
-            _ => panic!("Aerodome not supported on this chain")
+            _ => panic!("Aerodome not supported on this chain"),
         }
     }
 
@@ -27,7 +24,7 @@ impl PoolFetcher for SlipstreamFetcher {
     }
 
     fn log_to_address(&self, log: &Log) -> Address {
-        let decoded_log = SlipstreamFactory::PoolCreated::decode_log(log, false).unwrap();
+        let decoded_log = SlipstreamFactory::PoolCreated::decode_log(log).unwrap();
         decoded_log.data.pool
     }
     fn get_pool_repr(&self) -> DynSolType {

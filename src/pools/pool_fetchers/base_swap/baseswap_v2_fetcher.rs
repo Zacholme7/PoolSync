@@ -1,11 +1,11 @@
-use alloy::primitives::{address, Address};
-use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
-use crate::pools::PoolType;
-use crate::pools::gen::BaseSwapV2Factory;
+use crate::onchain::BaseSwapV2Factory;
 use crate::pools::PoolFetcher;
+use crate::pools::PoolType;
 use crate::Chain;
+use alloy_dyn_abi::DynSolType;
+use alloy_primitives::Log;
+use alloy_primitives::{address, Address};
+use alloy_sol_types::SolEvent;
 
 pub struct BaseSwapV2Fetcher;
 
@@ -17,7 +17,7 @@ impl PoolFetcher for BaseSwapV2Fetcher {
     fn factory_address(&self, chain: Chain) -> Address {
         match chain {
             Chain::Base => address!("FDa619b6d20975be80A10332cD39b9a4b0FAa8BB"),
-            _ => panic!("BaseSwap not supported on this chain")
+            _ => panic!("BaseSwap not supported on this chain"),
         }
     }
 
@@ -26,10 +26,9 @@ impl PoolFetcher for BaseSwapV2Fetcher {
     }
 
     fn log_to_address(&self, log: &Log) -> Address {
-        let decoded_log = BaseSwapV2Factory::PairCreated::decode_log(log, false).unwrap();
+        let decoded_log = BaseSwapV2Factory::PairCreated::decode_log(log).unwrap();
         decoded_log.data.pair
     }
-
 
     fn get_pool_repr(&self) -> DynSolType {
         DynSolType::Array(Box::new(DynSolType::Tuple(vec![

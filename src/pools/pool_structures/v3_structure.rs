@@ -1,11 +1,11 @@
-use alloy::dyn_abi::DynSolValue;
-use alloy::primitives::{Address, U256};
-use alloy::rpc::types::Log;
-use alloy::sol_types::SolEvent;
+use alloy_dyn_abi::DynSolValue;
+use alloy_primitives::{Address, U256};
+use alloy_rpc_types::Log;
+use alloy_sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::events::{DataEvents, PancakeSwapEvents};
+use crate::onchain::{DataEvents, PancakeSwapEvents};
 use crate::pools::PoolType;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -53,7 +53,7 @@ pub fn process_tick_data(
 }
 
 fn process_burn(pool: &mut UniswapV3Pool, log: Log, is_initial_sync: bool) {
-    let burn_event = DataEvents::Burn::decode_log(log.as_ref(), true).unwrap();
+    let burn_event = DataEvents::Burn::decode_log(log.as_ref()).unwrap();
     modify_position(
         pool,
         burn_event.tickLower.unchecked_into(),
@@ -64,7 +64,7 @@ fn process_burn(pool: &mut UniswapV3Pool, log: Log, is_initial_sync: bool) {
 }
 
 fn process_mint(pool: &mut UniswapV3Pool, log: Log, is_initial_sync: bool) {
-    let mint_event = DataEvents::Mint::decode_log(log.as_ref(), true).unwrap();
+    let mint_event = DataEvents::Mint::decode_log(log.as_ref()).unwrap();
     modify_position(
         pool,
         mint_event.tickLower.unchecked_into(),
@@ -76,12 +76,12 @@ fn process_mint(pool: &mut UniswapV3Pool, log: Log, is_initial_sync: bool) {
 
 fn process_swap(pool: &mut UniswapV3Pool, log: Log, pool_type: PoolType) {
     if pool_type == PoolType::PancakeSwapV3 {
-        let swap_event = PancakeSwapEvents::Swap::decode_log(log.as_ref(), true).unwrap();
+        let swap_event = PancakeSwapEvents::Swap::decode_log(log.as_ref()).unwrap();
         pool.tick = swap_event.tick.as_i32();
         pool.sqrt_price = U256::from(swap_event.sqrtPriceX96);
         pool.liquidity = swap_event.liquidity;
     } else {
-        let swap_event = DataEvents::Swap::decode_log(log.as_ref(), true).unwrap();
+        let swap_event = DataEvents::Swap::decode_log(log.as_ref()).unwrap();
         pool.tick = swap_event.tick.as_i32();
         pool.sqrt_price = U256::from(swap_event.sqrtPriceX96);
         pool.liquidity = swap_event.liquidity;

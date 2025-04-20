@@ -1,11 +1,11 @@
-use alloy::primitives::{address, Address};
-use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
-use crate::pools::gen::PancakeSwapV3Factory;
+use crate::onchain::PancakeSwapV3Factory;
 use crate::pools::PoolFetcher;
 use crate::pools::PoolType;
 use crate::Chain;
+use alloy_dyn_abi::DynSolType;
+use alloy_primitives::Log;
+use alloy_primitives::{address, Address};
+use alloy_sol_types::SolEvent;
 
 pub struct PancakeSwapV3Fetcher;
 
@@ -20,13 +20,13 @@ impl PoolFetcher for PancakeSwapV3Fetcher {
             Chain::Base => address!("0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865"),
         }
     }
-    
+
     fn pair_created_signature(&self) -> &str {
         PancakeSwapV3Factory::PoolCreated::SIGNATURE
     }
 
     fn log_to_address(&self, log: &Log) -> Address {
-        let decoded_log = PancakeSwapV3Factory::PoolCreated::decode_log(log, false).unwrap();
+        let decoded_log = PancakeSwapV3Factory::PoolCreated::decode_log(log).unwrap();
         decoded_log.data.pool
     }
 
@@ -45,5 +45,4 @@ impl PoolFetcher for PancakeSwapV3Fetcher {
             DynSolType::Int(128),
         ])))
     }
-
 }

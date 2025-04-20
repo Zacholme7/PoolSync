@@ -25,7 +25,22 @@ pub enum PoolSyncError {
     #[error("Pool not supported")]
     UnsupportedPoolType,
 
+    #[error("Failed to fetch pool addresses")]
+    FetchAddressError,
+
     /// Indicates that the chain was not set when it was required
     #[error("Chain not set")]
     ChainNotSet,
+
+    /// Rpc endpoint is not set
+    #[error("Rpc endpoint not set")]
+    EndpointNotSet,
+
+    // Unable to parse endpoint
+    #[error("Failed to parse endpoint into URL")]
+    ParseEndpointError,
+
+    #[error("Deployment failed")]
+    FailedDeployment
+
 }

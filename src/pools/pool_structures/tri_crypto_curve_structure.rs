@@ -1,5 +1,5 @@
-use alloy::dyn_abi::DynSolValue;
-use alloy::primitives::Address;
+use alloy_dyn_abi::DynSolValue;
+use alloy_primitives::Address;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -55,4 +55,3 @@ impl From<&[DynSolValue]> for CurveTriCryptoPool {
         }
     }
 }
-

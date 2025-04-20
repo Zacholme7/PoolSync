@@ -1,11 +1,11 @@
-use alloy::primitives::{address, Address};
-use alloy::sol_types::SolEvent;
-use alloy::primitives::Log;
-use alloy::dyn_abi::DynSolType;
-use crate::pools::gen::MaverickV1Factory;
+use crate::onchain::MaverickV1Factory;
 use crate::pools::PoolFetcher;
 use crate::pools::PoolType;
 use crate::Chain;
+use alloy_dyn_abi::DynSolType;
+use alloy_primitives::Log;
+use alloy_primitives::{address, Address};
+use alloy_sol_types::SolEvent;
 
 pub struct MaverickV1Fetcher;
 
@@ -23,11 +23,10 @@ impl PoolFetcher for MaverickV1Fetcher {
 
     fn pair_created_signature(&self) -> &str {
         MaverickV1Factory::PoolCreated::SIGNATURE
-        
     }
 
     fn log_to_address(&self, log: &Log) -> Address {
-        let decoded_log = MaverickV1Factory::PoolCreated::decode_log(log, false).unwrap();
+        let decoded_log = MaverickV1Factory::PoolCreated::decode_log(log).unwrap();
         decoded_log.data.poolAddress
     }
 
@@ -39,7 +38,5 @@ impl PoolFetcher for MaverickV1Fetcher {
             DynSolType::Uint(8),
             DynSolType::Uint(8),
         ])))
-    
     }
 }
-

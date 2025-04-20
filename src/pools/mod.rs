@@ -4,9 +4,8 @@
 //! It includes enumerations for supported pool types, a unified `Pool` enum, and a trait for
 //! fetching and decoding pool creation events.
 
-use alloy::dyn_abi::DynSolType;
-use alloy::dyn_abi::DynSolValue;
-use alloy::primitives::{Address, Log};
+use alloy_dyn_abi::{DynSolType, DynSolValue};
+use alloy_primitives::{Address, Log};
 use pool_structures::balancer_v2_structure::BalancerV2Pool;
 use pool_structures::maverick_structure::MaverickPool;
 use pool_structures::tri_crypto_curve_structure::CurveTriCryptoPool;
@@ -16,40 +15,16 @@ use pool_structures::v3_structure::UniswapV3Pool;
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use crate::PoolType;
 
+pub use pool_builder::build_pools;
 use crate::chain::Chain;
 use crate::impl_pool_info;
 
-mod gen;
 pub mod pool_builder;
 pub mod pool_fetchers;
 pub mod pool_structures;
 
-/// Enumerates the supported pool types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum PoolType {
-    UniswapV2,
-    SushiSwapV2,
-    PancakeSwapV2,
-    UniswapV3,
-    SushiSwapV3,
-    PancakeSwapV3,
-    Aerodrome,
-    Slipstream,
-    BaseSwapV2,
-    BaseSwapV3,
-    AlienBaseV2,
-    AlienBaseV3,
-    MaverickV1,
-    MaverickV2,
-    CurveTwoCrypto,
-    CurveTriCrypto,
-    BalancerV2,
-    SwapBasedV2,
-    SwapBasedV3,
-    DackieSwapV2,
-    DackieSwapV3,
-}
 
 impl PoolType {
     pub fn is_v2(&self) -> bool {
@@ -499,7 +474,7 @@ pub trait PoolInfo {
     fn stable(&self) -> bool;
 }
 
-/* 
+/*
 pub trait V2PoolInfo {
     fn token0_reserves(&self) -> U128;
     fn token1_reserves(&self) -> U128;
