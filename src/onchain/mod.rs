@@ -26,7 +26,6 @@ sol!(
     );
 );
 
-
 sol!(
     #[derive(Debug)]
     #[sol(rpc)]
@@ -77,7 +76,6 @@ sol!(
         function stable() external view returns (bool);
     }
 );
-
 
 // Pool contract binding gen
 sol!(
@@ -219,7 +217,8 @@ sol!(
     #[derive(Debug)]
     #[sol(rpc)]
     SwapBasedV2Factory,
-    "src/onchain/pool_abis/SwapBasedV2Factory.json");
+    "src/onchain/pool_abis/SwapBasedV2Factory.json"
+);
 
 sol!(
     #[derive(Debug)]
@@ -291,4 +290,3 @@ sol!(
     TriCurveDataSync,
     "src/onchain/contract_abis/TriCurveDataSync.json"
 );
-

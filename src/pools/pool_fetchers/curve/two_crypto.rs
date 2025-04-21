@@ -1,19 +1,11 @@
 use crate::onchain::TwoCryptoFactory;
 use crate::pools::PoolFetcher;
-use crate::pools::PoolType;
 use crate::Chain;
-use alloy_dyn_abi::DynSolType;
-use alloy_primitives::Log;
-use alloy_primitives::{address, Address};
+use alloy_primitives::{address, Address, Log};
 use alloy_sol_types::SolEvent;
 
 pub struct CurveTwoCryptoFetcher;
-
 impl PoolFetcher for CurveTwoCryptoFetcher {
-    fn pool_type(&self) -> PoolType {
-        PoolType::CurveTwoCrypto
-    }
-
     fn factory_address(&self, chain: Chain) -> Address {
         match chain {
             Chain::Ethereum => address!("98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F"),
@@ -28,15 +20,5 @@ impl PoolFetcher for CurveTwoCryptoFetcher {
     fn log_to_address(&self, log: &Log) -> Address {
         let decoded_log = TwoCryptoFactory::TwocryptoPoolDeployed::decode_log(log).unwrap();
         decoded_log.data.pool
-    }
-
-    fn get_pool_repr(&self) -> DynSolType {
-        DynSolType::Array(Box::new(DynSolType::Tuple(vec![
-            DynSolType::Address,
-            DynSolType::Address,
-            DynSolType::Address,
-            DynSolType::Uint(8),
-            DynSolType::Uint(8),
-        ])))
     }
 }

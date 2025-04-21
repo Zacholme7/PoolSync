@@ -21,11 +21,10 @@ impl std::fmt::Display for Chain {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Chain::Ethereum => write!(f, "Ethereum"),
-            Chain::Base => write!(f, "Base")
+            Chain::Base => write!(f, "Base"),
         }
     }
 }
-
 
 /// Static mapping of supported pool types for each chain
 ///

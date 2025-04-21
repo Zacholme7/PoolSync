@@ -136,9 +136,6 @@ impl PoolSync {
             pool_type
         );
 
-        // Track which pools need to be saved
-        let mut pools_to_save = Vec::new();
-
         // If we have new addresses that we have not seen before, build the pools,populate
         // their liquidity from genesis..last_processed_block
         if !new_addresses.is_empty() {
@@ -152,37 +149,22 @@ impl PoolSync {
             self.syncer
                 .populate_liquidity(&mut new_pools, &pool_type, 0, last_block - 1)
                 .await?;
-            
-            // Add new pools to both existing_pools and pools_to_save
-            pools_to_save.extend(new_pools.clone());
+
+            // Save all of these pools into the database and add them to our working set
+            self.database.save_pools(&new_pools, chain)?;
             existing_pools.extend(new_pools);
         }
 
-        // We now have a set of pools that have liquidity upto last_processed_block. Update
+        // We now have a set of pools that have liquditiy upto last_processed_block. Update
         // liquidity for all of the new blocks and save the state to database
-        self.syncer
+        let pools_to_save = self
+            .syncer
             .populate_liquidity(existing_pools, &pool_type, last_block, current_block)
             .await?;
         info!("Fully processed {} pools", existing_pools.len());
 
-        // For V3 pools, we need to check which pools had their liquidity updated
-        if pool_type.is_v3() {
-            for pool in existing_pools.iter() {
-                if let Some(v3_pool) = pool.get_v3() {
-                    // If the pool has non-zero liquidity, it was updated
-                    if v3_pool.liquidity > 0 {
-                        pools_to_save.push(pool.clone());
-                    }
-                }
-            }
-        }
-
-        // Only save pools if we have any to save
-        if !pools_to_save.is_empty() {
-            self.database.save_pools(&pools_to_save, chain)?;
-        }
-        
-        // Always update the last processed block
+        // Update the database state
+        self.database.save_pools(&pools_to_save, chain)?;
         self.database
             .update_last_processed_block(chain, pool_type, sync_end)?;
 

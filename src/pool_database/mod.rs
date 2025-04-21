@@ -361,29 +361,4 @@ impl PoolDatabase {
         );
         Ok(addresses)
     }
-
-    /// Delete outdated pools (pools that haven't been updated in a certain period)
-    pub fn delete_outdated_pools(&self, older_than_seconds: u64) -> Result<usize, PoolSyncError> {
-        let conn = self.connection.lock().unwrap();
-        let now = chrono::Utc::now().timestamp() as u64;
-        let cutoff = now - older_than_seconds;
-
-        let deleted_count = conn
-            .execute(
-                &format!(
-                    "DELETE FROM {} WHERE updated_at < ?1",
-                    TableName::Pools.as_str()
-                ),
-                params![cutoff],
-            )
-            .map_err(|e| {
-                PoolSyncError::IoError(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Failed to delete outdated pools: {}", e),
-                ))
-            })?;
-
-        info!("Deleted {} outdated pools", deleted_count);
-        Ok(deleted_count)
-    }
 }

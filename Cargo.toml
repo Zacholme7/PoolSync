@@ -18,32 +18,32 @@ name = "example"
 path = "examples/example.rs"
 
 [dependencies]
-alloy-provider = "0.14.0"
-alloy-sol-types = { version = "1.0.0", features = ["json"] }
-alloy-primitives = "1.0.0"
 alloy-contract = "0.14.0"
 alloy-dyn-abi = "1.0.0"
-alloy-rpc-types = "0.14.0"
 alloy-network = "0.14.0"
+alloy-primitives = "1.0.0"
+alloy-provider = "0.14.0"
+alloy-rpc-types = "0.14.0"
+alloy-sol-types = { version = "1.0.0", features = ["json"] }
 alloy-transport = "0.14.0"
 
 anyhow = "1.0.98"
 async-trait = "0.1.88"
+chrono = "0.4.40"
 dotenv = "0.15.0"
+
+fastrand = "2.3.0"
 futures = "0.3.31"
+indicatif = "0.17.11"
+rusqlite = "0.35.0"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 thiserror = "2.0.12"
-indicatif = "0.17.11"
-uniswap_v3_math = "0.6.0"
 
-fastrand = "2.3.0"
-
-tokio = {version = "1.44.2", features = ["rt-multi-thread", "macros"]}
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tokio = { version = "1.44.2", features = ["rt-multi-thread", "macros"] }
 tracing = "0.1.41"
-rusqlite = "0.35.0"
-chrono = "0.4.40"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+uniswap_v3_math = "0.6.0"
 
 
 

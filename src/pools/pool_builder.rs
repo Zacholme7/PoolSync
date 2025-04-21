@@ -1,3 +1,4 @@
+use crate::pools::pool_structures::PoolBuilder;
 use crate::Pool;
 use crate::UniswapV2Pool;
 use alloy_primitives::Address;

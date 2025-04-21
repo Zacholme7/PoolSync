@@ -181,6 +181,11 @@ impl PoolSyncBuilder {
             SyncType::RpcSync => RpcSyncer::new(chain)?,
         };
 
-        Ok(PoolSync::new(self.fetchers, Box::new(syncer), database, chain))
+        Ok(PoolSync::new(
+            self.fetchers,
+            Box::new(syncer),
+            database,
+            chain,
+        ))
     }
 }

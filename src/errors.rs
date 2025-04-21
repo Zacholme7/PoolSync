@@ -41,6 +41,5 @@ pub enum PoolSyncError {
     ParseEndpointError,
 
     #[error("Deployment failed")]
-    FailedDeployment
-
+    FailedDeployment,
 }

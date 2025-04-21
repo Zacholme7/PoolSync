@@ -4,7 +4,6 @@
 //! It includes enumerations for supported pool types, a unified `Pool` enum, and a trait for
 //! fetching and decoding pool creation events.
 
-use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_primitives::{Address, Log};
 use pool_structures::balancer_v2_structure::BalancerV2Pool;
 use pool_structures::maverick_structure::MaverickPool;
@@ -13,18 +12,17 @@ use pool_structures::two_crypto_curve_structure::CurveTwoCryptoPool;
 use pool_structures::v2_structure::UniswapV2Pool;
 use pool_structures::v3_structure::UniswapV3Pool;
 
+use crate::PoolType;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use crate::PoolType;
 
-pub use pool_builder::build_pools;
 use crate::chain::Chain;
 use crate::impl_pool_info;
+pub use pool_builder::build_pools;
 
 pub mod pool_builder;
 pub mod pool_fetchers;
 pub mod pool_structures;
-
 
 impl PoolType {
     pub fn is_v2(&self) -> bool {
@@ -69,30 +67,6 @@ impl PoolType {
 
     pub fn is_balancer(&self) -> bool {
         matches!(self, PoolType::BalancerV2)
-    }
-
-    pub fn build_pool(&self, pool_data: &[DynSolValue]) -> Pool {
-        if self.is_v2() {
-            let pool = UniswapV2Pool::from(pool_data);
-            Pool::new_v2(*self, pool)
-        } else if self.is_v3() {
-            let pool = UniswapV3Pool::from(pool_data);
-            Pool::new_v3(*self, pool)
-        } else if self.is_maverick() {
-            let pool = MaverickPool::from(pool_data);
-            Pool::new_maverick(*self, pool)
-        } else if self.is_balancer() {
-            let pool = BalancerV2Pool::from(pool_data);
-            Pool::new_balancer(*self, pool)
-        } else if self.is_curve_two() {
-            let pool = CurveTwoCryptoPool::from(pool_data);
-            Pool::new_curve_two(*self, pool)
-        } else if self.is_curve_tri() {
-            let pool = CurveTriCryptoPool::from(pool_data);
-            Pool::new_curve_tri(*self, pool)
-        } else {
-            panic!("Invalid pool type");
-        }
     }
 }
 
@@ -444,9 +418,6 @@ impl_pool_info!(
 /// This trait provides a unified interface for different pool types to implement
 /// their specific logic for identifying and parsing pool creation events.
 pub trait PoolFetcher: Send + Sync {
-    /// Returns the type of pool this fetcher is responsible for
-    fn pool_type(&self) -> PoolType;
-
     /// Returns the factory address for the given chain
     fn factory_address(&self, chain: Chain) -> Address;
 
@@ -455,9 +426,6 @@ pub trait PoolFetcher: Send + Sync {
 
     /// Attempts to create a `Pool` instance from a log entry
     fn log_to_address(&self, log: &Log) -> Address;
-
-    /// Get the DynSolType for the pool
-    fn get_pool_repr(&self) -> DynSolType;
 }
 
 /// Defines common methods that are used to access information about the pools

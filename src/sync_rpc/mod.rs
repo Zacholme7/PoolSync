@@ -93,14 +93,16 @@ impl Syncer for RpcSyncer {
         _pools: &mut Vec<Pool>,
         pool_type: &PoolType,
         _start_block: u64,
-        _end_block: u64
-    ) -> Result<(), PoolSyncError> {
+        _end_block: u64,
+    ) -> Result<Vec<Pool>, PoolSyncError> {
         // Liquidity already populated for v2 contracts
         if pool_type.is_v2() {
-            return Ok(());
+            todo!()
+        } else if pool_type.is_v3() {
+            todo!()
         }
 
-        Ok(())
+        todo!()
     }
 
     async fn block_number(&self) -> Result<u64, PoolSyncError> {
@@ -109,7 +111,6 @@ impl Syncer for RpcSyncer {
             .await
             .map_err(|_| PoolSyncError::ProviderError("failed to get block".to_string()))
     }
-
 }
 
 impl RpcSyncer {

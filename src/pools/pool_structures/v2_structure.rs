@@ -1,8 +1,10 @@
+use super::PoolBuilder;
 use crate::onchain::{AerodromeSync, DataEvents, V2DataSync};
 use crate::pools::PoolType;
 use crate::Pool;
 use crate::PoolSyncError;
 use alloy_dyn_abi::{DynSolType, DynSolValue};
+use alloy_primitives::Bytes;
 use alloy_primitives::{Address, U256};
 use alloy_provider::RootProvider;
 use alloy_rpc_types::Log;
@@ -25,44 +27,20 @@ pub struct UniswapV2Pool {
     pub fee: Option<U256>,
 }
 
-impl UniswapV2Pool {
-    // Construct a new set of UniswapV2Pools from a batch of addresses
-    pub async fn new(
-        end_block: u64,
-        provider: Arc<RootProvider>,
-        addresses: &[Address],
-    ) -> Result<Vec<Self>, PoolSyncError> {
-        // Fetch the raw data
-        let raw_data = Self::get_raw_pool_data(end_block, provider, addresses).await?;
-        let raw_data_iter = iter_raw_pool_data(raw_data);
-
-        Ok(raw_data_iter
-            .map(|pool_bytes| Self::from(pool_bytes.as_slice()))
-            //.filter(|pool| pool.is_valid())
-            .collect())
-    }
-
+impl PoolBuilder for UniswapV2Pool {
     // Fetch the raw pool data for the address set at end_block
     async fn get_raw_pool_data(
         end_block: u64,
         provider: Arc<RootProvider>,
         addresses: &[Address],
-    ) -> Result<DynSolValue, PoolSyncError> {
-        // eth_Call a deployment at end_block to initial information
-        let bytes = V2DataSync::deploy_builder(provider, addresses.to_vec())
+    ) -> Result<Bytes, PoolSyncError> {
+        V2DataSync::deploy_builder(provider, addresses.to_vec())
             .call_raw()
             .block(end_block.into())
             .await
-            .map_err(|_| PoolSyncError::FailedDeployment)?;
-
-        // Decode the sequence and parse into Self
-        Self::get_pool_repr()
-            .abi_decode_sequence(&bytes)
             .map_err(|_| PoolSyncError::FailedDeployment)
     }
 
-    // Dynamic type to parse byte sequence from contract deployment into understandable
-    // representation
     fn get_pool_repr() -> DynSolType {
         DynSolType::Array(Box::new(DynSolType::Tuple(vec![
             DynSolType::Address,
@@ -78,7 +56,7 @@ impl UniswapV2Pool {
     }
 
     // Consume self and construct a top level Pool
-    pub fn into_typed_pool(self, pool_type: PoolType) -> Pool {
+    fn into_typed_pool(self, pool_type: PoolType) -> Pool {
         match pool_type {
             PoolType::UniswapV2 => Pool::UniswapV2(self),
             PoolType::SushiSwapV2 => Pool::SushiSwapV2(self),
@@ -87,28 +65,13 @@ impl UniswapV2Pool {
             PoolType::AlienBaseV2 => Pool::AlienBaseV2(self),
             PoolType::SwapBasedV2 => Pool::SwapBasedV2(self),
             PoolType::DackieSwapV2 => Pool::DackieSwapV2(self),
-            _ => panic!("Pool type  not supported for UniswapV2"),
+            _ => panic!("Pool type not supported for V2 structure"),
         }
     }
 }
 
-pub fn process_sync_data(pool: &mut UniswapV2Pool, log: Log, pool_type: PoolType) {
-    let (reserve0, reserve1) = if pool_type == PoolType::Aerodrome {
-        let sync_event = AerodromeSync::Sync::decode_log(log.as_ref()).unwrap();
-        (sync_event.reserve0, sync_event.reserve1)
-    } else {
-        let sync_event = DataEvents::Sync::decode_log(log.as_ref()).unwrap();
-        (
-            U256::from(sync_event.reserve0),
-            U256::from(sync_event.reserve1),
-        )
-    };
-    pool.token0_reserves = reserve0;
-    pool.token1_reserves = reserve1;
-}
-
-impl From<&[DynSolValue]> for UniswapV2Pool {
-    fn from(data: &[DynSolValue]) -> Self {
+impl From<Vec<DynSolValue>> for UniswapV2Pool {
+    fn from(data: Vec<DynSolValue>) -> Self {
         Self {
             address: data[0].as_address().unwrap(),
             token0: data[1].as_address().unwrap(),
@@ -125,17 +88,18 @@ impl From<&[DynSolValue]> for UniswapV2Pool {
     }
 }
 
-// Create an iterator over raw pool data tuples from DynSolValue
-fn iter_raw_pool_data(data: DynSolValue) -> impl Iterator<Item = Vec<DynSolValue>> {
-    // Extract the array (or return empty iterator if not an array)
-    let array = match data.as_array() {
-        Some(arr) => arr.to_owned(),
-        None => Vec::new(),
+// Helper to process liquidity data
+pub fn process_sync_data(pool: &mut UniswapV2Pool, log: Log, pool_type: PoolType) {
+    let (reserve0, reserve1) = if pool_type == PoolType::Aerodrome {
+        let sync_event = AerodromeSync::Sync::decode_log(log.as_ref()).unwrap();
+        (sync_event.reserve0, sync_event.reserve1)
+    } else {
+        let sync_event = DataEvents::Sync::decode_log(log.as_ref()).unwrap();
+        (
+            U256::from(sync_event.reserve0),
+            U256::from(sync_event.reserve1),
+        )
     };
-
-    // Create an iterator that yields owned Vec<DynSolValue> tuples
-    array.into_iter().filter_map(|tuple_value| {
-        // Convert to an owned Vec if it's actually a tuple
-        tuple_value.as_tuple().map(|t| t.to_vec())
-    })
+    pool.token0_reserves = reserve0;
+    pool.token1_reserves = reserve1;
 }

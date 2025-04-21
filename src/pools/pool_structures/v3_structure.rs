@@ -1,12 +1,17 @@
-use alloy_dyn_abi::DynSolValue;
-use alloy_primitives::{Address, U256};
+use super::PoolBuilder;
+use alloy_dyn_abi::{DynSolType, DynSolValue};
+use alloy_primitives::{Address, Bytes, U256};
+use alloy_provider::RootProvider;
 use alloy_rpc_types::Log;
 use alloy_sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
-use crate::onchain::{DataEvents, PancakeSwapEvents};
+use crate::errors::PoolSyncError;
+use crate::onchain::{DataEvents, PancakeSwapEvents, V3DataSync};
 use crate::pools::PoolType;
+use crate::Pool;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UniswapV3Pool {
@@ -33,6 +38,63 @@ pub struct TickInfo {
     pub liquidity_gross: u128,
 }
 
+impl PoolBuilder for UniswapV3Pool {
+    // Fetch the raw pool data for the address set at end_block
+    async fn get_raw_pool_data(
+        end_block: u64,
+        provider: Arc<RootProvider>,
+        addresses: &[Address],
+    ) -> Result<Bytes, PoolSyncError> {
+        V3DataSync::deploy_builder(provider, addresses.to_vec())
+            .call_raw()
+            .block(end_block.into())
+            .await
+            .map_err(|_| PoolSyncError::FailedDeployment)
+    }
+
+    fn get_pool_repr() -> DynSolType {
+        DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+            DynSolType::Address,
+            DynSolType::Address,
+            DynSolType::Uint(8),
+            DynSolType::Address,
+            DynSolType::Uint(8),
+            DynSolType::Uint(128),
+            DynSolType::Uint(160),
+            DynSolType::Int(24),
+            DynSolType::Int(24),
+            DynSolType::Uint(24),
+            DynSolType::Int(128),
+        ])))
+    }
+
+    fn into_typed_pool(self, pool_type: PoolType) -> Pool {
+        match pool_type {
+            PoolType::UniswapV3 => Pool::UniswapV3(self),
+            _ => panic!("Pool type not supported for V3 structure"),
+        }
+    }
+}
+
+impl From<Vec<DynSolValue>> for UniswapV3Pool {
+    fn from(data: Vec<DynSolValue>) -> Self {
+        Self {
+            address: data[0].as_address().unwrap(),
+            token0: data[1].as_address().unwrap(),
+            token0_decimals: data[2].as_uint().unwrap().0.to::<u8>(),
+            token1: data[3].as_address().unwrap(),
+            token1_decimals: data[4].as_uint().unwrap().0.to::<u8>(),
+            liquidity: data[5].as_uint().unwrap().0.to::<u128>(),
+            sqrt_price: data[6].as_uint().unwrap().0,
+            tick: data[7].as_int().unwrap().0.as_i32(),
+            tick_spacing: data[8].as_int().unwrap().0.as_i32(),
+            fee: data[9].as_uint().unwrap().0.to::<u32>(),
+            ..Default::default()
+        }
+    }
+}
+
+// Helper functions for processing liquidity
 pub fn process_tick_data(
     pool: &mut UniswapV3Pool,
     log: Log,
@@ -195,23 +257,5 @@ pub fn flip_tick(pool: &mut UniswapV3Pool, tick: i32, tick_spacing: i32) {
         *word ^= mask;
     } else {
         pool.tick_bitmap.insert(word_pos, mask);
-    }
-}
-
-impl From<&[DynSolValue]> for UniswapV3Pool {
-    fn from(data: &[DynSolValue]) -> Self {
-        Self {
-            address: data[0].as_address().unwrap(),
-            token0: data[1].as_address().unwrap(),
-            token0_decimals: data[2].as_uint().unwrap().0.to::<u8>(),
-            token1: data[3].as_address().unwrap(),
-            token1_decimals: data[4].as_uint().unwrap().0.to::<u8>(),
-            liquidity: data[5].as_uint().unwrap().0.to::<u128>(),
-            sqrt_price: data[6].as_uint().unwrap().0,
-            tick: data[7].as_int().unwrap().0.as_i32(),
-            tick_spacing: data[8].as_int().unwrap().0.as_i32(),
-            fee: data[9].as_uint().unwrap().0.to::<u32>(),
-            ..Default::default()
-        }
     }
 }

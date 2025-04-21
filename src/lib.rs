@@ -65,7 +65,7 @@ pub(crate) trait Syncer {
         pool_type: &PoolType,
         start_block: u64,
         end_block: u64,
-    ) -> Result<(), PoolSyncError>;
+    ) -> Result<Vec<Pool>, PoolSyncError>;
 
     // Get the latest block number
     async fn block_number(&self) -> Result<u64, PoolSyncError>;
