@@ -39,7 +39,6 @@ pub struct TickInfo {
 }
 
 impl PoolBuilder for UniswapV3Pool {
-    // Fetch the raw pool data for the address set at end_block
     async fn get_raw_pool_data(
         end_block: u64,
         provider: Arc<RootProvider>,
@@ -70,7 +69,13 @@ impl PoolBuilder for UniswapV3Pool {
 
     fn into_typed_pool(self, pool_type: PoolType) -> Pool {
         match pool_type {
-            PoolType::UniswapV3 => Pool::UniswapV3(self),
+            PoolType::UniswapV3 => Pool::SushiSwapV3(self),
+            PoolType::SushiSwapV3 => Pool::PancakeSwapV3(self),
+            PoolType::PancakeSwapV3 => Pool::Slipstream(self),
+            PoolType::BaseSwapV3 => Pool::BaseSwapV3(self),
+            PoolType::AlienBaseV3 => Pool::AlienBaseV3(self),
+            PoolType::SwapBasedV3 => Pool::SwapBasedV3(self),
+            PoolType::DackieSwapV3 => Pool::DackieSwapV3(self),
             _ => panic!("Pool type not supported for V3 structure"),
         }
     }

@@ -1,6 +1,11 @@
-use alloy_dyn_abi::DynSolValue;
-use alloy_primitives::Address;
+use super::PoolBuilder;
+use crate::onchain::TriCurveDataSync;
+use crate::{Pool, PoolSyncError, PoolType};
+use alloy_dyn_abi::{DynSolType, DynSolValue};
+use alloy_primitives::{Address, Bytes};
+use alloy_provider::RootProvider;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CurveTriCryptoPool {
@@ -14,6 +19,41 @@ pub struct CurveTriCryptoPool {
     pub token0_decimals: u8,
     pub token1_decimals: u8,
     pub token2_decimals: u8,
+}
+
+impl PoolBuilder for CurveTriCryptoPool {
+    // Fetch the raw pool data for the address set at end_block
+    async fn get_raw_pool_data(
+        end_block: u64,
+        provider: Arc<RootProvider>,
+        addresses: &[Address],
+    ) -> Result<Bytes, PoolSyncError> {
+        TriCurveDataSync::deploy_builder(provider, Address::default(), addresses.to_vec())
+            .call_raw()
+            .block(end_block.into())
+            .await
+            .map_err(|_| PoolSyncError::FailedDeployment)
+    }
+
+    fn get_pool_repr() -> DynSolType {
+        DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+            DynSolType::Address,
+            DynSolType::Address,
+            DynSolType::Address,
+            DynSolType::Address,
+            DynSolType::Uint(8),
+            DynSolType::Uint(8),
+            DynSolType::Uint(8),
+        ])))
+    }
+
+    // Consume self and construct a top level Pool
+    fn into_typed_pool(self, pool_type: PoolType) -> Pool {
+        match pool_type {
+            PoolType::CurveTriCrypto => Pool::CurveTriCrypto(self),
+            _ => panic!("Pool type not supported for Curve Two structure"),
+        }
+    }
 }
 
 impl CurveTriCryptoPool {
@@ -33,8 +73,8 @@ impl CurveTriCryptoPool {
     }
 }
 
-impl From<&[DynSolValue]> for CurveTriCryptoPool {
-    fn from(data: &[DynSolValue]) -> Self {
+impl From<Vec<DynSolValue>> for CurveTriCryptoPool {
+    fn from(data: Vec<DynSolValue>) -> Self {
         let pool_address = data[0].as_address().unwrap();
         let token0 = data[1].as_address().unwrap();
         let token1 = data[2].as_address().unwrap();

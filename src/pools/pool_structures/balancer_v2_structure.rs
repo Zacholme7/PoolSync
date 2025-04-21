@@ -1,9 +1,16 @@
-use crate::onchain::Vault;
-use alloy_dyn_abi::DynSolValue;
+use super::PoolBuilder;
+use crate::onchain::{BalancerV2DataSync, Vault};
+use crate::pools::PoolType;
+use crate::Pool;
+use crate::PoolSyncError;
+use alloy_dyn_abi::{DynSolType, DynSolValue};
+use alloy_primitives::Bytes;
 use alloy_primitives::{Address, FixedBytes, U256};
+use alloy_provider::RootProvider;
 use alloy_rpc_types::Log;
 use alloy_sol_types::SolEvent;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BalancerV2Pool {
@@ -23,50 +30,47 @@ pub struct BalancerV2Pool {
     pub swap_fee: U256,
 }
 
-impl BalancerV2Pool {
-    pub fn get_tokens(&self) -> Vec<Address> {
-        let mut tokens = vec![self.token0, self.token1];
-        tokens.extend(self.additional_tokens.iter());
-        tokens
+impl PoolBuilder for BalancerV2Pool {
+    // Fetch the raw pool data for the address set at end_block
+    async fn get_raw_pool_data(
+        end_block: u64,
+        provider: Arc<RootProvider>,
+        addresses: &[Address],
+    ) -> Result<Bytes, PoolSyncError> {
+        BalancerV2DataSync::deploy_builder(provider, addresses.to_vec())
+            .call_raw()
+            .block(end_block.into())
+            .await
+            .map_err(|_| PoolSyncError::FailedDeployment)
     }
 
-    pub fn get_token_index(&self, token: &Address) -> Option<usize> {
-        if *token == self.token0 {
-            Some(0)
-        } else if *token == self.token1 {
-            Some(1)
-        } else {
-            self.additional_tokens
-                .iter()
-                .position(|&t| t == *token)
-                .map(|pos| pos + 2)
-        }
+    fn get_pool_repr() -> DynSolType {
+        DynSolType::Array(Box::new(DynSolType::Tuple(vec![
+            DynSolType::Address,
+            DynSolType::FixedBytes(32),
+            DynSolType::Address,
+            DynSolType::Address,
+            DynSolType::Uint(8),
+            DynSolType::Uint(8),
+            DynSolType::Array(Box::new(DynSolType::Address)), // tokens (including token0, token1, and additional_tokens)
+            DynSolType::Array(Box::new(DynSolType::Uint(8))), // decimals (including token0_decimals, token1_decimals, and additional_token_decimals)
+            DynSolType::Array(Box::new(DynSolType::Uint(256))), // balances
+            DynSolType::Array(Box::new(DynSolType::Uint(256))), // weights
+            DynSolType::Uint(256),                            // swap_fee
+        ])))
     }
 
-    pub fn get_balance(&self, token: &Address) -> U256 {
-        let index = self.get_token_index(token);
-        if let Some(index) = index {
-            self.balances[index]
-        } else {
-            U256::ZERO
+    // Consume self and construct a top level Pool
+    fn into_typed_pool(self, pool_type: PoolType) -> Pool {
+        match pool_type {
+            PoolType::BalancerV2 => Pool::BalancerV2(self),
+            _ => panic!("Pool type not supported for BalancerV2 structure"),
         }
     }
 }
 
-pub fn process_balance_data(pool: &mut BalancerV2Pool, log: Log) {
-    let event = Vault::Swap::decode_log(log.as_ref()).unwrap();
-
-    let log_token_in_idx = pool.get_token_index(&event.tokenIn).unwrap();
-    let log_token_out_idx = pool.get_token_index(&event.tokenOut).unwrap();
-
-    pool.balances[log_token_in_idx] =
-        pool.balances[log_token_in_idx].saturating_add(event.amountIn);
-    pool.balances[log_token_out_idx] =
-        pool.balances[log_token_out_idx].saturating_sub(event.amountOut);
-}
-
-impl From<&[DynSolValue]> for BalancerV2Pool {
-    fn from(data: &[DynSolValue]) -> Self {
+impl From<Vec<DynSolValue>> for BalancerV2Pool {
+    fn from(data: Vec<DynSolValue>) -> Self {
         let pool_address = data[0].as_address().unwrap();
         let pool_id = FixedBytes::from_slice(data[1].as_fixed_bytes().unwrap().0);
         let token0 = data[2].as_address().unwrap();
@@ -116,4 +120,46 @@ impl From<&[DynSolValue]> for BalancerV2Pool {
             swap_fee,
         }
     }
+}
+
+impl BalancerV2Pool {
+    pub fn get_tokens(&self) -> Vec<Address> {
+        let mut tokens = vec![self.token0, self.token1];
+        tokens.extend(self.additional_tokens.iter());
+        tokens
+    }
+
+    pub fn get_token_index(&self, token: &Address) -> Option<usize> {
+        if *token == self.token0 {
+            Some(0)
+        } else if *token == self.token1 {
+            Some(1)
+        } else {
+            self.additional_tokens
+                .iter()
+                .position(|&t| t == *token)
+                .map(|pos| pos + 2)
+        }
+    }
+
+    pub fn get_balance(&self, token: &Address) -> U256 {
+        let index = self.get_token_index(token);
+        if let Some(index) = index {
+            self.balances[index]
+        } else {
+            U256::ZERO
+        }
+    }
+}
+
+pub fn process_balance_data(pool: &mut BalancerV2Pool, log: Log) {
+    let event = Vault::Swap::decode_log(log.as_ref()).unwrap();
+
+    let log_token_in_idx = pool.get_token_index(&event.tokenIn).unwrap();
+    let log_token_out_idx = pool.get_token_index(&event.tokenOut).unwrap();
+
+    pool.balances[log_token_in_idx] =
+        pool.balances[log_token_in_idx].saturating_add(event.amountIn);
+    pool.balances[log_token_out_idx] =
+        pool.balances[log_token_out_idx].saturating_sub(event.amountOut);
 }
