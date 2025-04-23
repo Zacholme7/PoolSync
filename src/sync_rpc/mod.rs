@@ -1,16 +1,19 @@
 use crate::errors::PoolSyncError;
-use crate::pools::build_pools;
-use crate::{pools::PoolFetcher, Chain, Pool, PoolType, Syncer};
+use crate::{Chain, Pool, PoolType, Syncer};
 use alloy_network::Ethereum;
 use alloy_primitives::Address;
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rpc_types::{Filter, Log};
 use async_trait::async_trait;
 use futures::{stream, StreamExt};
+use pool_builder::build_pools;
+use pool_fetchers::PoolFetcher;
 use std::future::Future;
 use std::sync::Arc;
-use tracing::debug;
-use tracing::error;
+use tracing::{debug, error};
+
+pub mod pool_builder;
+pub mod pool_fetchers;
 
 // Batch steps size for address syncing
 const ADDRESS_BATCH_SIZE: u64 = 10_000;

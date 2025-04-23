@@ -3,7 +3,7 @@
 //! This module provides a builder pattern for constructing a PoolSync instance,
 //! allowing for flexible configuration of pool types and chains to be synced.
 
-use crate::pools::pool_fetchers::{
+use crate::sync_rpc::pool_fetchers::{
     AerodromeFetcher, AlienBaseV2Fetcher, AlienBaseV3Fetcher, BalancerV2Fetcher, BaseSwapV2Fetcher,
     BaseSwapV3Fetcher, CurveTriCryptoFetcher, CurveTwoCryptoFetcher, DackieSwapV2Fetcher,
     DackieSwapV3Fetcher, MaverickV1Fetcher, MaverickV2Fetcher, PancakeSwapV2Fetcher,
@@ -14,9 +14,9 @@ use crate::pools::pool_fetchers::{
 use crate::errors::PoolSyncError;
 use crate::pool_database::PoolDatabase;
 use crate::pool_sync::PoolSync;
-use crate::pools::*;
 use crate::sync_rpc::RpcSyncer;
 use crate::{Chain, PoolType};
+use crate::sync_rpc::pool_fetchers::PoolFetcher;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;

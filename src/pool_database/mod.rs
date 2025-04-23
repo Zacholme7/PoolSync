@@ -1,7 +1,4 @@
-use crate::errors::PoolSyncError;
-use crate::pools::Pool;
-use crate::pools::PoolInfo;
-use crate::Chain;
+use crate::{Chain, Pool, PoolInfo, PoolSyncError};
 use alloy_primitives::Address;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;

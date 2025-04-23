@@ -10,7 +10,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::builder::PoolSyncBuilder;
-use crate::pools::*;
+//use crate::pools::*;
+use crate::Pool;
+use crate::sync_rpc::pool_fetchers::PoolFetcher;
 use crate::{Chain, PoolType, Syncer};
 use tracing::info;
 

@@ -6,11 +6,16 @@
 //! and can work with multiple blockchain networks such as Ethereum and Base.
 
 // Public re-exports
-use crate::pools::PoolFetcher;
-pub use chain::Chain;
+use alloy_primitives::Address;
+use async_trait::async_trait;
 use errors::PoolSyncError;
-pub use pool_sync::PoolSync;
-pub use pools::pool_structures::{
+use std::sync::Arc;
+use sync_rpc::pool_fetchers::PoolFetcher;
+
+// Re-exports
+pub use chain::Chain;
+pub use pool_info::{PoolInfo, Pool};
+pub use pool_structures::{
     balancer_v2_structure::BalancerV2Pool,
     maverick_structure::MaverickPool,
     tri_crypto_curve_structure::CurveTriCryptoPool,
@@ -18,8 +23,7 @@ pub use pools::pool_structures::{
     v2_structure::UniswapV2Pool,
     v3_structure::{TickInfo, UniswapV3Pool},
 };
-pub use pools::{Pool, PoolInfo};
-use std::sync::Arc;
+pub use pool_sync::PoolSync;
 
 // Internal modules
 mod builder;
@@ -27,13 +31,11 @@ mod chain;
 mod errors;
 mod onchain;
 mod pool_database;
+mod pool_info;
+mod pool_structures;
 mod pool_sync;
-mod pools;
 mod sync_database;
 mod sync_rpc;
-
-use alloy_primitives::Address;
-use async_trait::async_trait;
 
 // Sync all configured pools in a 3 pass approach
 // 1) Fetch all of the pool addresses
@@ -58,7 +60,8 @@ pub(crate) trait Syncer {
         block_num: u64,
     ) -> Result<Vec<Pool>, PoolSyncError>;
 
-    // For a set of pools, populate it with all liquidity information
+    // For a set of pools, populate it with all liquidity information and return a list of all
+    // pools that have been touched for database persitence
     async fn populate_liquidity(
         &self,
         pools: &mut Vec<Pool>,
