@@ -4,17 +4,16 @@
 //! various decentralized exchange protocols across multiple blockchain networks.
 //! It supports different pool types like Uniswap V2, Uniswap V3, and SushiSwap,
 //! and can work with multiple blockchain networks such as Ethereum and Base.
-
-// Public re-exports
 use alloy_primitives::Address;
 use async_trait::async_trait;
-use errors::PoolSyncError;
+use std::collections::HashMap;
 use std::sync::Arc;
 use sync_rpc::pool_fetchers::PoolFetcher;
 
 // Re-exports
 pub use chain::Chain;
-pub use pool_info::{PoolInfo, Pool};
+pub use errors::PoolSyncError;
+pub use pool_info::{Pool, PoolInfo};
 pub use pool_structures::{
     balancer_v2_structure::BalancerV2Pool,
     maverick_structure::MaverickPool,
@@ -58,17 +57,18 @@ pub(crate) trait Syncer {
         addresses: Vec<Address>,
         pool_type: &PoolType,
         block_num: u64,
-    ) -> Result<Vec<Pool>, PoolSyncError>;
+    ) -> Result<HashMap<Address, Pool>, PoolSyncError>;
 
     // For a set of pools, populate it with all liquidity information and return a list of all
     // pools that have been touched for database persitence
     async fn populate_liquidity(
         &self,
-        pools: &mut Vec<Pool>,
+        pools: &mut HashMap<Address, Pool>,
         pool_type: &PoolType,
         start_block: u64,
         end_block: u64,
-    ) -> Result<Vec<Pool>, PoolSyncError>;
+        initial_sync: bool
+    ) -> Result<Vec<Address>, PoolSyncError>;
 
     // Get the latest block number
     async fn block_number(&self) -> Result<u64, PoolSyncError>;

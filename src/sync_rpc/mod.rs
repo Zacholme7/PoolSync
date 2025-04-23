@@ -1,5 +1,5 @@
 use crate::errors::PoolSyncError;
-use crate::{Chain, Pool, PoolType, Syncer};
+use crate::{Chain, Pool, PoolInfo, PoolType, Syncer};
 use alloy_network::Ethereum;
 use alloy_primitives::Address;
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use futures::{stream, StreamExt};
 use pool_builder::build_pools;
 use pool_fetchers::PoolFetcher;
+use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
 use std::sync::Arc;
 use tracing::{debug, error};
@@ -68,7 +69,7 @@ impl Syncer for RpcSyncer {
         addresses: Vec<Address>,
         pool_type: &PoolType,
         block_num: u64,
-    ) -> Result<Vec<Pool>, PoolSyncError> {
+    ) -> Result<HashMap<Address, Pool>, PoolSyncError> {
         // Chunk up addresses into info fetching futures
         let futures: Vec<_> = addresses
             .chunks(INFO_BATCH_SIZE as usize)
@@ -88,24 +89,74 @@ impl Syncer for RpcSyncer {
                 }
             })
             .flatten()
+            .map(|pool| (pool.address(), pool))
             .collect())
     }
 
     async fn populate_liquidity(
         &self,
-        _pools: &mut Vec<Pool>,
+        pools: &mut HashMap<Address, Pool>,
         pool_type: &PoolType,
-        _start_block: u64,
-        _end_block: u64,
-    ) -> Result<Vec<Pool>, PoolSyncError> {
-        // Liquidity already populated for v2 contracts
-        if pool_type.is_v2() {
+        start_block: u64,
+        end_block: u64,
+        is_initial_sync: bool,
+    ) -> Result<Vec<Address>, PoolSyncError> {
+        // Construct proper liquidity filter based on pool type
+        /*
+        let filter: Filter = if pool_type.is_v2() {
             todo!()
         } else if pool_type.is_v3() {
             todo!()
+        } else {
+            todo!()
+        };
+        */
+        let filter = Filter::new();
+
+        // Chunk up block range into fetching futures and join them all
+        let tasks = self.build_fetch_tasks(start_block, end_block, filter);
+
+        // Buffer the futures to not overwhelm the provider
+        let logs: Vec<_> = stream::iter(tasks).buffer_unordered(100).collect().await;
+        let logs: Vec<Log> = logs
+            .into_iter()
+            .filter_map(|result| match result {
+                Ok(logs) => Some(logs),
+                Err(e) => {
+                    error!("Fetching failed: {}", e);
+                    None
+                }
+            })
+            .flatten()
+            .collect();
+
+        let mut ordered_logs: BTreeMap<u64, Vec<Log>> = BTreeMap::new();
+        for log in logs {
+            if let Some(block_number) = log.block_number {
+                ordered_logs.entry(block_number).or_default().push(log);
+            }
         }
 
-        todo!()
+        // Process all of the logs
+        let mut touched_pools = Vec::new();
+        for (_, log_group) in ordered_logs {
+            for log in log_group {
+                let address = log.address();
+                touched_pools.push(address);
+                if let Some(pool) = pools.get_mut(&address) {
+                    if pool_type.is_v3() {
+                        let pool = pool.get_v3_mut().unwrap();
+                        pool.process_tick_data(log, pool_type, is_initial_sync);
+                    } else if pool_type.is_balancer() {
+                        //process_balance_data(pool.get_balancer_mut().unwrap(), log);
+                    } else {
+                        let pool = pool.get_v2_mut().unwrap();
+                        pool.process_sync_data(log, pool_type);
+                    }
+                }
+            }
+        }
+        Ok(touched_pools)
     }
 
     async fn block_number(&self) -> Result<u64, PoolSyncError> {

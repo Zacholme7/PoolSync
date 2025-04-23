@@ -1,6 +1,6 @@
 use super::PoolBuilder;
 use crate::onchain::{AerodromeSync, DataEvents, V2DataSync};
-use crate::{PoolSyncError, Pool, PoolType};
+use crate::{Pool, PoolSyncError, PoolType};
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_primitives::Bytes;
 use alloy_primitives::{Address, U256};
@@ -86,18 +86,20 @@ impl From<Vec<DynSolValue>> for UniswapV2Pool {
     }
 }
 
-// Helper to process liquidity data
-pub fn process_sync_data(pool: &mut UniswapV2Pool, log: Log, pool_type: PoolType) {
-    let (reserve0, reserve1) = if pool_type == PoolType::Aerodrome {
-        let sync_event = AerodromeSync::Sync::decode_log(log.as_ref()).unwrap();
-        (sync_event.reserve0, sync_event.reserve1)
-    } else {
-        let sync_event = DataEvents::Sync::decode_log(log.as_ref()).unwrap();
-        (
-            U256::from(sync_event.reserve0),
-            U256::from(sync_event.reserve1),
-        )
-    };
-    pool.token0_reserves = reserve0;
-    pool.token1_reserves = reserve1;
+impl UniswapV2Pool {
+    // Helper to process liquidity data
+    pub fn process_sync_data(&mut self, log: Log, pool_type: &PoolType) {
+        let (reserve0, reserve1) = if *pool_type == PoolType::Aerodrome {
+            let sync_event = AerodromeSync::Sync::decode_log(log.as_ref()).unwrap();
+            (sync_event.reserve0, sync_event.reserve1)
+        } else {
+            let sync_event = DataEvents::Sync::decode_log(log.as_ref()).unwrap();
+            (
+                U256::from(sync_event.reserve0),
+                U256::from(sync_event.reserve1),
+            )
+        };
+        self.token0_reserves = reserve0;
+        self.token1_reserves = reserve1;
+    }
 }

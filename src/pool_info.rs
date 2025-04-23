@@ -4,15 +4,11 @@
 //! It includes enumerations for supported pool types, a unified `Pool` enum, and a trait for
 //! fetching and decoding pool creation events.
 
-use crate::pool_structures::balancer_v2_structure::BalancerV2Pool;
-use crate::pool_structures::maverick_structure::MaverickPool;
-use crate::pool_structures::tri_crypto_curve_structure::CurveTriCryptoPool;
-use crate::pool_structures::two_crypto_curve_structure::CurveTwoCryptoPool;
-use crate::pool_structures::v2_structure::UniswapV2Pool;
-use crate::pool_structures::v3_structure::UniswapV3Pool;
+use crate::{
+    BalancerV2Pool, CurveTriCryptoPool, CurveTwoCryptoPool, MaverickPool, PoolType, UniswapV2Pool,
+    UniswapV3Pool,
+};
 use alloy_primitives::Address;
-
-use crate::PoolType;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -48,7 +44,6 @@ pub enum Pool {
 
     BalancerV2(BalancerV2Pool),
 }
-
 
 impl PoolType {
     pub fn is_v2(&self) -> bool {
@@ -449,7 +444,6 @@ macro_rules! impl_pool_info {
                     )+
                 }
             }
-
             fn token0_address(&self) -> Address {
                 match self {
                     $(
@@ -457,7 +451,6 @@ macro_rules! impl_pool_info {
                     )+
                 }
             }
-
             fn token1_address(&self) -> Address {
                 match self {
                     $(
@@ -465,7 +458,6 @@ macro_rules! impl_pool_info {
                     )+
                 }
             }
-
             fn token0_name(&self) -> String {
                 match self {
                     $(
@@ -480,7 +472,6 @@ macro_rules! impl_pool_info {
                     )+
                 }
             }
-
             fn token0_decimals(&self) -> u8 {
                 match self {
                     $(
@@ -495,7 +486,6 @@ macro_rules! impl_pool_info {
                     )+
                 }
             }
-
             fn pool_type(&self) -> PoolType {
                 match self {
                     $(
@@ -503,14 +493,12 @@ macro_rules! impl_pool_info {
                     )+
                 }
             }
-
             fn fee(&self) -> u32 {
                 match self {
                     Pool::UniswapV3(pool) | Pool::SushiSwapV3(pool) | Pool::PancakeSwapV3(pool) | Pool::Slipstream(pool) => pool.fee,
                     _ => 0
                 }
             }
-
             fn stable(&self) -> bool {
                 match self {
                     Pool::Aerodrome(pool) => pool.stable.unwrap(),

@@ -6,13 +6,14 @@
 
 use crate::errors::PoolSyncError;
 use crate::pool_database::PoolDatabase;
+use crate::PoolInfo;
+use alloy_primitives::Address;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::builder::PoolSyncBuilder;
-//use crate::pools::*;
-use crate::Pool;
 use crate::sync_rpc::pool_fetchers::PoolFetcher;
+use crate::Pool;
 use crate::{Chain, PoolType, Syncer};
 use tracing::info;
 
@@ -102,7 +103,10 @@ impl PoolSync {
         }
 
         // Collect all pools into a single vector
-        let all_pools: Vec<Pool> = loaded_pools.into_values().flatten().collect();
+        let all_pools: Vec<Pool> = loaded_pools
+            .into_iter()
+            .flat_map(|(_, inner_map)| inner_map.into_values())
+            .collect();
         info!("Synced {} pools", all_pools.len());
 
         Ok((all_pools, current_block))
@@ -115,7 +119,7 @@ impl PoolSync {
         fetcher: &Arc<dyn PoolFetcher>,
         last_block: u64,
         current_block: u64,
-        existing_pools: &mut Vec<Pool>,
+        existing_pools: &mut HashMap<Address, Pool>,
         chain: Chain,
     ) -> Result<(), PoolSyncError> {
         let sync_start = last_block + 1;
@@ -148,12 +152,16 @@ impl PoolSync {
                 .await?;
 
             // Populate liquidity for new pools from genesis
-            self.syncer
-                .populate_liquidity(&mut new_pools, &pool_type, 0, last_block - 1)
+            // Do not care about return here since all of these pools are new and must be saved
+            // into the database.
+            let _ = self
+                .syncer
+                .populate_liquidity(&mut new_pools, &pool_type, 0, last_block - 1, true)
                 .await?;
 
             // Save all of these pools into the database and add them to our working set
-            self.database.save_pools(&new_pools, chain)?;
+            let new_pools_vec: Vec<Pool> = new_pools.values().cloned().collect();
+            self.database.save_pools(&new_pools_vec, chain)?;
             existing_pools.extend(new_pools);
         }
 
@@ -161,8 +169,12 @@ impl PoolSync {
         // liquidity for all of the new blocks and save the state to database
         let pools_to_save = self
             .syncer
-            .populate_liquidity(existing_pools, &pool_type, last_block, current_block)
+            .populate_liquidity(existing_pools, &pool_type, last_block, current_block, false)
             .await?;
+        let pools_to_save: Vec<Pool> = pools_to_save
+            .iter()
+            .map(|addr| existing_pools.get(addr).expect("Pool exist").clone())
+            .collect();
         info!("Fully processed {} pools", existing_pools.len());
 
         // Update the database state
@@ -177,13 +189,18 @@ impl PoolSync {
     fn load_existing_pools(
         &self,
         chain: Chain,
-    ) -> Result<HashMap<PoolType, Vec<Pool>>, PoolSyncError> {
+    ) -> Result<HashMap<PoolType, HashMap<Address, Pool>>, PoolSyncError> {
         let mut loaded_pools = HashMap::new();
 
         for pool_type in self.fetchers.keys() {
             let pools = self.database.load_pools(chain, Some(&[*pool_type]))?;
             info!("Loaded {} existing pools for {}", pools.len(), pool_type);
-            loaded_pools.insert(*pool_type, pools);
+            let pool_map = pools
+                .into_iter()
+                .map(|pool| (pool.address(), pool))
+                .collect();
+
+            loaded_pools.insert(*pool_type, pool_map);
         }
 
         Ok(loaded_pools)

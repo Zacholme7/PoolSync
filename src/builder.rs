@@ -14,9 +14,9 @@ use crate::sync_rpc::pool_fetchers::{
 use crate::errors::PoolSyncError;
 use crate::pool_database::PoolDatabase;
 use crate::pool_sync::PoolSync;
+use crate::sync_rpc::pool_fetchers::PoolFetcher;
 use crate::sync_rpc::RpcSyncer;
 use crate::{Chain, PoolType};
-use crate::sync_rpc::pool_fetchers::PoolFetcher;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
