@@ -75,27 +75,3 @@ pub(crate) trait Syncer {
 }
 
 // Enumerate every specific pool variant that the syncer supports
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum PoolType {
-    UniswapV2,
-    SushiSwapV2,
-    PancakeSwapV2,
-    UniswapV3,
-    SushiSwapV3,
-    PancakeSwapV3,
-    Aerodrome,
-    Slipstream,
-    BaseSwapV2,
-    BaseSwapV3,
-    AlienBaseV2,
-    AlienBaseV3,
-    MaverickV1,
-    MaverickV2,
-    CurveTwoCrypto,
-    CurveTriCrypto,
-    BalancerV2,
-    SwapBasedV2,
-    SwapBasedV3,
-    DackieSwapV2,
-    DackieSwapV3,
-}

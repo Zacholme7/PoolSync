@@ -147,16 +147,16 @@ impl BalancerV2Pool {
             U256::ZERO
         }
     }
-}
 
-pub fn process_balance_data(pool: &mut BalancerV2Pool, log: Log) {
-    let event = Vault::Swap::decode_log(log.as_ref()).unwrap();
+    pub fn process_balance_data(&mut self, log: Log) {
+        let event = Vault::Swap::decode_log(log.as_ref()).unwrap();
 
-    let log_token_in_idx = pool.get_token_index(&event.tokenIn).unwrap();
-    let log_token_out_idx = pool.get_token_index(&event.tokenOut).unwrap();
+        let log_token_in_idx = self.get_token_index(&event.tokenIn).unwrap();
+        let log_token_out_idx = self.get_token_index(&event.tokenOut).unwrap();
 
-    pool.balances[log_token_in_idx] =
-        pool.balances[log_token_in_idx].saturating_add(event.amountIn);
-    pool.balances[log_token_out_idx] =
-        pool.balances[log_token_out_idx].saturating_sub(event.amountOut);
+        self.balances[log_token_in_idx] =
+            self.balances[log_token_in_idx].saturating_add(event.amountIn);
+        self.balances[log_token_out_idx] =
+            self.balances[log_token_out_idx].saturating_sub(event.amountOut);
+    }
 }

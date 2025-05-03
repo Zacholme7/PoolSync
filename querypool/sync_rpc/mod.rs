@@ -1,9 +1,11 @@
 use crate::errors::PoolSyncError;
+use crate::onchain::{AerodromeSync, DataEvents};
 use crate::{Chain, Pool, PoolInfo, PoolType, Syncer};
 use alloy_network::Ethereum;
 use alloy_primitives::Address;
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rpc_types::{Filter, Log};
+use alloy_sol_types::SolEvent;
 use async_trait::async_trait;
 use futures::{stream, StreamExt};
 use pool_builder::build_pools;
@@ -27,72 +29,6 @@ pub(crate) struct RpcSyncer {
     chain: Chain,
 }
 
-#[async_trait]
-impl Syncer for RpcSyncer {
-    // Query factory even logs to extract all pool adddresses for the pool type
-    async fn fetch_addresses(
-        &self,
-        start_block: u64,
-        end_block: u64,
-        pool_fetcher: Arc<dyn PoolFetcher>,
-    ) -> Result<Vec<Address>, PoolSyncError> {
-        let filter = Filter::new()
-            .address(pool_fetcher.factory_address(self.chain))
-            .event(pool_fetcher.pair_created_signature());
-
-        // Chunk up block range into fetching futures and join them all
-        let tasks = self.build_fetch_tasks(start_block, end_block, filter);
-
-        // Buffer the futures to not overwhelm the provider
-        let logs: Vec<_> = stream::iter(tasks).buffer_unordered(100).collect().await;
-        let logs: Vec<Log> = logs
-            .into_iter()
-            .filter_map(|result| match result {
-                Ok(logs) => Some(logs),
-                Err(e) => {
-                    error!("Fetching failed: {}", e);
-                    None
-                }
-            })
-            .flatten()
-            .collect();
-
-        // Parse the logs into their pool address via the fetcher
-        Ok(logs
-            .iter()
-            .map(|log| pool_fetcher.log_to_address(&log.inner))
-            .collect())
-    }
-
-    async fn populate_pool_info(
-        &self,
-        addresses: Vec<Address>,
-        pool_type: &PoolType,
-        block_num: u64,
-    ) -> Result<HashMap<Address, Pool>, PoolSyncError> {
-        // Chunk up addresses into info fetching futures
-        let futures: Vec<_> = addresses
-            .chunks(INFO_BATCH_SIZE as usize)
-            .map(|addr_chunk| async move {
-                build_pools(addr_chunk, pool_type, self.provider.clone(), block_num).await
-            })
-            .collect();
-
-        let results: Vec<_> = stream::iter(futures).buffer_unordered(100).collect().await;
-        Ok(results
-            .into_iter()
-            .filter_map(|result| match result {
-                Ok(pools) => Some(pools),
-                Err(e) => {
-                    error!("building failed: {}", e);
-                    None
-                }
-            })
-            .flatten()
-            .map(|pool| (pool.address(), pool))
-            .collect())
-    }
-
     async fn populate_liquidity(
         &self,
         pools: &mut HashMap<Address, Pool>,
@@ -101,17 +37,17 @@ impl Syncer for RpcSyncer {
         end_block: u64,
         is_initial_sync: bool,
     ) -> Result<Vec<Address>, PoolSyncError> {
-        // Construct proper liquidity filter based on pool type
-        /*
-        let filter: Filter = if pool_type.is_v2() {
-            todo!()
+        let filter = if pool_type.is_v2() {
+            Filter::new().events([AerodromeSync::Sync::SIGNATURE, DataEvents::Sync::SIGNATURE])
         } else if pool_type.is_v3() {
-            todo!()
+            Filter::new().events([
+                DataEvents::Mint::SIGNATURE,
+                DataEvents::Burn::SIGNATURE,
+                DataEvents::Swap::SIGNATURE,
+            ])
         } else {
             todo!()
         };
-        */
-        let filter = Filter::new();
 
         // Chunk up block range into fetching futures and join them all
         let tasks = self.build_fetch_tasks(start_block, end_block, filter);
@@ -217,20 +153,4 @@ impl RpcSyncer {
         }
     }
 
-    // Build a set of log fetching futures for the filter
-    fn build_fetch_tasks(
-        &self,
-        start_block: u64,
-        end_block: u64,
-        filter: Filter,
-    ) -> Vec<impl Future<Output = Result<Vec<Log>, PoolSyncError>>> {
-        (start_block..=end_block)
-            .step_by(ADDRESS_BATCH_SIZE as usize)
-            // Map each starting block to a task
-            .map(|start| {
-                let end = std::cmp::min(start + ADDRESS_BATCH_SIZE - 1, end_block);
-                self.fetch_logs(start, end, filter.clone())
-            })
-            .collect::<Vec<_>>()
-    }
 }
