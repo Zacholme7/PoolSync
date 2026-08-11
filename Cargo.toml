@@ -37,6 +37,7 @@ ratelimit = "0.9.1"
 rand = "0.8.5"
 env_logger = "0.11.4"
 log = "0.4.22"
+evm-abi = "0.1.0"
 backoff = { version = "0.4.0", features = ["futures"] }
 uniswap_v3_math = "0.5.2"
 
